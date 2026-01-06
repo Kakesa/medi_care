@@ -52,6 +52,8 @@ const benefits = [
   "Rapports et statistiques en temps réel"
 ];
 
+import { AppointmentRequestForm } from "@/components/forms/AppointmentRequestForm";
+
 export default function Index() {
   return (
     <div className="min-h-screen bg-background">
@@ -68,10 +70,12 @@ export default function Index() {
             <Link to="/dashboard">
               <Button variant="ghost">Tableau de bord</Button>
             </Link>
-            <Button variant="hero">
-              Connexion
-              <ArrowRight className="h-4 w-4" />
-            </Button>
+            <Link to="/login">
+              <Button variant="hero">
+                Connexion
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
           </div>
         </div>
       </nav>
@@ -96,16 +100,31 @@ export default function Index() {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center animate-slide-up" style={{ animationDelay: "200ms" }}>
-            <Link to="/dashboard">
+            <a href="#rdv-form">
               <Button variant="hero" size="xl">
-                Accéder au tableau de bord
+                Demander un RDV
                 <ArrowRight className="h-5 w-5" />
               </Button>
+            </a>
+            <Link to="/login">
+              <Button variant="outline" size="xl">
+                Se connecter
+              </Button>
             </Link>
-            <Button variant="outline" size="xl">
-              En savoir plus
-            </Button>
           </div>
+        </div>
+      </section>
+
+      {/* Appointment Request Form Section */}
+      <section id="rdv-form" className="py-20 px-6 bg-primary/5">
+        <div className="container mx-auto max-w-2xl">
+          <div className="text-center mb-10">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Demander un Rendez-vous</h2>
+            <p className="text-muted-foreground text-lg">
+              Remplissez le formulaire ci-dessous pour demander un rendez-vous
+            </p>
+          </div>
+          <AppointmentRequestForm />
         </div>
       </section>
 

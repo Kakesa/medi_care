@@ -17,15 +17,16 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
+import { UserPlus } from "lucide-react";
+
 const navigation = [
   { name: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Réception", href: "/dashboard/reception", icon: UserPlus },
   { name: "Personnel", href: "/dashboard/personnel", icon: Users },
   { name: "Patients", href: "/dashboard/patients", icon: UserCircle },
   { name: "Rendez-vous", href: "/dashboard/appointments", icon: Calendar },
   { name: "Consultations", href: "/dashboard/consultations", icon: Stethoscope },
-  { name: "Examens", href: "/dashboard/exams", icon: FlaskConical },
-  { name: "Rapports", href: "/dashboard/reports", icon: FileText },
-  { name: "Paramètres", href: "/dashboard/settings", icon: Settings },
+  { name: "Profil", href: "/dashboard/profile", icon: Settings },
 ];
 
 export function Sidebar() {

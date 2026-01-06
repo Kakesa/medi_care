@@ -9,11 +9,15 @@ import {
   Clock,
   Mail,
   Phone,
-  Building
+  Building,
+  Edit,
+  Trash2,
+  Eye
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,59 +32,32 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-const personnel = [
-  {
-    id: 1,
-    name: "Dr. Sophie Bernard",
-    email: "s.bernard@medicare.fr",
-    phone: "06 12 34 56 78",
-    role: "Médecin",
-    department: "Cardiologie",
-    status: "active",
-    avatar: "SB"
-  },
-  {
-    id: 2,
-    name: "Dr. Pierre Leroy",
-    email: "p.leroy@medicare.fr",
-    phone: "06 23 45 67 89",
-    role: "Médecin",
-    department: "Neurologie",
-    status: "active",
-    avatar: "PL"
-  },
-  {
-    id: 3,
-    name: "Marie Dupont",
-    email: "m.dupont@medicare.fr",
-    phone: "06 34 56 78 90",
-    role: "Infirmière",
-    department: "Urgences",
-    status: "pending",
-    avatar: "MD"
-  },
-  {
-    id: 4,
-    name: "Dr. Marc Duval",
-    email: "m.duval@medicare.fr",
-    phone: "06 45 67 89 01",
-    role: "Médecin",
-    department: "Pédiatrie",
-    status: "active",
-    avatar: "MD"
-  },
-  {
-    id: 5,
-    name: "Claire Martin",
-    email: "c.martin@medicare.fr",
-    phone: "06 56 78 90 12",
-    role: "Secrétaire",
-    department: "Administration",
-    status: "inactive",
-    avatar: "CM"
-  },
-];
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
+import { mockPersonnel, type Personnel, departments, roleLabels } from "@/data/mockData";
 
 const statusConfig = {
   active: { label: "Actif", color: "bg-success/10 text-success border-success/20", icon: CheckCircle },
@@ -89,10 +66,127 @@ const statusConfig = {
 };
 
 export default function Personnel() {
+  const { toast } = useToast();
+  const [personnel, setPersonnel] = useState<Personnel[]>(mockPersonnel);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedPerson, setSelectedPerson] = useState<Personnel | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  
+  const [formData, setFormData] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    role: "doctor" as Personnel["role"],
+    department: "",
+    speciality: "",
+    status: "pending" as Personnel["status"]
+  });
+
+  const handleChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const resetForm = () => {
+    setFormData({
+      firstName: "",
+      lastName: "",
+      email: "",
+      phone: "",
+      role: "doctor",
+      department: "",
+      speciality: "",
+      status: "pending"
+    });
+    setIsEditing(false);
+    setSelectedPerson(null);
+  };
+
+  const handleEdit = (person: Personnel) => {
+    setSelectedPerson(person);
+    setFormData({
+      firstName: person.firstName,
+      lastName: person.lastName,
+      email: person.email,
+      phone: person.phone,
+      role: person.role,
+      department: person.department,
+      speciality: person.speciality || "",
+      status: person.status
+    });
+    setIsEditing(true);
+    setIsDialogOpen(true);
+  };
+
+  const handleSubmit = () => {
+    if (!formData.firstName || !formData.lastName || !formData.email) {
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: "Veuillez remplir tous les champs obligatoires",
+      });
+      return;
+    }
+
+    if (isEditing && selectedPerson) {
+      // Update
+      setPersonnel(prev => 
+        prev.map(p => p.id === selectedPerson.id ? {
+          ...p,
+          ...formData,
+          avatar: formData.firstName[0] + formData.lastName[0]
+        } : p)
+      );
+      toast({
+        title: "Personnel modifié",
+        description: `${formData.firstName} ${formData.lastName} a été mis à jour`,
+      });
+    } else {
+      // Create
+      const newPerson: Personnel = {
+        id: `pers-${Date.now()}`,
+        ...formData,
+        hireDate: new Date().toISOString().split('T')[0],
+        avatar: formData.firstName[0] + formData.lastName[0]
+      };
+      setPersonnel(prev => [newPerson, ...prev]);
+      toast({
+        title: "Personnel ajouté",
+        description: `${formData.firstName} ${formData.lastName} a été ajouté`,
+      });
+    }
+
+    setIsDialogOpen(false);
+    resetForm();
+  };
+
+  const handleDelete = () => {
+    if (selectedPerson) {
+      setPersonnel(prev => prev.filter(p => p.id !== selectedPerson.id));
+      toast({
+        title: "Personnel supprimé",
+        description: `${selectedPerson.firstName} ${selectedPerson.lastName} a été supprimé`,
+      });
+    }
+    setIsDeleteDialogOpen(false);
+    setSelectedPerson(null);
+  };
+
+  const handleStatusChange = (id: string, status: Personnel["status"]) => {
+    setPersonnel(prev => 
+      prev.map(p => p.id === id ? { ...p, status } : p)
+    );
+    toast({
+      title: "Statut mis à jour",
+      description: status === "active" ? "Le membre a été activé" : "Le statut a été modifié",
+    });
+  };
 
   const filteredPersonnel = personnel.filter(person =>
-    person.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    person.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    person.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
     person.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
     person.department.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -107,10 +201,132 @@ export default function Personnel() {
             Gérez les médecins, infirmiers et personnel administratif
           </p>
         </div>
-        <Button variant="hero" size="lg">
-          <Plus className="h-5 w-5 mr-2" />
-          Ajouter un membre
-        </Button>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) resetForm();
+        }}>
+          <DialogTrigger asChild>
+            <Button variant="hero" size="lg">
+              <Plus className="h-5 w-5 mr-2" />
+              Ajouter un membre
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>{isEditing ? "Modifier le membre" : "Ajouter un membre"}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Prénom *</Label>
+                  <Input 
+                    value={formData.firstName}
+                    onChange={(e) => handleChange("firstName", e.target.value)}
+                    placeholder="Jean"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Nom *</Label>
+                  <Input 
+                    value={formData.lastName}
+                    onChange={(e) => handleChange("lastName", e.target.value)}
+                    placeholder="Dupont"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Email *</Label>
+                <Input 
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => handleChange("email", e.target.value)}
+                  placeholder="jean.dupont@medicare.fr"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Téléphone</Label>
+                <Input 
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => handleChange("phone", e.target.value)}
+                  placeholder="06 XX XX XX XX"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Rôle *</Label>
+                  <Select value={formData.role} onValueChange={(v) => handleChange("role", v)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="doctor">Médecin</SelectItem>
+                      <SelectItem value="nurse">Infirmier(ère)</SelectItem>
+                      <SelectItem value="secretary">Secrétaire</SelectItem>
+                      <SelectItem value="admin">Administrateur</SelectItem>
+                      <SelectItem value="receptionist">Réceptionniste</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Département *</Label>
+                  <Select value={formData.department} onValueChange={(v) => handleChange("department", v)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionner" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {departments.map(dept => (
+                        <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {formData.role === "doctor" && (
+                <div className="space-y-2">
+                  <Label>Spécialité</Label>
+                  <Input 
+                    value={formData.speciality}
+                    onChange={(e) => handleChange("speciality", e.target.value)}
+                    placeholder="Cardiologue, Neurologue..."
+                  />
+                </div>
+              )}
+
+              {isEditing && (
+                <div className="space-y-2">
+                  <Label>Statut</Label>
+                  <Select value={formData.status} onValueChange={(v) => handleChange("status", v)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Actif</SelectItem>
+                      <SelectItem value="pending">En attente</SelectItem>
+                      <SelectItem value="inactive">Inactif</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-4">
+                <Button variant="outline" className="flex-1" onClick={() => {
+                  setIsDialogOpen(false);
+                  resetForm();
+                }}>
+                  Annuler
+                </Button>
+                <Button variant="hero" className="flex-1" onClick={handleSubmit}>
+                  {isEditing ? "Enregistrer" : "Ajouter"}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Filters */}
@@ -160,7 +376,7 @@ export default function Personnel() {
           </TableHeader>
           <TableBody>
             {filteredPersonnel.map((person, index) => {
-              const StatusIcon = statusConfig[person.status as keyof typeof statusConfig].icon;
+              const StatusIcon = statusConfig[person.status].icon;
               return (
                 <TableRow 
                   key={person.id}
@@ -173,8 +389,11 @@ export default function Personnel() {
                         {person.avatar}
                       </div>
                       <div>
-                        <p className="font-medium">{person.name}</p>
-                        <p className="text-sm text-muted-foreground">{person.role}</p>
+                        <p className="font-medium">{person.firstName} {person.lastName}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {roleLabels[person.role]}
+                          {person.speciality && ` - ${person.speciality}`}
+                        </p>
                       </div>
                     </div>
                   </TableCell>
@@ -197,9 +416,9 @@ export default function Personnel() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className={statusConfig[person.status as keyof typeof statusConfig].color}>
+                    <Badge variant="outline" className={statusConfig[person.status].color}>
                       <StatusIcon className="h-3 w-3 mr-1" />
-                      {statusConfig[person.status as keyof typeof statusConfig].label}
+                      {statusConfig[person.status].label}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -210,10 +429,32 @@ export default function Personnel() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>Voir le profil</DropdownMenuItem>
-                        <DropdownMenuItem>Modifier</DropdownMenuItem>
-                        <DropdownMenuItem>Voir le planning</DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive">Supprimer</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleEdit(person)}>
+                          <Edit className="h-4 w-4 mr-2" />
+                          Modifier
+                        </DropdownMenuItem>
+                        {person.status === "pending" && (
+                          <DropdownMenuItem onClick={() => handleStatusChange(person.id, "active")}>
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            Approuver
+                          </DropdownMenuItem>
+                        )}
+                        {person.status === "active" && (
+                          <DropdownMenuItem onClick={() => handleStatusChange(person.id, "inactive")}>
+                            <XCircle className="h-4 w-4 mr-2" />
+                            Désactiver
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem 
+                          className="text-destructive"
+                          onClick={() => {
+                            setSelectedPerson(person);
+                            setIsDeleteDialogOpen(true);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Supprimer
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -223,6 +464,25 @@ export default function Personnel() {
           </TableBody>
         </Table>
       </div>
+
+      {/* Delete confirmation */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
+            <AlertDialogDescription>
+              Êtes-vous sûr de vouloir supprimer {selectedPerson?.firstName} {selectedPerson?.lastName} ? 
+              Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

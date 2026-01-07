@@ -1,10 +1,28 @@
-import { Outlet } from "react-router-dom";
+import { Outlet, Navigate } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
-import { Bell, Search } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { useAuth } from "@/contexts/AuthContext";
+import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
+
+const roleLabels: Record<string, string> = {
+  admin: "Administrateur",
+  doctor: "Médecin",
+  patient: "Patient",
+  receptionist: "Réceptionniste"
+};
 
 export function DashboardLayout() {
+  const { user, isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <div className="flex h-screen items-center justify-center">Chargement...</div>;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Sidebar />
@@ -24,20 +42,15 @@ export function DashboardLayout() {
           </div>
           
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="h-5 w-5" />
-              <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-accent-foreground">
-                3
-              </span>
-            </Button>
+            <NotificationDropdown />
             
             <div className="flex items-center gap-3">
               <div className="h-9 w-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-semibold">
-                AD
+                {user?.firstName?.[0]}{user?.lastName?.[0]}
               </div>
               <div className="hidden md:block">
-                <p className="text-sm font-medium">Admin</p>
-                <p className="text-xs text-muted-foreground">Administrateur</p>
+                <p className="text-sm font-medium">{user?.firstName} {user?.lastName}</p>
+                <p className="text-xs text-muted-foreground">{roleLabels[user?.role || ''] || user?.role}</p>
               </div>
             </div>
           </div>

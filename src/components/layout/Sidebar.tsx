@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { 
   LayoutDashboard, 
   Users, 
@@ -7,31 +7,44 @@ import {
   Calendar, 
   Stethoscope, 
   FlaskConical, 
-  FileText, 
   Settings,
   ChevronLeft,
   ChevronRight,
   LogOut,
-  Activity
+  Activity,
+  UserPlus,
+  Pill
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
 
-import { UserPlus } from "lucide-react";
-
-const navigation = [
-  { name: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Réception", href: "/dashboard/reception", icon: UserPlus },
-  { name: "Personnel", href: "/dashboard/personnel", icon: Users },
-  { name: "Patients", href: "/dashboard/patients", icon: UserCircle },
-  { name: "Rendez-vous", href: "/dashboard/appointments", icon: Calendar },
-  { name: "Consultations", href: "/dashboard/consultations", icon: Stethoscope },
-  { name: "Profil", href: "/dashboard/profile", icon: Settings },
+const allNavigation = [
+  { name: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard, roles: ['admin', 'doctor', 'patient', 'receptionist'] },
+  { name: "Réception", href: "/dashboard/reception", icon: UserPlus, roles: ['admin', 'receptionist'] },
+  { name: "Personnel", href: "/dashboard/personnel", icon: Users, roles: ['admin'] },
+  { name: "Patients", href: "/dashboard/patients", icon: UserCircle, roles: ['admin', 'doctor', 'receptionist'] },
+  { name: "Rendez-vous", href: "/dashboard/appointments", icon: Calendar, roles: ['admin', 'doctor', 'receptionist'] },
+  { name: "Consultations", href: "/dashboard/consultations", icon: Stethoscope, roles: ['admin', 'doctor'] },
+  { name: "Examens", href: "/dashboard/examinations", icon: FlaskConical, roles: ['admin', 'doctor'] },
+  { name: "Pharmacie", href: "/dashboard/pharmacy", icon: Pill, roles: ['admin'] },
+  { name: "Profil", href: "/dashboard/profile", icon: Settings, roles: ['admin', 'doctor', 'patient', 'receptionist'] },
 ];
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+
+  const navigation = allNavigation.filter(item => 
+    item.roles.includes(user?.role || 'patient')
+  );
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
     <aside 
@@ -83,6 +96,7 @@ export function Sidebar() {
         <Button
           variant="ghost"
           className="w-full justify-start gap-3 text-muted-foreground hover:text-destructive"
+          onClick={handleLogout}
         >
           <LogOut className="h-5 w-5" />
           {!collapsed && <span>Déconnexion</span>}

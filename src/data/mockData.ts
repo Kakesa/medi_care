@@ -89,6 +89,61 @@ export interface Reception {
   createdAt: string;
 }
 
+export interface Exam {
+  id: string;
+  patientId: string;
+  patientName: string;
+  doctorId: string;
+  doctorName: string;
+  type: 'laboratory' | 'imaging' | 'biopsy' | 'other';
+  category: string;
+  name: string;
+  date: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+  results?: string;
+  files?: string[];
+  notes?: string;
+  createdAt: string;
+}
+
+export interface Notification {
+  id: string;
+  type: 'appointment' | 'patient_arrival' | 'exam_result' | 'pharmacy' | 'general';
+  title: string;
+  message: string;
+  read: boolean;
+  userId?: string;
+  relatedId?: string;
+  createdAt: string;
+}
+
+export interface PharmacyProduct {
+  id: string;
+  name: string;
+  category: string;
+  quantity: number;
+  minStock: number;
+  unit: string;
+  price: number;
+  supplier: string;
+  expiryDate?: string;
+  status: 'in_stock' | 'low_stock' | 'out_of_stock';
+  lastRestocked?: string;
+}
+
+export interface PharmacyOrder {
+  id: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  supplier: string;
+  orderDate: string;
+  expectedDelivery?: string;
+  status: 'pending' | 'confirmed' | 'delivered' | 'cancelled';
+  totalCost: number;
+  notes?: string;
+}
+
 // Mock Users
 export const mockUsers: User[] = [
   {
@@ -457,6 +512,194 @@ export const mockReception: Reception[] = [
   }
 ];
 
+// Mock Exams
+export const mockExams: Exam[] = [
+  {
+    id: "exam-1",
+    patientId: "pat-1",
+    patientName: "Jean Martin",
+    doctorId: "pers-1",
+    doctorName: "Dr. Sophie Bernard",
+    type: "laboratory",
+    category: "Hématologie",
+    name: "Bilan sanguin complet",
+    date: "2024-01-20",
+    status: "completed",
+    results: "Globules rouges: 4.5M/µL, Globules blancs: 7500/µL, Plaquettes: 250000/µL, Hémoglobine: 14g/dL",
+    createdAt: "2024-01-18"
+  },
+  {
+    id: "exam-2",
+    patientId: "pat-3",
+    patientName: "Pierre Durand",
+    doctorId: "pers-2",
+    doctorName: "Dr. Pierre Leroy",
+    type: "imaging",
+    category: "Imagerie cérébrale",
+    name: "IRM cérébrale",
+    date: "2024-01-22",
+    status: "pending",
+    createdAt: "2024-01-20"
+  },
+  {
+    id: "exam-3",
+    patientId: "pat-2",
+    patientName: "Marie Dupont",
+    doctorId: "pers-1",
+    doctorName: "Dr. Sophie Bernard",
+    type: "laboratory",
+    category: "Biochimie",
+    name: "Glycémie à jeun",
+    date: "2024-01-19",
+    status: "completed",
+    results: "Glycémie: 0.95 g/L (Normal: 0.70-1.10 g/L)",
+    createdAt: "2024-01-17"
+  },
+  {
+    id: "exam-4",
+    patientId: "pat-4",
+    patientName: "Sophie Lambert",
+    doctorId: "pers-4",
+    doctorName: "Dr. Marc Duval",
+    type: "imaging",
+    category: "Radiologie",
+    name: "Radio thoracique",
+    date: "2024-01-21",
+    status: "in_progress",
+    createdAt: "2024-01-19"
+  }
+];
+
+// Mock Notifications
+export const mockNotifications: Notification[] = [
+  {
+    id: "notif-1",
+    type: "appointment",
+    title: "Nouveau rendez-vous",
+    message: "Marie Dupont a demandé un RDV pour le 25/01/2024",
+    read: false,
+    createdAt: "2024-01-22T09:00:00"
+  },
+  {
+    id: "notif-2",
+    type: "patient_arrival",
+    title: "Arrivée patient",
+    message: "Jean Martin est arrivé pour sa consultation",
+    read: false,
+    createdAt: "2024-01-22T08:45:00"
+  },
+  {
+    id: "notif-3",
+    type: "exam_result",
+    title: "Résultats disponibles",
+    message: "Résultats du bilan sanguin de Jean Martin disponibles",
+    read: true,
+    createdAt: "2024-01-21T15:30:00"
+  },
+  {
+    id: "notif-4",
+    type: "pharmacy",
+    title: "Stock faible",
+    message: "Amoxicilline 500mg: stock critique (15 unités)",
+    read: false,
+    createdAt: "2024-01-22T07:00:00"
+  }
+];
+
+// Mock Pharmacy Products
+export const mockPharmacyProducts: PharmacyProduct[] = [
+  {
+    id: "prod-1",
+    name: "Amoxicilline 500mg",
+    category: "Antibiotiques",
+    quantity: 15,
+    minStock: 50,
+    unit: "comprimés",
+    price: 0.35,
+    supplier: "Pharma Plus",
+    expiryDate: "2025-06-15",
+    status: "low_stock",
+    lastRestocked: "2024-01-10"
+  },
+  {
+    id: "prod-2",
+    name: "Paracétamol 1000mg",
+    category: "Antalgiques",
+    quantity: 500,
+    minStock: 100,
+    unit: "comprimés",
+    price: 0.15,
+    supplier: "MediStock",
+    expiryDate: "2025-12-01",
+    status: "in_stock",
+    lastRestocked: "2024-01-15"
+  },
+  {
+    id: "prod-3",
+    name: "Insuline Lantus",
+    category: "Antidiabétiques",
+    quantity: 25,
+    minStock: 30,
+    unit: "stylos",
+    price: 45.00,
+    supplier: "Sanofi",
+    expiryDate: "2024-08-20",
+    status: "low_stock",
+    lastRestocked: "2024-01-05"
+  },
+  {
+    id: "prod-4",
+    name: "Sérum physiologique 500ml",
+    category: "Solutions",
+    quantity: 200,
+    minStock: 50,
+    unit: "flacons",
+    price: 2.50,
+    supplier: "MediStock",
+    expiryDate: "2026-03-15",
+    status: "in_stock",
+    lastRestocked: "2024-01-18"
+  },
+  {
+    id: "prod-5",
+    name: "Amlodipine 5mg",
+    category: "Antihypertenseurs",
+    quantity: 0,
+    minStock: 40,
+    unit: "comprimés",
+    price: 0.28,
+    supplier: "Pharma Plus",
+    expiryDate: "2025-09-10",
+    status: "out_of_stock",
+    lastRestocked: "2023-12-20"
+  }
+];
+
+// Mock Pharmacy Orders
+export const mockPharmacyOrders: PharmacyOrder[] = [
+  {
+    id: "order-1",
+    productId: "prod-1",
+    productName: "Amoxicilline 500mg",
+    quantity: 200,
+    supplier: "Pharma Plus",
+    orderDate: "2024-01-20",
+    expectedDelivery: "2024-01-25",
+    status: "confirmed",
+    totalCost: 70.00
+  },
+  {
+    id: "order-2",
+    productId: "prod-5",
+    productName: "Amlodipine 5mg",
+    quantity: 150,
+    supplier: "Pharma Plus",
+    orderDate: "2024-01-22",
+    status: "pending",
+    totalCost: 42.00
+  }
+];
+
 // Available doctors for appointments
 export const availableDoctors = mockPersonnel.filter(p => p.role === 'doctor' && p.status === 'active');
 
@@ -469,7 +712,8 @@ export const departments = [
   "Chirurgie",
   "Radiologie",
   "Administration",
-  "Accueil"
+  "Accueil",
+  "Pharmacie"
 ];
 
 // Role labels
@@ -480,3 +724,24 @@ export const roleLabels = {
   admin: "Administrateur",
   receptionist: "Réceptionniste"
 };
+
+// Exam categories
+export const examCategories = {
+  laboratory: ["Hématologie", "Biochimie", "Microbiologie", "Immunologie", "Toxicologie"],
+  imaging: ["Radiologie", "Scanner", "IRM", "Échographie", "Imagerie cérébrale"],
+  biopsy: ["Histologie", "Cytologie"],
+  other: ["ECG", "EEG", "EMG", "Test d'effort"]
+};
+
+// Pharmacy categories
+export const pharmacyCategories = [
+  "Antibiotiques",
+  "Antalgiques",
+  "Anti-inflammatoires",
+  "Antidiabétiques",
+  "Antihypertenseurs",
+  "Anticoagulants",
+  "Solutions",
+  "Vaccins",
+  "Équipements"
+];

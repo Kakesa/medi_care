@@ -13,7 +13,8 @@ import {
   LogOut,
   Activity,
   UserPlus,
-  Pill
+  Pill,
+  FileText
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ const allNavigation = [
   { name: "Rendez-vous", href: "/dashboard/appointments", icon: Calendar, roles: ['admin', 'doctor', 'receptionist'] },
   { name: "Consultations", href: "/dashboard/consultations", icon: Stethoscope, roles: ['admin', 'doctor'] },
   { name: "Examens", href: "/dashboard/examinations", icon: FlaskConical, roles: ['admin', 'doctor'] },
+  { name: "Facturation", href: "/dashboard/billing", icon: FileText, roles: ['admin'] },
   { name: "Pharmacie", href: "/dashboard/pharmacy", icon: Pill, roles: ['admin'] },
   { name: "Profil", href: "/dashboard/profile", icon: Settings, roles: ['admin', 'doctor', 'patient', 'receptionist'] },
 ];

@@ -96,9 +96,11 @@ export default function DoctorDashboard() {
               <Calendar className="h-5 w-5 text-primary" />
               Rendez-vous du jour
             </CardTitle>
-            <Link to="/dashboard/appointments">
-              <Button variant="outline" size="sm">Voir tout</Button>
-            </Link>
+            <div className="flex gap-2">
+              <Link to="/dashboard/appointments">
+                <Button size="sm">Planifier RDV</Button>
+              </Link>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             {todayAppointments.length === 0 ? (
@@ -133,9 +135,11 @@ export default function DoctorDashboard() {
               <Stethoscope className="h-5 w-5 text-primary" />
               Consultations récentes
             </CardTitle>
-            <Link to="/dashboard/consultations">
-              <Button variant="outline" size="sm">Voir tout</Button>
-            </Link>
+            <div className="flex gap-2">
+              <Link to="/dashboard/consultations">
+                <Button size="sm">Nouvelle consultation</Button>
+              </Link>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             {myConsultations.length === 0 ? (

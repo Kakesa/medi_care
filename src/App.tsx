@@ -15,6 +15,7 @@ import Consultations from "./pages/Consultations";
 import Reception from "./pages/Reception";
 import Examinations from "./pages/Examinations";
 import Pharmacy from "./pages/Pharmacy";
+import Billing from "./pages/Billing";
 import Profile from "./pages/Profile";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -43,6 +44,7 @@ const App = () => (
                 <Route path="reception" element={<Reception />} />
                 <Route path="examinations" element={<Examinations />} />
                 <Route path="pharmacy" element={<Pharmacy />} />
+                <Route path="billing" element={<Billing />} />
                 <Route path="profile" element={<Profile />} />
               </Route>
               <Route path="*" element={<NotFound />} />

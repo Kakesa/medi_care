@@ -65,7 +65,7 @@ export default function Billing() {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [newInvoice, setNewInvoice] = useState({
     patientId: "",
-    items: [{ description: "", quantity: 1, unitPrice: 0, type: "consultation" as const }],
+    items: [{ description: "", quantity: 1, unitPrice: 0, type: "consultation" as "consultation" | "exam" | "medication" }],
     notes: "",
   });
 
@@ -210,7 +210,7 @@ export default function Billing() {
               ))}
               <Button variant="outline" size="sm" onClick={() => setNewInvoice({
                 ...newInvoice,
-                items: [...newInvoice.items, { description: "", quantity: 1, unitPrice: 0, type: "consultation" }]
+                items: [...newInvoice.items, { description: "", quantity: 1, unitPrice: 0, type: "consultation" as "consultation" | "exam" | "medication" }]
               })}>
                 <Plus className="mr-2 h-4 w-4" />Ajouter ligne
               </Button>

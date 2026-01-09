@@ -51,41 +51,54 @@ export function Sidebar() {
   return (
     <aside 
       className={cn(
-        "fixed left-0 top-0 z-40 h-screen bg-sidebar border-r border-sidebar-border transition-all duration-300 flex flex-col",
+        "fixed left-0 top-0 z-40 h-screen bg-sidebar border-r border-sidebar-border flex flex-col",
+        "transition-all duration-300 ease-smooth",
         collapsed ? "w-20" : "w-64"
       )}
     >
       {/* Logo */}
       <div className="flex items-center gap-3 px-6 py-6 border-b border-sidebar-border">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary transition-transform duration-300 hover:scale-105 hover:shadow-glow">
           <Activity className="h-6 w-6 text-primary-foreground" />
         </div>
-        {!collapsed && (
-          <div className="animate-fade-in">
-            <h1 className="text-lg font-bold text-sidebar-foreground">MediCare</h1>
-            <p className="text-xs text-muted-foreground">SIH v1.0</p>
-          </div>
-        )}
+        <div className={cn(
+          "transition-all duration-300 overflow-hidden",
+          collapsed ? "w-0 opacity-0" : "w-auto opacity-100"
+        )}>
+          <h1 className="text-lg font-bold text-sidebar-foreground whitespace-nowrap">MediCare</h1>
+          <p className="text-xs text-muted-foreground whitespace-nowrap">SIH v1.0</p>
+        </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
+      <nav className="flex-1 overflow-y-auto px-3 py-4 scrollbar-thin">
         <ul className="space-y-1">
-          {navigation.map((item) => {
+          {navigation.map((item, index) => {
             const isActive = location.pathname === item.href;
             return (
-              <li key={item.name}>
+              <li 
+                key={item.name}
+                className="animate-slide-up opacity-0"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
                 <Link
                   to={item.href}
                   className={cn(
-                    "nav-link",
+                    "nav-link group",
                     isActive && "nav-link-active"
                   )}
                 >
-                  <item.icon className="h-5 w-5 shrink-0" />
-                  {!collapsed && (
-                    <span className="animate-fade-in">{item.name}</span>
-                  )}
+                  <item.icon className={cn(
+                    "h-5 w-5 shrink-0 transition-transform duration-200",
+                    "group-hover:scale-110",
+                    isActive && "text-primary"
+                  )} />
+                  <span className={cn(
+                    "transition-all duration-300 whitespace-nowrap",
+                    collapsed ? "w-0 opacity-0 hidden" : "w-auto opacity-100"
+                  )}>
+                    {item.name}
+                  </span>
                 </Link>
               </li>
             );
@@ -97,24 +110,39 @@ export function Sidebar() {
       <div className="border-t border-sidebar-border p-3">
         <Button
           variant="ghost"
-          className="w-full justify-start gap-3 text-muted-foreground hover:text-destructive"
+          className={cn(
+            "w-full justify-start gap-3 text-muted-foreground",
+            "transition-all duration-200 hover:text-destructive hover:bg-destructive/10",
+            "group"
+          )}
           onClick={handleLogout}
         >
-          <LogOut className="h-5 w-5" />
-          {!collapsed && <span>Déconnexion</span>}
+          <LogOut className="h-5 w-5 transition-transform group-hover:scale-110 group-hover:-translate-x-0.5" />
+          <span className={cn(
+            "transition-all duration-300",
+            collapsed ? "w-0 opacity-0 hidden" : "w-auto opacity-100"
+          )}>
+            Déconnexion
+          </span>
         </Button>
       </div>
 
       {/* Collapse button */}
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="absolute -right-3 top-20 flex h-6 w-6 items-center justify-center rounded-full border border-sidebar-border bg-sidebar text-muted-foreground shadow-sm transition-colors hover:bg-secondary"
-      >
-        {collapsed ? (
-          <ChevronRight className="h-4 w-4" />
-        ) : (
-          <ChevronLeft className="h-4 w-4" />
+        className={cn(
+          "absolute -right-3 top-20 flex h-6 w-6 items-center justify-center rounded-full",
+          "border border-sidebar-border bg-sidebar text-muted-foreground shadow-sm",
+          "transition-all duration-200 hover:bg-primary hover:text-primary-foreground hover:border-primary",
+          "hover:scale-110 active:scale-95"
         )}
+      >
+        <span className={cn(
+          "transition-transform duration-300",
+          collapsed ? "rotate-0" : "rotate-180"
+        )}>
+          <ChevronRight className="h-4 w-4" />
+        </span>
       </button>
     </aside>
   );

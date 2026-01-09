@@ -103,9 +103,14 @@ export default function ReceptionDashboard() {
               <Clock className="h-5 w-5 text-warning" />
               File d'attente
             </CardTitle>
-            <Link to="/dashboard/reception">
-              <Button size="sm">Gérer</Button>
-            </Link>
+            <div className="flex gap-2">
+              <Link to="/dashboard/appointments">
+                <Button variant="outline" size="sm">Planifier RDV</Button>
+              </Link>
+              <Link to="/dashboard/reception">
+                <Button size="sm">Gérer</Button>
+              </Link>
+            </div>
           </CardHeader>
           <CardContent className="space-y-3">
             {waitingPatients.length === 0 ? (

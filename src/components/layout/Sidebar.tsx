@@ -16,7 +16,9 @@ import {
   Pill,
   FileText,
   Moon,
-  Sun
+  Sun,
+  Landmark,
+  BedDouble
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";

@@ -19,6 +19,11 @@ export { examService } from './examService';
 export { pharmacyService } from './pharmacyService';
 export { billingService } from './billingService';
 export { notificationService } from './notificationService';
+export { accountingService } from './accountingService';
+export { bedService } from './bedService';
+
+// Usage example:
+// import { accountingService, bedService } from '@/services';
 
 // Usage example:
 // import { patientService, appointmentService } from '@/services';

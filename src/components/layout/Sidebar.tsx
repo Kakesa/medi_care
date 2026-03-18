@@ -34,6 +34,8 @@ const allNavigation = [
   { name: "Consultations", href: "/dashboard/consultations", icon: Stethoscope, roles: ['admin', 'doctor'] },
   { name: "Examens", href: "/dashboard/examinations", icon: FlaskConical, roles: ['admin', 'doctor'] },
   { name: "Facturation", href: "/dashboard/billing", icon: FileText, roles: ['admin'] },
+  { name: "Comptabilité", href: "/dashboard/accounting", icon: Landmark, roles: ['admin'] },
+  { name: "Gestion des lits", href: "/dashboard/beds", icon: BedDouble, roles: ['admin', 'receptionist'] },
   { name: "Pharmacie", href: "/dashboard/pharmacy", icon: Pill, roles: ['admin'] },
   { name: "Profil", href: "/dashboard/profile", icon: Settings, roles: ['admin', 'doctor', 'patient', 'receptionist'] },
 ];

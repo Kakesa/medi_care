@@ -41,6 +41,7 @@ export function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { theme, setTheme } = useTheme();
 
   const navigation = allNavigation.filter(item => 
     item.roles.includes(user?.role || 'patient')

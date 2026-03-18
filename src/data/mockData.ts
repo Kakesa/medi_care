@@ -745,3 +745,241 @@ export const pharmacyCategories = [
   "Vaccins",
   "Équipements"
 ];
+
+// ============ Financial Movements / Comptabilité ============
+
+export interface FinancialMovement {
+  id: string;
+  type: 'income' | 'expense';
+  category: string;
+  label: string;
+  amount: number;
+  date: string;
+  reference?: string;
+  patientName?: string;
+  invoiceId?: string;
+  notes?: string;
+  status: 'pending' | 'validated' | 'cancelled';
+  validatedBy?: string;
+  createdAt: string;
+}
+
+export const mockFinancialMovements: FinancialMovement[] = [
+  {
+    id: "mov-1",
+    type: "income",
+    category: "consultation",
+    label: "Consultation cardiologie - Jean Martin",
+    amount: 75.00,
+    date: "2024-01-22",
+    reference: "FAC-2024-001",
+    patientName: "Jean Martin",
+    invoiceId: "inv-1",
+    status: "validated",
+    validatedBy: "Jean Administrateur",
+    createdAt: "2024-01-22"
+  },
+  {
+    id: "mov-2",
+    type: "income",
+    category: "exam",
+    label: "IRM cérébrale - Pierre Durand",
+    amount: 450.00,
+    date: "2024-01-22",
+    reference: "FAC-2024-002",
+    patientName: "Pierre Durand",
+    status: "pending",
+    createdAt: "2024-01-22"
+  },
+  {
+    id: "mov-3",
+    type: "expense",
+    category: "salary",
+    label: "Salaires personnel médical - Janvier 2024",
+    amount: 45000.00,
+    date: "2024-01-31",
+    reference: "SAL-2024-01",
+    status: "validated",
+    validatedBy: "Jean Administrateur",
+    createdAt: "2024-01-25"
+  },
+  {
+    id: "mov-4",
+    type: "expense",
+    category: "supplies",
+    label: "Commande fournitures médicales",
+    amount: 2350.00,
+    date: "2024-01-20",
+    reference: "CMD-2024-015",
+    notes: "Gants, masques, seringues",
+    status: "validated",
+    validatedBy: "Jean Administrateur",
+    createdAt: "2024-01-18"
+  },
+  {
+    id: "mov-5",
+    type: "income",
+    category: "hospitalization",
+    label: "Hospitalisation chambre A-102 - Jean Martin",
+    amount: 1200.00,
+    date: "2024-01-15",
+    patientName: "Jean Martin",
+    status: "validated",
+    validatedBy: "Jean Administrateur",
+    createdAt: "2024-01-15"
+  },
+  {
+    id: "mov-6",
+    type: "expense",
+    category: "equipment",
+    label: "Maintenance échographe",
+    amount: 850.00,
+    date: "2024-01-18",
+    reference: "MAINT-2024-003",
+    status: "pending",
+    createdAt: "2024-01-16"
+  },
+  {
+    id: "mov-7",
+    type: "income",
+    category: "medication",
+    label: "Vente médicaments - Marie Dupont",
+    amount: 35.50,
+    date: "2024-01-21",
+    patientName: "Marie Dupont",
+    status: "validated",
+    validatedBy: "Jean Administrateur",
+    createdAt: "2024-01-21"
+  },
+  {
+    id: "mov-8",
+    type: "expense",
+    category: "utilities",
+    label: "Facture électricité - Janvier 2024",
+    amount: 3200.00,
+    date: "2024-01-28",
+    reference: "UTIL-2024-01",
+    status: "pending",
+    createdAt: "2024-01-22"
+  },
+  {
+    id: "mov-9",
+    type: "income",
+    category: "insurance_reimbursement",
+    label: "Remboursement CPAM - Lot décembre",
+    amount: 8500.00,
+    date: "2024-01-19",
+    reference: "CPAM-2024-012",
+    status: "validated",
+    validatedBy: "Jean Administrateur",
+    createdAt: "2024-01-19"
+  },
+  {
+    id: "mov-10",
+    type: "expense",
+    category: "maintenance",
+    label: "Nettoyage et entretien locaux",
+    amount: 1500.00,
+    date: "2024-01-22",
+    reference: "ENT-2024-01",
+    status: "validated",
+    validatedBy: "Jean Administrateur",
+    createdAt: "2024-01-20"
+  }
+];
+
+export const movementCategories = {
+  income: [
+    { value: "consultation", label: "Consultation" },
+    { value: "exam", label: "Examen" },
+    { value: "hospitalization", label: "Hospitalisation" },
+    { value: "medication", label: "Médicaments" },
+    { value: "insurance_reimbursement", label: "Remboursement assurance" },
+    { value: "other_income", label: "Autre recette" },
+  ],
+  expense: [
+    { value: "salary", label: "Salaires" },
+    { value: "equipment", label: "Équipement" },
+    { value: "maintenance", label: "Maintenance" },
+    { value: "supplies", label: "Fournitures" },
+    { value: "utilities", label: "Charges" },
+    { value: "other_expense", label: "Autre dépense" },
+  ]
+};
+
+// ============ Bed Management / Gestion des lits ============
+
+export interface Ward {
+  id: string;
+  name: string;
+  floor: number;
+  department: string;
+  totalBeds: number;
+}
+
+export interface Bed {
+  id: string;
+  number: string;
+  wardId: string;
+  wardName: string;
+  floor: number;
+  type: 'standard' | 'intensive_care' | 'pediatric' | 'maternity' | 'isolation';
+  status: 'available' | 'occupied' | 'maintenance' | 'reserved';
+  patientId?: string;
+  patientName?: string;
+  admissionDate?: string;
+  expectedDischarge?: string;
+  notes?: string;
+}
+
+export const mockWards: Ward[] = [
+  { id: "ward-1", name: "Cardiologie A", floor: 1, department: "Cardiologie", totalBeds: 8 },
+  { id: "ward-2", name: "Neurologie B", floor: 2, department: "Neurologie", totalBeds: 6 },
+  { id: "ward-3", name: "Pédiatrie C", floor: 1, department: "Pédiatrie", totalBeds: 10 },
+  { id: "ward-4", name: "Soins intensifs", floor: 0, department: "Réanimation", totalBeds: 4 },
+  { id: "ward-5", name: "Maternité D", floor: 3, department: "Maternité", totalBeds: 8 },
+  { id: "ward-6", name: "Chirurgie E", floor: 2, department: "Chirurgie", totalBeds: 6 },
+];
+
+export const mockBeds: Bed[] = [
+  // Cardiologie A
+  { id: "bed-1", number: "A-101", wardId: "ward-1", wardName: "Cardiologie A", floor: 1, type: "standard", status: "occupied", patientId: "pat-1", patientName: "Jean Martin", admissionDate: "2024-01-10", expectedDischarge: "2024-01-28" },
+  { id: "bed-2", number: "A-102", wardId: "ward-1", wardName: "Cardiologie A", floor: 1, type: "standard", status: "available" },
+  { id: "bed-3", number: "A-103", wardId: "ward-1", wardName: "Cardiologie A", floor: 1, type: "standard", status: "available" },
+  { id: "bed-4", number: "A-104", wardId: "ward-1", wardName: "Cardiologie A", floor: 1, type: "standard", status: "maintenance", notes: "Remplacement matelas prévu le 25/01" },
+  // Neurologie B
+  { id: "bed-5", number: "B-201", wardId: "ward-2", wardName: "Neurologie B", floor: 2, type: "standard", status: "occupied", patientId: "pat-3", patientName: "Pierre Durand", admissionDate: "2024-01-05", expectedDischarge: "2024-02-01" },
+  { id: "bed-6", number: "B-202", wardId: "ward-2", wardName: "Neurologie B", floor: 2, type: "standard", status: "reserved", notes: "Réservé pour admission prévue le 23/01" },
+  { id: "bed-7", number: "B-203", wardId: "ward-2", wardName: "Neurologie B", floor: 2, type: "standard", status: "available" },
+  // Pédiatrie C
+  { id: "bed-8", number: "C-101", wardId: "ward-3", wardName: "Pédiatrie C", floor: 1, type: "pediatric", status: "available" },
+  { id: "bed-9", number: "C-102", wardId: "ward-3", wardName: "Pédiatrie C", floor: 1, type: "pediatric", status: "available" },
+  { id: "bed-10", number: "C-103", wardId: "ward-3", wardName: "Pédiatrie C", floor: 1, type: "pediatric", status: "occupied", patientName: "Lucas Petit", admissionDate: "2024-01-20" },
+  // Soins intensifs
+  { id: "bed-11", number: "SI-01", wardId: "ward-4", wardName: "Soins intensifs", floor: 0, type: "intensive_care", status: "occupied", patientName: "Robert Moreau", admissionDate: "2024-01-21", notes: "Surveillance post-opératoire" },
+  { id: "bed-12", number: "SI-02", wardId: "ward-4", wardName: "Soins intensifs", floor: 0, type: "intensive_care", status: "available" },
+  { id: "bed-13", number: "SI-03", wardId: "ward-4", wardName: "Soins intensifs", floor: 0, type: "intensive_care", status: "occupied", patientName: "Anne Lefebvre", admissionDate: "2024-01-19" },
+  // Maternité D
+  { id: "bed-14", number: "D-301", wardId: "ward-5", wardName: "Maternité D", floor: 3, type: "maternity", status: "occupied", patientName: "Camille Rousseau", admissionDate: "2024-01-22" },
+  { id: "bed-15", number: "D-302", wardId: "ward-5", wardName: "Maternité D", floor: 3, type: "maternity", status: "available" },
+  { id: "bed-16", number: "D-303", wardId: "ward-5", wardName: "Maternité D", floor: 3, type: "maternity", status: "available" },
+  // Chirurgie E
+  { id: "bed-17", number: "E-201", wardId: "ward-6", wardName: "Chirurgie E", floor: 2, type: "standard", status: "available" },
+  { id: "bed-18", number: "E-202", wardId: "ward-6", wardName: "Chirurgie E", floor: 2, type: "standard", status: "maintenance", notes: "Désinfection en cours" },
+  { id: "bed-19", number: "E-203", wardId: "ward-6", wardName: "Chirurgie E", floor: 2, type: "isolation", status: "occupied", patientName: "François Blanc", admissionDate: "2024-01-17", notes: "Isolation préventive" },
+];
+
+export const bedTypeLabels: Record<string, string> = {
+  standard: "Standard",
+  intensive_care: "Soins intensifs",
+  pediatric: "Pédiatrique",
+  maternity: "Maternité",
+  isolation: "Isolation",
+};
+
+export const bedStatusLabels: Record<string, string> = {
+  available: "Disponible",
+  occupied: "Occupé",
+  maintenance: "Maintenance",
+  reserved: "Réservé",
+};

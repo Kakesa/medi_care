@@ -442,3 +442,106 @@ export interface InvoiceQueryParams extends PaginationParams {
   startDate?: string;
   endDate?: string;
 }
+
+// ============ Accounting / Comptabilité ============
+
+export type MovementType = 'income' | 'expense';
+export type MovementCategory = 
+  | 'consultation' | 'exam' | 'hospitalization' | 'medication' | 'insurance_reimbursement' | 'other_income'
+  | 'salary' | 'equipment' | 'maintenance' | 'supplies' | 'utilities' | 'other_expense';
+export type MovementStatus = 'pending' | 'validated' | 'cancelled';
+
+export interface FinancialMovement {
+  id: string;
+  type: MovementType;
+  category: MovementCategory;
+  label: string;
+  amount: number;
+  date: string;
+  reference?: string;
+  patientId?: string;
+  patientName?: string;
+  invoiceId?: string;
+  notes?: string;
+  status: MovementStatus;
+  validatedBy?: string;
+  createdAt: string;
+}
+
+export interface CreateMovementData {
+  type: MovementType;
+  category: MovementCategory;
+  label: string;
+  amount: number;
+  date: string;
+  reference?: string;
+  patientId?: string;
+  patientName?: string;
+  invoiceId?: string;
+  notes?: string;
+}
+
+export interface UpdateMovementData extends Partial<CreateMovementData> {
+  status?: MovementStatus;
+  validatedBy?: string;
+}
+
+export interface MovementQueryParams extends PaginationParams {
+  type?: MovementType;
+  category?: MovementCategory;
+  status?: MovementStatus;
+  startDate?: string;
+  endDate?: string;
+}
+
+// ============ Bed Management / Gestion des lits ============
+
+export type BedStatus = 'available' | 'occupied' | 'maintenance' | 'reserved';
+export type BedType = 'standard' | 'intensive_care' | 'pediatric' | 'maternity' | 'isolation';
+
+export interface Ward {
+  id: string;
+  name: string;
+  floor: number;
+  department: string;
+  totalBeds: number;
+}
+
+export interface Bed {
+  id: string;
+  number: string;
+  wardId: string;
+  wardName: string;
+  floor: number;
+  type: BedType;
+  status: BedStatus;
+  patientId?: string;
+  patientName?: string;
+  admissionDate?: string;
+  expectedDischarge?: string;
+  notes?: string;
+}
+
+export interface CreateBedData {
+  number: string;
+  wardId: string;
+  wardName: string;
+  floor: number;
+  type: BedType;
+}
+
+export interface UpdateBedData extends Partial<CreateBedData> {
+  status?: BedStatus;
+  patientId?: string;
+  patientName?: string;
+  admissionDate?: string;
+  expectedDischarge?: string;
+  notes?: string;
+}
+
+export interface BedQueryParams extends PaginationParams {
+  wardId?: string;
+  status?: BedStatus;
+  type?: BedType;
+  floor?: number;
+}

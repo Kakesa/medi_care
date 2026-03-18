@@ -14,11 +14,14 @@ import {
   Activity,
   UserPlus,
   Pill,
-  FileText
+  FileText,
+  Moon,
+  Sun
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "next-themes";
 
 const allNavigation = [
   { name: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard, roles: ['admin', 'doctor', 'patient', 'receptionist'] },

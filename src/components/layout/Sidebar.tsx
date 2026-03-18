@@ -111,7 +111,30 @@ export function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-sidebar-border p-3">
+      <div className="border-t border-sidebar-border p-3 space-y-1">
+        {/* Theme toggle */}
+        <Button
+          variant="ghost"
+          className={cn(
+            "w-full justify-start gap-3 text-muted-foreground",
+            "transition-all duration-200 hover:text-foreground hover:bg-secondary",
+            "group"
+          )}
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+        >
+          {theme === "dark" ? (
+            <Sun className="h-5 w-5 transition-transform group-hover:scale-110 group-hover:rotate-45" />
+          ) : (
+            <Moon className="h-5 w-5 transition-transform group-hover:scale-110 group-hover:-rotate-12" />
+          )}
+          <span className={cn(
+            "transition-all duration-300",
+            collapsed ? "w-0 opacity-0 hidden" : "w-auto opacity-100"
+          )}>
+            {theme === "dark" ? "Mode clair" : "Mode sombre"}
+          </span>
+        </Button>
+
         <Button
           variant="ghost"
           className={cn(

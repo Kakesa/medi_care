@@ -790,6 +790,8 @@ import {
   examService,
   pharmacyService,
   billingService,
+  accountingService,
+  bedService,
   notificationService
 } from '@/services';
 ```

@@ -540,6 +540,31 @@ addNotification({
 | DELETE  | /api/invoices/:id             | Annuler                |
 | GET     | /api/invoices/stats           | Statistiques           |
 
+### Comptabilité
+| Méthode | Endpoint                              | Description            |
+|---------|---------------------------------------|------------------------|
+| GET     | /api/accounting/movements             | Liste des mouvements   |
+| GET     | /api/accounting/movements/:id         | Détails                |
+| POST    | /api/accounting/movements             | Créer un mouvement     |
+| PUT     | /api/accounting/movements/:id         | Modifier               |
+| DELETE  | /api/accounting/movements/:id         | Supprimer              |
+| PUT     | /api/accounting/movements/:id/validate| Valider                |
+| PUT     | /api/accounting/movements/:id/cancel  | Annuler                |
+| GET     | /api/accounting/summary               | Résumé financier       |
+
+### Gestion des lits
+| Méthode | Endpoint                    | Description              |
+|---------|-----------------------------|--------------------------|
+| GET     | /api/beds                   | Liste des lits           |
+| GET     | /api/beds/:id               | Détails d'un lit         |
+| POST    | /api/beds                   | Créer un lit             |
+| PUT     | /api/beds/:id               | Modifier                 |
+| DELETE  | /api/beds/:id               | Supprimer                |
+| PUT     | /api/beds/:id/assign        | Attribuer à un patient   |
+| PUT     | /api/beds/:id/release       | Libérer un lit           |
+| GET     | /api/wards                  | Liste des services       |
+| GET     | /api/wards/:id              | Détails d'un service     |
+
 ### Notifications
 | Méthode | Endpoint                         | Description            |
 |---------|----------------------------------|------------------------|

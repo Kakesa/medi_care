@@ -345,7 +345,8 @@ Client HTTP centralisé avec gestion automatique des tokens et des erreurs :
 | `authService.ts` | Authentification | login, register, logout, me, updateProfile |
 | `patientService.ts` | Gestion patients | CRUD, recherche, stats |
 | `personnelService.ts` | Gestion personnel | CRUD, par département |
-| `appointmentService.ts` | Gestion RDV | CRUD, par date/médecin/patient |
+│   │   ├── accountingService.ts # Service comptabilité
+│   │   ├── bedService.ts      # Service gestion des lits
 | `consultationService.ts` | Gestion consultations | CRUD, par médecin/patient |
 | `receptionService.ts` | Accueil patients | CRUD, file d'attente |
 | `examService.ts` | Gestion examens | CRUD, par type/statut |

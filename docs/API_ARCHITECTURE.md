@@ -400,7 +400,70 @@ const receptionService = {
 
 ---
 
-### 10. NotificationService (`notificationService.ts`)
+### 10. AccountingService (`accountingService.ts`)
+
+```typescript
+const accountingService = {
+  getAll(params?: MovementQueryParams): Promise<PaginatedResponse<FinancialMovement>>
+  getById(id: string): Promise<FinancialMovement>
+  create(data: CreateMovementData): Promise<FinancialMovement>
+  update(id: string, data: UpdateMovementData): Promise<FinancialMovement>
+  delete(id: string): Promise<void>
+  validate(id: string): Promise<FinancialMovement>
+  cancel(id: string): Promise<FinancialMovement>
+  getSummary(startDate?: string, endDate?: string): Promise<{ totalIncome: number; totalExpense: number; balance: number }>
+}
+```
+
+**Endpoints:**
+| Méthode | Endpoint | Description |
+|---------|----------|-------------|
+| GET | `/accounting/movements` | Liste mouvements |
+| GET | `/accounting/movements/:id` | Détails |
+| POST | `/accounting/movements` | Créer mouvement |
+| PUT | `/accounting/movements/:id` | Modifier |
+| DELETE | `/accounting/movements/:id` | Supprimer |
+| PUT | `/accounting/movements/:id/validate` | Valider |
+| PUT | `/accounting/movements/:id/cancel` | Annuler |
+| GET | `/accounting/summary` | Résumé financier |
+
+---
+
+### 11. BedService (`bedService.ts`)
+
+```typescript
+const bedService = {
+  // Beds
+  getAll(params?: BedQueryParams): Promise<PaginatedResponse<Bed>>
+  getById(id: string): Promise<Bed>
+  create(data: CreateBedData): Promise<Bed>
+  update(id: string, data: UpdateBedData): Promise<Bed>
+  delete(id: string): Promise<void>
+  assign(bedId: string, patientId: string, patientName: string): Promise<Bed>
+  release(bedId: string): Promise<Bed>
+
+  // Wards
+  getWards(): Promise<Ward[]>
+  getWardById(id: string): Promise<Ward>
+}
+```
+
+**Endpoints:**
+| Méthode | Endpoint | Description |
+|---------|----------|-------------|
+| GET | `/beds` | Liste des lits |
+| GET | `/beds/:id` | Détails |
+| POST | `/beds` | Créer lit |
+| PUT | `/beds/:id` | Modifier |
+| DELETE | `/beds/:id` | Supprimer |
+| PUT | `/beds/:id/assign` | Attribuer patient |
+| PUT | `/beds/:id/release` | Libérer |
+| GET | `/wards` | Liste services |
+| GET | `/wards/:id` | Détails service |
+
+---
+
+### 12. NotificationService (`notificationService.ts`)
 
 ```typescript
 const notificationService = {

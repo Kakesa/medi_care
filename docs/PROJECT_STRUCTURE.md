@@ -77,6 +77,8 @@ medicare-sih/
 │   │   ├── Examinations.tsx   # Gestion des examens
 │   │   ├── Pharmacy.tsx       # Gestion de la pharmacie
 │   │   ├── Billing.tsx        # Gestion de la facturation
+│   │   ├── Accounting.tsx     # Comptabilité (mouvements financiers)
+│   │   ├── BedManagement.tsx  # Gestion des lits hospitaliers
 │   │   ├── Profile.tsx        # Profil utilisateur
 │   │   └── NotFound.tsx       # Page 404
 │   │

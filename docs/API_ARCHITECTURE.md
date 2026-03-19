@@ -706,6 +706,60 @@ CREATE TABLE pharmacy_orders (
   notes TEXT
 );
 
+-- Financial Movements (Accounting)
+CREATE TABLE financial_movements (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  type VARCHAR(10) NOT NULL CHECK (type IN ('income', 'expense')),
+  category VARCHAR(50) NOT NULL,
+  label VARCHAR(500) NOT NULL,
+  amount DECIMAL(12, 2) NOT NULL,
+  date DATE NOT NULL,
+  reference VARCHAR(100),
+  patient_name VARCHAR(200),
+  notes TEXT,
+  status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'validated', 'cancelled')),
+  validated_by VARCHAR(200),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Wards (Services hospitaliers)
+CREATE TABLE wards (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(200) NOT NULL,
+  floor INTEGER NOT NULL,
+  department VARCHAR(100) NOT NULL,
+  total_beds INTEGER DEFAULT 0
+);
+
+-- Beds (Lits)
+CREATE TABLE beds (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  number VARCHAR(20) UNIQUE NOT NULL,
+  ward_id UUID REFERENCES wards(id),
+  floor INTEGER,
+  type VARCHAR(20) DEFAULT 'standard' CHECK (type IN ('standard', 'intensive_care', 'pediatric', 'maternity', 'isolation')),
+  status VARCHAR(20) DEFAULT 'available' CHECK (status IN ('available', 'occupied', 'maintenance', 'reserved')),
+  patient_id UUID REFERENCES patients(id),
+  patient_name VARCHAR(200),
+  admission_date TIMESTAMP,
+  expected_discharge DATE,
+  notes TEXT
+);
+
+-- Bed Occupation History
+CREATE TABLE bed_occupation_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  bed_id UUID REFERENCES beds(id),
+  patient_id UUID REFERENCES patients(id),
+  patient_name VARCHAR(200),
+  ward_id UUID REFERENCES wards(id),
+  admission_date TIMESTAMP NOT NULL,
+  discharge_date TIMESTAMP,
+  duration_days INTEGER,
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
 -- Notifications
 CREATE TABLE notifications (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

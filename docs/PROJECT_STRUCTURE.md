@@ -351,6 +351,8 @@ Client HTTP centralisé avec gestion automatique des tokens et des erreurs :
 | `examService.ts` | Gestion examens | CRUD, par type/statut |
 | `pharmacyService.ts` | Gestion pharmacie | Produits, commandes, stock |
 | `billingService.ts` | Facturation | CRUD factures, paiements, stats |
+| `accountingService.ts` | Comptabilité | Mouvements financiers, résumé |
+| `bedService.ts` | Gestion des lits | CRUD lits, services, attribution |
 | `notificationService.ts` | Notifications | CRUD, marquer lu, temps réel |
 
 ### Utilisation

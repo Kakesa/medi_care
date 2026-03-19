@@ -3,15 +3,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   BedDouble, Users, Wrench, Clock, CheckCircle,
-  AlertTriangle, Plus, UserPlus, UserMinus
+  UserPlus, UserMinus, History, TrendingUp
 } from "lucide-react";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, LineChart, Line, Legend
+} from "recharts";
 import { mockBeds, mockWards, mockPatients, bedTypeLabels, bedStatusLabels } from "@/data/mockData";
 import type { Bed } from "@/data/mockData";
 
@@ -28,6 +33,30 @@ const statusBadgeVariant: Record<string, "default" | "secondary" | "destructive"
   maintenance: "outline",
   reserved: "secondary",
 };
+
+// Mock occupation history data
+const mockOccupationHistory = [
+  { id: "occ-1", bedNumber: "A-101", wardName: "Cardiologie A", patientName: "Jean Martin", admissionDate: "2024-01-10", dischargeDate: null, durationDays: 12, status: "active" },
+  { id: "occ-2", bedNumber: "B-201", wardName: "Neurologie B", patientName: "Pierre Durand", admissionDate: "2024-01-05", dischargeDate: null, durationDays: 17, status: "active" },
+  { id: "occ-3", bedNumber: "SI-01", wardName: "Soins intensifs", patientName: "Robert Moreau", admissionDate: "2024-01-21", dischargeDate: null, durationDays: 1, status: "active" },
+  { id: "occ-4", bedNumber: "A-102", wardName: "Cardiologie A", patientName: "Michel Bernard", admissionDate: "2024-01-02", dischargeDate: "2024-01-18", durationDays: 16, status: "completed" },
+  { id: "occ-5", bedNumber: "B-203", wardName: "Neurologie B", patientName: "Anne Lefebvre", admissionDate: "2023-12-28", dischargeDate: "2024-01-15", durationDays: 18, status: "completed" },
+  { id: "occ-6", bedNumber: "C-101", wardName: "Pédiatrie C", patientName: "Lucas Petit", admissionDate: "2024-01-20", dischargeDate: null, durationDays: 2, status: "active" },
+  { id: "occ-7", bedNumber: "D-301", wardName: "Maternité D", patientName: "Camille Rousseau", admissionDate: "2024-01-22", dischargeDate: null, durationDays: 0, status: "active" },
+  { id: "occ-8", bedNumber: "E-203", wardName: "Chirurgie E", patientName: "François Blanc", admissionDate: "2024-01-17", dischargeDate: null, durationDays: 5, status: "active" },
+  { id: "occ-9", bedNumber: "A-103", wardName: "Cardiologie A", patientName: "Claire Moreau", admissionDate: "2023-12-20", dischargeDate: "2024-01-08", durationDays: 19, status: "completed" },
+  { id: "occ-10", bedNumber: "SI-02", wardName: "Soins intensifs", patientName: "Henri Dupuis", admissionDate: "2024-01-12", dischargeDate: "2024-01-19", durationDays: 7, status: "completed" },
+];
+
+// Weekly occupation rate data
+const weeklyOccupationData = [
+  { semaine: "Sem 1", Cardiologie: 62, Neurologie: 50, Pédiatrie: 30, "Soins intensifs": 75, Maternité: 25, Chirurgie: 33 },
+  { semaine: "Sem 2", Cardiologie: 75, Neurologie: 67, Pédiatrie: 40, "Soins intensifs": 50, Maternité: 38, Chirurgie: 50 },
+  { semaine: "Sem 3", Cardiologie: 50, Neurologie: 33, Pédiatrie: 20, "Soins intensifs": 100, Maternité: 50, Chirurgie: 67 },
+  { semaine: "Sem 4", Cardiologie: 25, Neurologie: 67, Pédiatrie: 30, "Soins intensifs": 67, Maternité: 38, Chirurgie: 50 },
+];
+
+const LINE_COLORS = ["#ef4444", "#3b82f6", "#22c55e", "#f59e0b", "#ec4899", "#8b5cf6"];
 
 export default function BedManagement() {
   const [beds, setBeds] = useState<Bed[]>(mockBeds);
@@ -57,6 +86,23 @@ export default function BedManagement() {
       return { ...w, bedsCount: wardBeds.length, occupied, available, rate: wardBeds.length > 0 ? Math.round((occupied / wardBeds.length) * 100) : 0 };
     });
   }, [beds]);
+
+  // Bar chart data: occupancy by ward
+  const wardOccupancyData = useMemo(() => {
+    return wardStats.map((w) => ({
+      name: w.name.replace(/\s[A-Z]$/, ""),
+      Occupés: w.occupied,
+      Disponibles: w.available,
+      Total: w.bedsCount,
+    }));
+  }, [wardStats]);
+
+  // Average stay duration
+  const avgStay = useMemo(() => {
+    const completed = mockOccupationHistory.filter((o) => o.status === "completed");
+    if (completed.length === 0) return 0;
+    return Math.round(completed.reduce((s, o) => s + o.durationDays, 0) / completed.length);
+  }, []);
 
   const handleAssign = () => {
     if (!assignDialog.bedId || !assignPatient.patientName) return;
@@ -131,6 +177,8 @@ export default function BedManagement() {
         <TabsList>
           <TabsTrigger value="visual">Vue par service</TabsTrigger>
           <TabsTrigger value="list">Vue liste</TabsTrigger>
+          <TabsTrigger value="stats">Statistiques</TabsTrigger>
+          <TabsTrigger value="history">Historique</TabsTrigger>
         </TabsList>
 
         <TabsContent value="visual" className="space-y-4">
@@ -162,10 +210,9 @@ export default function BedManagement() {
                         <p className="text-sm font-semibold">{bed.number}</p>
                         <p className="text-[10px] text-muted-foreground">{bedTypeLabels[bed.type]}</p>
                         {bed.patientName && <p className="text-[10px] text-foreground mt-1 truncate">{bed.patientName}</p>}
-                        {/* Hover actions */}
                         <div className="absolute inset-0 bg-background/90 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1">
                           {bed.status === "available" && (
-                            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setAssignDialog({ open: true, bedId: bed.id }); }}>
+                            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setAssignDialog({ open: true, bedId: bed.id })}>
                               <UserPlus className="h-3 w-3 mr-1" />Attribuer
                             </Button>
                           )}
@@ -235,6 +282,132 @@ export default function BedManagement() {
                   </div>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Statistics Tab */}
+        <TabsContent value="stats" className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Durée moy. de séjour</p>
+                  <p className="text-2xl font-bold">{avgStay} jours</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-green-500/10 flex items-center justify-center">
+                  <Users className="h-5 w-5 text-green-500" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Patients actifs</p>
+                  <p className="text-2xl font-bold">{mockOccupationHistory.filter(o => o.status === "active").length}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                  <History className="h-5 w-5 text-blue-500" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Sorties ce mois</p>
+                  <p className="text-2xl font-bold">{mockOccupationHistory.filter(o => o.status === "completed").length}</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Occupation par service</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={wardOccupancyData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis dataKey="name" fontSize={11} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                    <YAxis fontSize={11} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="Occupés" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="Disponibles" fill="#22c55e" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Évolution du taux d'occupation (%)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={280}>
+                  <LineChart data={weeklyOccupationData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis dataKey="semaine" fontSize={11} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                    <YAxis fontSize={11} tick={{ fill: 'hsl(var(--muted-foreground))' }} domain={[0, 100]} />
+                    <Tooltip />
+                    <Legend />
+                    {["Cardiologie", "Neurologie", "Pédiatrie", "Soins intensifs", "Maternité", "Chirurgie"].map((dept, i) => (
+                      <Line key={dept} type="monotone" dataKey={dept} stroke={LINE_COLORS[i]} strokeWidth={2} dot={{ r: 3 }} />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* History Tab */}
+        <TabsContent value="history">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <History className="h-5 w-5" />
+                Historique d'occupation
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Lit</TableHead>
+                    <TableHead>Service</TableHead>
+                    <TableHead>Patient</TableHead>
+                    <TableHead>Admission</TableHead>
+                    <TableHead>Sortie</TableHead>
+                    <TableHead>Durée</TableHead>
+                    <TableHead>Statut</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {mockOccupationHistory.map((occ) => (
+                    <TableRow key={occ.id}>
+                      <TableCell className="font-semibold">{occ.bedNumber}</TableCell>
+                      <TableCell className="text-muted-foreground">{occ.wardName}</TableCell>
+                      <TableCell>{occ.patientName}</TableCell>
+                      <TableCell className="text-muted-foreground">{occ.admissionDate}</TableCell>
+                      <TableCell className="text-muted-foreground">{occ.dischargeDate || "—"}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{occ.durationDays} jour{occ.durationDays > 1 ? "s" : ""}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={occ.status === "active" ? "default" : "outline"}>
+                          {occ.status === "active" ? "En cours" : "Terminé"}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
         </TabsContent>

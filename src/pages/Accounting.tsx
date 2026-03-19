@@ -8,10 +8,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   TrendingUp, TrendingDown, DollarSign, Plus, Search, Filter,
-  ArrowUpCircle, ArrowDownCircle, CheckCircle, XCircle, Clock
+  ArrowUpCircle, ArrowDownCircle, CheckCircle, XCircle, Clock, BarChart3, PieChart as PieChartIcon
 } from "lucide-react";
+import {
+  PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, Legend
+} from "recharts";
 import { mockFinancialMovements, movementCategories } from "@/data/mockData";
 
 const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -34,6 +39,9 @@ const categoryLabels: Record<string, string> = {
   utilities: "Charges",
   other_expense: "Autre dépense",
 };
+
+const COLORS_INCOME = ["#22c55e", "#16a34a", "#15803d", "#166534", "#14532d", "#059669"];
+const COLORS_EXPENSE = ["#ef4444", "#dc2626", "#b91c1c", "#991b1b", "#7f1d1d", "#e11d48"];
 
 export default function Accounting() {
   const [movements, setMovements] = useState(mockFinancialMovements);
@@ -68,6 +76,53 @@ export default function Accounting() {
     const income = validated.filter((m) => m.type === "income").reduce((s, m) => s + m.amount, 0);
     const expense = validated.filter((m) => m.type === "expense").reduce((s, m) => s + m.amount, 0);
     return { income, expense, balance: income - expense, pending: movements.filter(m => m.status === "pending").length };
+  }, [movements]);
+
+  // Chart data: income by category
+  const incomeByCategory = useMemo(() => {
+    const validated = movements.filter((m) => m.status === "validated" && m.type === "income");
+    const map: Record<string, number> = {};
+    validated.forEach((m) => {
+      map[m.category] = (map[m.category] || 0) + m.amount;
+    });
+    return Object.entries(map).map(([key, value]) => ({
+      name: categoryLabels[key] || key,
+      value: Math.round(value * 100) / 100,
+    }));
+  }, [movements]);
+
+  // Chart data: expense by category
+  const expenseByCategory = useMemo(() => {
+    const validated = movements.filter((m) => m.status === "validated" && m.type === "expense");
+    const map: Record<string, number> = {};
+    validated.forEach((m) => {
+      map[m.category] = (map[m.category] || 0) + m.amount;
+    });
+    return Object.entries(map).map(([key, value]) => ({
+      name: categoryLabels[key] || key,
+      value: Math.round(value * 100) / 100,
+    }));
+  }, [movements]);
+
+  // Bar chart: income vs expense comparison by category
+  const comparisonData = useMemo(() => {
+    const allCategories = new Set<string>();
+    const incomeMap: Record<string, number> = {};
+    const expenseMap: Record<string, number> = {};
+    const validated = movements.filter((m) => m.status === "validated");
+    validated.forEach((m) => {
+      allCategories.add(m.category);
+      if (m.type === "income") {
+        incomeMap[m.category] = (incomeMap[m.category] || 0) + m.amount;
+      } else {
+        expenseMap[m.category] = (expenseMap[m.category] || 0) + m.amount;
+      }
+    });
+    return Array.from(allCategories).map((cat) => ({
+      name: categoryLabels[cat] || cat,
+      Entrées: Math.round((incomeMap[cat] || 0) * 100) / 100,
+      Sorties: Math.round((expenseMap[cat] || 0) * 100) / 100,
+    })).filter((d) => d.Entrées > 0 || d.Sorties > 0);
   }, [movements]);
 
   const handleCreate = () => {
@@ -209,6 +264,85 @@ export default function Accounting() {
               <p className="text-sm text-muted-foreground">En attente</p>
               <p className="text-xl font-bold text-foreground">{totals.pending}</p>
             </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <PieChartIcon className="h-4 w-4 text-green-500" />
+              Entrées par catégorie
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {incomeByCategory.length > 0 ? (
+              <ResponsiveContainer width="100%" height={250}>
+                <PieChart>
+                  <Pie data={incomeByCategory} cx="50%" cy="50%" outerRadius={80} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false} fontSize={11}>
+                    {incomeByCategory.map((_, i) => (
+                      <Cell key={i} fill={COLORS_INCOME[i % COLORS_INCOME.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(v: number) => fmt(v)} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-10">Aucune donnée</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <PieChartIcon className="h-4 w-4 text-red-500" />
+              Sorties par catégorie
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {expenseByCategory.length > 0 ? (
+              <ResponsiveContainer width="100%" height={250}>
+                <PieChart>
+                  <Pie data={expenseByCategory} cx="50%" cy="50%" outerRadius={80} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false} fontSize={11}>
+                    {expenseByCategory.map((_, i) => (
+                      <Cell key={i} fill={COLORS_EXPENSE[i % COLORS_EXPENSE.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(v: number) => fmt(v)} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-10">Aucune donnée</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <BarChart3 className="h-4 w-4 text-primary" />
+              Comparaison entrées / sorties
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {comparisonData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={comparisonData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis dataKey="name" fontSize={10} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                  <YAxis fontSize={10} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                  <Tooltip formatter={(v: number) => fmt(v)} />
+                  <Legend />
+                  <Bar dataKey="Entrées" fill="#22c55e" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Sorties" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-10">Aucune donnée</p>
+            )}
           </CardContent>
         </Card>
       </div>

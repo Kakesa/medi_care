@@ -77,6 +77,8 @@ medicare-sih/
 │   │   ├── Examinations.tsx   # Gestion des examens
 │   │   ├── Pharmacy.tsx       # Gestion de la pharmacie
 │   │   ├── Billing.tsx        # Gestion de la facturation
+│   │   ├── Accounting.tsx     # Comptabilité (mouvements financiers)
+│   │   ├── BedManagement.tsx  # Gestion des lits hospitaliers
 │   │   ├── Profile.tsx        # Profil utilisateur
 │   │   └── NotFound.tsx       # Page 404
 │   │
@@ -343,12 +345,15 @@ Client HTTP centralisé avec gestion automatique des tokens et des erreurs :
 | `authService.ts` | Authentification | login, register, logout, me, updateProfile |
 | `patientService.ts` | Gestion patients | CRUD, recherche, stats |
 | `personnelService.ts` | Gestion personnel | CRUD, par département |
-| `appointmentService.ts` | Gestion RDV | CRUD, par date/médecin/patient |
+│   │   ├── accountingService.ts # Service comptabilité
+│   │   ├── bedService.ts      # Service gestion des lits
 | `consultationService.ts` | Gestion consultations | CRUD, par médecin/patient |
 | `receptionService.ts` | Accueil patients | CRUD, file d'attente |
 | `examService.ts` | Gestion examens | CRUD, par type/statut |
 | `pharmacyService.ts` | Gestion pharmacie | Produits, commandes, stock |
 | `billingService.ts` | Facturation | CRUD factures, paiements, stats |
+| `accountingService.ts` | Comptabilité | Mouvements financiers, résumé |
+| `bedService.ts` | Gestion des lits | CRUD lits, services, attribution |
 | `notificationService.ts` | Notifications | CRUD, marquer lu, temps réel |
 
 ### Utilisation
@@ -534,6 +539,31 @@ addNotification({
 | PATCH   | /api/invoices/:id/pay         | Marquer payée          |
 | DELETE  | /api/invoices/:id             | Annuler                |
 | GET     | /api/invoices/stats           | Statistiques           |
+
+### Comptabilité
+| Méthode | Endpoint                              | Description            |
+|---------|---------------------------------------|------------------------|
+| GET     | /api/accounting/movements             | Liste des mouvements   |
+| GET     | /api/accounting/movements/:id         | Détails                |
+| POST    | /api/accounting/movements             | Créer un mouvement     |
+| PUT     | /api/accounting/movements/:id         | Modifier               |
+| DELETE  | /api/accounting/movements/:id         | Supprimer              |
+| PUT     | /api/accounting/movements/:id/validate| Valider                |
+| PUT     | /api/accounting/movements/:id/cancel  | Annuler                |
+| GET     | /api/accounting/summary               | Résumé financier       |
+
+### Gestion des lits
+| Méthode | Endpoint                    | Description              |
+|---------|-----------------------------|--------------------------|
+| GET     | /api/beds                   | Liste des lits           |
+| GET     | /api/beds/:id               | Détails d'un lit         |
+| POST    | /api/beds                   | Créer un lit             |
+| PUT     | /api/beds/:id               | Modifier                 |
+| DELETE  | /api/beds/:id               | Supprimer                |
+| PUT     | /api/beds/:id/assign        | Attribuer à un patient   |
+| PUT     | /api/beds/:id/release       | Libérer un lit           |
+| GET     | /api/wards                  | Liste des services       |
+| GET     | /api/wards/:id              | Détails d'un service     |
 
 ### Notifications
 | Méthode | Endpoint                         | Description            |

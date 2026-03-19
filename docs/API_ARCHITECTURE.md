@@ -86,6 +86,8 @@ src/services/
 ├── examService.ts         # Gestion examens
 ├── pharmacyService.ts     # Gestion pharmacie
 ├── billingService.ts      # Gestion facturation
+├── accountingService.ts   # Gestion comptabilité
+├── bedService.ts          # Gestion des lits
 ├── notificationService.ts # Gestion notifications
 └── index.ts               # Export unifié
 ```

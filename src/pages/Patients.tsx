@@ -394,7 +394,7 @@ export default function Patients() {
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-4 animate-slide-up" style={{ animationDelay: "100ms" }}>
+      <div className="grid grid-cols-2 gap-4 animate-slide-up lg:grid-cols-4" style={{ animationDelay: "100ms" }}>
         <div className="rounded-lg bg-card border border-border p-4">
           <p className="text-sm text-muted-foreground">Total patients</p>
           <p className="text-2xl font-bold">{patients.length}</p>

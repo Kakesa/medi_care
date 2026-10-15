@@ -138,7 +138,7 @@
   }
 
   .stat-card {
-    @apply bg-card rounded-xl p-6 shadow-md border border-border/50 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:border-primary/20;
+    @apply bg-card rounded-xl p-4 shadow-md border border-border/50 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:border-primary/20 sm:p-6;
   }
 
   .nav-link {
@@ -279,4 +279,20 @@
   .scale-102 {
     transform: scale(1.02);
   }
+}
+
+@media (max-width: 639px) {
+  main h1 {
+    font-size: 1.5rem;
+    line-height: 2rem;
+  }
+
+  [role="dialog"] .grid-cols-2,
+  [role="dialog"] .grid-cols-4 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.grid > * {
+  min-width: 0;
 }

@@ -84,7 +84,7 @@ export default function Hospitals() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold">Hôpitaux</h1>
           <p className="mt-1 text-muted-foreground">Chaque établissement possède ses propres utilisateurs et données.</p>
@@ -122,7 +122,7 @@ export default function Hospitals() {
                   {hospital.status === "active" ? "Actif" : "Suspendu"} · Plan non configuré · {hospital.userCount ?? 0} utilisateurs
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button variant="outline" onClick={() => setAdminFor(hospital)}>Créer un administrateur</Button>
                 <Button variant="outline" onClick={() => void toggleStatus(hospital)}>
                   {hospital.status === "active" ? "Suspendre" : "Réactiver"}

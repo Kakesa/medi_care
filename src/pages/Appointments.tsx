@@ -136,7 +136,7 @@ export default function Appointments() {
       const status = statusConfig[appointment.status];
       const StatusIcon = status.icon;
       return (
-        <div key={appointment.id} className="flex items-center gap-4 p-4 rounded-lg bg-secondary/50">
+        <div key={appointment.id} className="flex flex-col items-start gap-3 rounded-lg bg-secondary/50 p-4 sm:flex-row sm:items-center">
           <div className="text-center min-w-[60px]">
             <p className="text-lg font-bold text-foreground">{appointment.time}</p>
             <p className="text-xs text-muted-foreground">{appointment.duration}min</p>
@@ -146,7 +146,7 @@ export default function Appointments() {
               <User className="h-4 w-4 text-muted-foreground" />
               <p className="font-medium">{appointment.patientName}</p>
             </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
               <Stethoscope className="h-3 w-3" />
               <span>{appointment.doctorName}</span>
               <span>•</span>
@@ -184,7 +184,7 @@ export default function Appointments() {
           })}>
             <ChevronLeft className="h-5 w-5" />
           </Button>
-          <h2 className="text-lg font-semibold capitalize">{monthLabel}</h2>
+          <h2 className="px-2 text-center text-sm font-semibold capitalize sm:text-lg">{monthLabel}</h2>
           <Button variant="ghost" size="icon" onClick={() => setWeekStart((current) => {
             const next = new Date(current);
             next.setDate(current.getDate() + 7);
@@ -193,19 +193,19 @@ export default function Appointments() {
             <ChevronRight className="h-5 w-5" />
           </Button>
         </div>
-        <div className="grid grid-cols-7 gap-2">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2">
           {week.map((date, index) => {
             const iso = formatIso(date);
             return (
               <button
                 key={iso}
                 onClick={() => setSelectedDate(iso)}
-                className={`flex flex-col items-center p-3 rounded-xl transition-all duration-200 ${
+                className={`flex flex-col items-center rounded-lg p-1.5 transition-all duration-200 sm:rounded-xl sm:p-3 ${
                   selectedDate === iso ? "bg-primary text-primary-foreground shadow-lg" : "hover:bg-secondary"
                 }`}
               >
                 <span className="text-xs font-medium opacity-70">{weekDays[index]}</span>
-                <span className="text-lg font-bold mt-1">{date.getDate()}</span>
+                <span className="mt-1 text-sm font-bold sm:text-lg">{date.getDate()}</span>
               </button>
             );
           })}

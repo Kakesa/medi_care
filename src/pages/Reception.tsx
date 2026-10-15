@@ -322,7 +322,7 @@ export default function ReceptionPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-4 animate-slide-up" style={{ animationDelay: "100ms" }}>
+      <div className="grid grid-cols-2 gap-4 animate-slide-up lg:grid-cols-4" style={{ animationDelay: "100ms" }}>
         <div className="rounded-lg bg-card border border-border p-4">
           <p className="text-sm text-muted-foreground">Aujourd'hui</p>
           <p className="text-2xl font-bold">{receptionList.length}</p>
@@ -383,8 +383,8 @@ export default function ReceptionPage() {
                 className={`p-4 animate-slide-up ${entry.priority === "urgent" && entry.status === "waiting" ? "border-destructive/50 bg-destructive/5" : ""}`}
                 style={{ animationDelay: `${200 + index * 30}ms` }}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 items-center gap-3 sm:gap-4">
                     <div className="text-center min-w-[60px]">
                       <p className="text-lg font-bold">{entry.arrivalTime}</p>
                       <p className="text-xs text-muted-foreground">Arrivée</p>
@@ -411,7 +411,7 @@ export default function ReceptionPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="outline" className={priorityConfig[entry.priority].color}>
                       {entry.priority === "urgent" && <AlertTriangle className="h-3 w-3 mr-1" />}
                       {priorityConfig[entry.priority].label}

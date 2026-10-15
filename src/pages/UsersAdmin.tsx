@@ -89,7 +89,7 @@ export default function UsersAdmin() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold">Utilisateurs</h1>
           <p className="mt-1 text-muted-foreground">Comptes de {user?.organization?.name || "votre établissement"}.</p>
@@ -134,13 +134,13 @@ export default function UsersAdmin() {
               <p className="text-sm text-muted-foreground">{account.email}</p>
               <p className="text-sm text-muted-foreground">{account.isActive === false ? "Désactivé" : "Actif"}</p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
               <Select
                 value={account.role}
                 onValueChange={(value) => void changeRole(account, value as AssignableRole)}
                 disabled={account.id === user?.id}
               >
-                <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-full sm:w-48"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {roles.map((role) => <SelectItem key={role} value={role}>{roleLabels[role]}</SelectItem>)}
                 </SelectContent>

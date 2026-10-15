@@ -321,17 +321,17 @@ export default function Consultations() {
           return (
             <Card 
               key={consultation.id}
-              className="p-6 animate-slide-up"
+              className="p-4 animate-slide-up sm:p-6"
               style={{ animationDelay: `${200 + index * 50}ms` }}
             >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-4">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex min-w-0 items-start gap-4">
                   <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
                     <Stethoscope className="h-6 w-6 text-primary" />
                   </div>
                   <div>
                     <h3 className="font-semibold text-lg">{consultation.diagnosis}</h3>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
+                    <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <User className="h-4 w-4" />
                         {consultation.patientName}

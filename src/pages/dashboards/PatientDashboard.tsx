@@ -144,7 +144,7 @@ export default function PatientDashboard() {
               </div>
             ) : (
               upcomingAppointments.map((apt) => (
-                <div key={apt.id} className="flex items-center justify-between p-4 rounded-lg bg-secondary/50">
+                <div key={apt.id} className="flex flex-col items-start gap-3 rounded-lg bg-secondary/50 p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
                       <Clock className="h-5 w-5 text-primary" />

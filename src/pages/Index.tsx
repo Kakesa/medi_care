@@ -59,19 +59,19 @@ export default function Index() {
     <div className="min-h-screen bg-background overflow-x-hidden">
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border animate-slide-down">
-        <div className="container mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3 group">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary transition-all duration-300 group-hover:scale-110 group-hover:shadow-glow">
+        <div className="container mx-auto flex h-16 items-center justify-between gap-3 px-4 sm:px-6">
+          <div className="flex min-w-0 items-center gap-3 group">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary transition-all duration-300 group-hover:scale-110 group-hover:shadow-glow">
               <Activity className="h-6 w-6 text-primary-foreground transition-transform group-hover:rotate-12" />
             </div>
-            <span className="text-xl font-bold">MediCare SIH</span>
+            <span className="truncate text-lg font-bold sm:text-xl">MediCare</span>
           </div>
-          <div className="flex items-center gap-4">
-            <Link to="/dashboard">
+          <div className="flex shrink-0 items-center gap-2">
+            <Link to="/dashboard" className="hidden sm:block">
               <Button variant="ghost" className="hover-scale">Tableau de bord</Button>
             </Link>
             <Link to="/login">
-              <Button variant="hero" className="group">
+              <Button variant="hero" size="sm" className="group sm:h-10 sm:px-4">
                 Connexion
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Button>
@@ -81,7 +81,7 @@ export default function Index() {
       </nav>
 
       {/* Hero Section */}
-      <section className="pt-32 pb-20 px-6 relative">
+      <section className="relative px-4 pb-16 pt-28 sm:px-6 sm:pb-20 sm:pt-32">
         {/* Background decoration */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl animate-float" />
@@ -94,26 +94,26 @@ export default function Index() {
             Conforme RGPD & HL7
           </div>
           
-          <h1 className="text-4xl md:text-6xl font-bold text-foreground mb-6 animate-slide-up opacity-0" style={{ animationDelay: '100ms' }}>
+          <h1 className="mb-6 text-3xl font-bold text-foreground animate-slide-up opacity-0 sm:text-4xl md:text-6xl" style={{ animationDelay: '100ms' }}>
             Système d'Information
             <br />
             <span className="text-gradient">Hospitalier Moderne</span>
           </h1>
           
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-10 animate-slide-up opacity-0" style={{ animationDelay: "200ms" }}>
+          <p className="mx-auto mb-10 max-w-2xl text-base text-muted-foreground animate-slide-up opacity-0 sm:text-xl" style={{ animationDelay: "200ms" }}>
             Centralisez la gestion de votre établissement de santé : personnel, patients, 
             rendez-vous et consultations dans une interface unifiée.
           </p>
           
-          <div className="flex flex-col sm:flex-row gap-4 justify-center animate-slide-up opacity-0" style={{ animationDelay: "300ms" }}>
-            <a href="#rdv-form">
-              <Button variant="hero" size="xl" className="group btn-glow">
+          <div className="flex flex-col justify-center gap-4 animate-slide-up opacity-0 sm:flex-row" style={{ animationDelay: "300ms" }}>
+            <a href="#rdv-form" className="sm:w-auto">
+              <Button variant="hero" size="xl" className="group btn-glow w-full sm:w-auto">
                 Demander un RDV
                 <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
               </Button>
             </a>
-            <Link to="/login">
-              <Button variant="outline" size="xl" className="hover-scale">
+            <Link to="/login" className="sm:w-auto">
+              <Button variant="outline" size="xl" className="hover-scale w-full sm:w-auto">
                 Se connecter
               </Button>
             </Link>
@@ -122,7 +122,7 @@ export default function Index() {
       </section>
 
       {/* Appointment Request Form Section */}
-      <section id="rdv-form" className="py-20 px-6 bg-primary/5">
+      <section id="rdv-form" className="bg-primary/5 px-4 py-16 sm:px-6 sm:py-20">
         <div className="container mx-auto max-w-2xl">
           <div className="text-center mb-10">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">Demander un Rendez-vous</h2>
@@ -135,7 +135,7 @@ export default function Index() {
       </section>
 
       {/* Features Grid */}
-      <section className="py-20 px-6 bg-secondary/30 relative overflow-hidden">
+      <section className="relative overflow-hidden bg-secondary/30 px-4 py-16 sm:px-6 sm:py-20">
         {/* Background pattern */}
         <div className="absolute inset-0 opacity-30">
           <div className="absolute top-0 left-0 w-full h-full" 
@@ -173,7 +173,7 @@ export default function Index() {
       </section>
 
       {/* Benefits Section */}
-      <section className="py-20 px-6">
+      <section className="px-4 py-16 sm:px-6 sm:py-20">
         <div className="container mx-auto">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
@@ -222,7 +222,7 @@ export default function Index() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 px-6 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent relative overflow-hidden">
+      <section className="relative overflow-hidden bg-gradient-to-r from-primary/10 via-primary/5 to-transparent px-4 py-16 sm:px-6 sm:py-20">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -bottom-20 -right-20 w-60 h-60 bg-primary/20 rounded-full blur-3xl animate-float" />
         </div>
@@ -235,8 +235,8 @@ export default function Index() {
             Découvrez comment MediCare SIH peut transformer la coordination 
             entre vos équipes administratives et médicales.
           </p>
-          <Link to="/dashboard">
-            <Button variant="hero" size="xl" className="group btn-glow animate-slide-up opacity-0" style={{ animationDelay: '200ms' }}>
+          <Link to="/dashboard" className="inline-block w-full sm:w-auto">
+            <Button variant="hero" size="xl" className="group btn-glow w-full animate-slide-up opacity-0 sm:w-auto" style={{ animationDelay: '200ms' }}>
               Commencer maintenant
               <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
             </Button>
@@ -245,7 +245,7 @@ export default function Index() {
       </section>
 
       {/* Footer */}
-      <footer className="py-12 px-6 border-t border-border">
+      <footer className="border-t border-border px-4 py-12 sm:px-6">
         <div className="container mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3 group">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary transition-transform group-hover:scale-110">

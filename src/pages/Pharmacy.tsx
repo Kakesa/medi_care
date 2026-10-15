@@ -243,7 +243,7 @@ export default function Pharmacy() {
             Gestion des stocks et approvisionnements pharmaceutiques
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Dialog open={isOrderDialogOpen} onOpenChange={setIsOrderDialogOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" className="gap-2">
@@ -442,7 +442,7 @@ export default function Pharmacy() {
           />
         </div>
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-full sm:w-40">
             <Filter className="h-4 w-4 mr-2" />
             <SelectValue placeholder="Catégorie" />
           </SelectTrigger>
@@ -454,7 +454,7 @@ export default function Pharmacy() {
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-full sm:w-40">
             <SelectValue placeholder="Statut" />
           </SelectTrigger>
           <SelectContent>
@@ -554,7 +554,7 @@ export default function Pharmacy() {
             {orders.map(order => (
               <Card key={order.id} className="card-elevated">
                 <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-4">
                       <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
                         <Truck className="h-6 w-6 text-primary" />

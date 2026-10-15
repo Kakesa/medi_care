@@ -254,7 +254,7 @@ export default function BedManagement() {
           <h1 className="text-3xl font-bold text-foreground">Gestion des lits</h1>
           <p className="text-muted-foreground mt-1">Services, lits et occupation de votre établissement</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => setWardDialog({ ...emptyWard })}>
             <Plus className="mr-2 h-4 w-4" />Nouveau service
           </Button>
@@ -276,7 +276,7 @@ export default function BedManagement() {
           { label: "Réservés", value: stats.reserved, icon: Clock, color: "text-blue-500" },
         ].map((item) => (
           <Card key={item.label}>
-            <CardContent className="p-4 flex items-center gap-3">
+            <CardContent className="flex flex-col items-start gap-2 p-3 sm:flex-row sm:items-center sm:gap-3 sm:p-4">
               <item.icon className={`h-8 w-8 ${item.color}`} />
               <div>
                 <p className="text-2xl font-bold">{item.value}</p>
@@ -378,10 +378,10 @@ export default function BedManagement() {
         <TabsContent value="list">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <CardTitle>Tous les lits</CardTitle>
                 <Select value={selectedWard} onValueChange={setSelectedWard}>
-                  <SelectTrigger className="w-[220px]"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="w-full sm:w-[220px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Tous les services</SelectItem>
                     {wards.map((ward) => (

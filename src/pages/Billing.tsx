@@ -121,7 +121,7 @@ export default function Billing() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold">Facturation</h1>
           <p className="text-muted-foreground">Gestion des factures et paiements</p>
@@ -147,7 +147,7 @@ export default function Billing() {
                 </Select>
               </div>
               {newInvoice.items.map((item, idx) => (
-                <div key={idx} className="grid grid-cols-4 gap-2">
+                <div key={idx} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <Input placeholder="Description" value={item.description} onChange={e => {
                     const items = [...newInvoice.items];
                     items[idx].description = e.target.value;
@@ -198,13 +198,13 @@ export default function Billing() {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input placeholder="Rechercher..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10" />
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-40"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tous</SelectItem>
             <SelectItem value="pending">En attente</SelectItem>
@@ -217,8 +217,8 @@ export default function Billing() {
       <div className="space-y-4">
         {filteredInvoices.map(invoice => (
           <Card key={invoice.id}>
-            <CardContent className="flex items-center justify-between p-4">
-              <div className="flex items-center gap-4">
+            <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-center gap-4">
                 <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
                   <FileText className="h-5 w-5 text-primary" />
                 </div>
@@ -227,8 +227,8 @@ export default function Billing() {
                   <p className="text-sm text-muted-foreground">{invoice.patientName}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-4">
-                <div className="text-right">
+              <div className="flex flex-wrap items-center gap-3 sm:justify-end">
+                <div className="text-left sm:text-right">
                   <p className="font-bold">{invoice.total.toFixed(2)} €</p>
                   <p className="text-xs text-muted-foreground">{new Date(invoice.createdAt).toLocaleDateString("fr-FR")}</p>
                 </div>

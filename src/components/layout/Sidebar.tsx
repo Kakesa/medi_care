@@ -45,8 +45,15 @@ const allNavigation: { name: string; href: string; icon: typeof LayoutDashboard;
   { name: "Profil", href: "/dashboard/profile", icon: Settings, roles: ['SUPERADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'RECEPTIONIST', 'NURSE', 'ACCOUNTANT', 'PHARMACIST', 'PATIENT'] },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  variant?: "fixed" | "drawer";
+  onNavigate?: () => void;
+}
+
+export function Sidebar({ variant = "fixed", onNavigate }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const isDrawer = variant === "drawer";
+  const compact = collapsed && !isDrawer;
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -64,19 +71,24 @@ export function Sidebar() {
   return (
     <aside 
       className={cn(
-        "fixed left-0 top-0 z-40 h-screen bg-sidebar border-r border-sidebar-border flex flex-col",
-        "transition-all duration-300 ease-smooth",
-        collapsed ? "w-20" : "w-64"
+        "bg-sidebar border-r border-sidebar-border flex flex-col",
+        isDrawer
+          ? "h-full w-full"
+          : cn(
+              "fixed left-0 top-0 z-40 hidden h-screen md:flex",
+              "transition-all duration-300 ease-smooth",
+              collapsed ? "w-20" : "w-64",
+            ),
       )}
     >
       {/* Logo */}
-      <div className="flex items-center gap-3 px-6 py-6 border-b border-sidebar-border">
+      <div className={cn("flex items-center gap-3 px-6 py-6 border-b border-sidebar-border", isDrawer && "pr-12")}>
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary transition-transform duration-300 hover:scale-105 hover:shadow-glow">
           <Activity className="h-6 w-6 text-primary-foreground" />
         </div>
         <div className={cn(
           "transition-all duration-300 overflow-hidden",
-          collapsed ? "w-0 opacity-0" : "w-auto opacity-100"
+          compact ? "w-0 opacity-0" : "w-auto opacity-100"
         )}>
           <h1 className="text-lg font-bold text-sidebar-foreground whitespace-nowrap">MediCare</h1>
           <p className="text-xs text-muted-foreground whitespace-nowrap">SIH v1.0</p>
@@ -96,6 +108,7 @@ export function Sidebar() {
               >
                 <Link
                   to={item.href}
+                  onClick={onNavigate}
                   className={cn(
                     "nav-link group",
                     isActive && "nav-link-active"
@@ -108,7 +121,7 @@ export function Sidebar() {
                   )} />
                   <span className={cn(
                     "transition-all duration-300 whitespace-nowrap",
-                    collapsed ? "w-0 opacity-0 hidden" : "w-auto opacity-100"
+                    compact ? "w-0 opacity-0 hidden" : "w-auto opacity-100"
                   )}>
                     {item.name}
                   </span>
@@ -138,7 +151,7 @@ export function Sidebar() {
           )}
           <span className={cn(
             "transition-all duration-300",
-            collapsed ? "w-0 opacity-0 hidden" : "w-auto opacity-100"
+            compact ? "w-0 opacity-0 hidden" : "w-auto opacity-100"
           )}>
             {theme === "dark" ? "Mode clair" : "Mode sombre"}
           </span>
@@ -156,14 +169,14 @@ export function Sidebar() {
           <LogOut className="h-5 w-5 transition-transform group-hover:scale-110 group-hover:-translate-x-0.5" />
           <span className={cn(
             "transition-all duration-300",
-            collapsed ? "w-0 opacity-0 hidden" : "w-auto opacity-100"
+            compact ? "w-0 opacity-0 hidden" : "w-auto opacity-100"
           )}>
             Déconnexion
           </span>
         </Button>
       </div>
 
-      {/* Collapse button */}
+      {!isDrawer && (
       <button
         onClick={() => setCollapsed(!collapsed)}
         className={cn(
@@ -175,11 +188,12 @@ export function Sidebar() {
       >
         <span className={cn(
           "transition-transform duration-300",
-          collapsed ? "rotate-0" : "rotate-180"
+          compact ? "rotate-0" : "rotate-180"
         )}>
           <ChevronRight className="h-4 w-4" />
         </span>
       </button>
+      )}
     </aside>
   );
 }

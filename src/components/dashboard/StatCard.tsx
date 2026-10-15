@@ -30,7 +30,7 @@ export function StatCard({
           <p className="text-sm font-medium text-muted-foreground transition-colors group-hover:text-foreground/80">
             {title}
           </p>
-          <p className="text-3xl font-bold text-foreground tracking-tight">
+          <p className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
             {value}
           </p>
           {change && (

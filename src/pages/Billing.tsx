@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Plus, Search, FileText, Download, CreditCard, Eye, Loader2 } from "lucide-react";
+import { Plus, Search, FileText, Download, CreditCard, Eye, Loader2, Receipt, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -109,6 +109,11 @@ export default function Billing() {
   const updateLine = (index: number, patch: Partial<DraftLine>) => {
     const items = newInvoice.items.map((item, current) => current === index ? { ...item, ...patch } : item);
     setNewInvoice({ ...newInvoice, items });
+  };
+
+  const removeLine = (index: number) => {
+    if (newInvoice.items.length === 1) return;
+    setNewInvoice({ ...newInvoice, items: newInvoice.items.filter((_, current) => current !== index) });
   };
 
   const submitInvoice = async (finalize: boolean) => {
@@ -236,7 +241,7 @@ export default function Billing() {
               <DialogDescription>Vérifiez le patient, les lignes et le total, puis finalisez.</DialogDescription>
             </DialogHeader>
             <fieldset disabled={saving} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
-              <div className="space-y-2">
+              <div>
                 <Label>Patient</Label>
                 <Select value={newInvoice.patientId} onValueChange={(patientId) => setNewInvoice({ ...newInvoice, patientId })} disabled={saving}>
                   <SelectTrigger><SelectValue placeholder="Sélectionner un patient" /></SelectTrigger>
@@ -247,31 +252,29 @@ export default function Billing() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
+              <div>
                 <Label htmlFor="dueDate">Échéance</Label>
                 <Input id="dueDate" type="date" value={newInvoice.dueDate} onChange={(event) => setNewInvoice({ ...newInvoice, dueDate: event.target.value })} />
               </div>
-              <div className="space-y-3">
-                {newInvoice.items.map((item, index) => (
-                  <div key={index} className="grid grid-cols-1 gap-2 rounded-lg border p-3 sm:grid-cols-2">
-                    <Input className="sm:col-span-2" placeholder="Description" value={item.description} onChange={(event) => updateLine(index, { description: event.target.value })} />
-                    <Input type="number" min={1} placeholder="Quantité" value={item.quantity} onChange={(event) => updateLine(index, { quantity: parseInt(event.target.value, 10) || 1 })} />
-                    <Input type="number" min={0} step="0.01" placeholder="Prix unitaire" value={item.unitPrice} onChange={(event) => updateLine(index, { unitPrice: parseFloat(event.target.value) || 0 })} />
-                    <Select value={item.type} onValueChange={(value) => updateLine(index, { type: value as LineType })} disabled={saving}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="consultation">Consultation</SelectItem>
-                        <SelectItem value="exam">Examen</SelectItem>
-                        <SelectItem value="medication">Médicament</SelectItem>
-                        <SelectItem value="service">Autre prestation</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <p className="self-center text-right text-sm font-medium">{money(item.quantity * item.unitPrice)}</p>
-                  </div>
-                ))}
-              </div>
+              {newInvoice.items.map((item, index) => (
+                <div key={index} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <Input className="sm:col-span-2" placeholder="Description" value={item.description} onChange={(event) => updateLine(index, { description: event.target.value })} />
+                  <Input type="number" min={1} placeholder="Qté" value={item.quantity} onChange={(event) => updateLine(index, { quantity: parseInt(event.target.value, 10) || 1 })} />
+                  <Input type="number" min={0} step="0.01" placeholder="Prix" value={item.unitPrice} onChange={(event) => updateLine(index, { unitPrice: parseFloat(event.target.value) || 0 })} />
+                  <Select value={item.type} onValueChange={(value) => updateLine(index, { type: value as LineType })} disabled={saving}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="consultation">Consultation</SelectItem>
+                      <SelectItem value="exam">Examen</SelectItem>
+                      <SelectItem value="medication">Médicament</SelectItem>
+                      <SelectItem value="service">Autre prestation</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="self-center text-right text-sm font-medium">{money(item.quantity * item.unitPrice)}</p>
+                </div>
+              ))}
               <Button type="button" variant="outline" size="sm" onClick={() => setNewInvoice({ ...newInvoice, items: [...newInvoice.items, emptyLine()] })}>
-                <Plus className="mr-2 h-4 w-4" />Ajouter une ligne
+                <Plus className="mr-2 h-4 w-4" />Ajouter ligne
               </Button>
               <Textarea placeholder="Notes" value={newInvoice.notes} onChange={(event) => setNewInvoice({ ...newInvoice, notes: event.target.value })} />
               <div className="flex items-center justify-between rounded-lg bg-muted px-4 py-3">

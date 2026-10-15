@@ -59,10 +59,16 @@ export default function UsersAdmin() {
 
   const createUser = async () => {
     try {
-      await userAdminService.create(form);
+      const payload = form.role === "PATIENT"
+        ? { firstName: form.firstName, lastName: form.lastName, email: form.email, phone: form.phone, role: form.role }
+        : form;
+      await userAdminService.create(payload);
       setIsOpen(false);
       setForm(emptyForm);
-      toast({ title: "Utilisateur créé" });
+      toast({
+        title: "Utilisateur créé",
+        description: form.role === "PATIENT" ? "Un mot de passe temporaire a été envoyé par e-mail." : undefined,
+      });
       await load();
     } catch (reason) {
       toast({ variant: "destructive", title: "Création impossible", description: (reason as ApiError).message });
@@ -107,7 +113,11 @@ export default function UsersAdmin() {
               </div>
               <div className="space-y-2"><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
               <div className="space-y-2"><Label>Téléphone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
-              <div className="space-y-2"><Label>Mot de passe</Label><Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></div>
+              {form.role === "PATIENT" ? (
+                <p className="text-sm text-muted-foreground">Un mot de passe temporaire sera envoyé à cet e-mail. Le patient devra le changer à sa première connexion.</p>
+              ) : (
+                <div className="space-y-2"><Label>Mot de passe</Label><Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></div>
+              )}
               <div className="space-y-2">
                 <Label>Rôle</Label>
                 <Select value={form.role} onValueChange={(value) => setForm({ ...form, role: value as AssignableRole })}>

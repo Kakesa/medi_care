@@ -25,6 +25,7 @@ export interface PublicUser {
   lastName: string;
   phone?: string;
   isActive: boolean;
+  mustChangePassword: boolean;
   organizationId: string | null;
   organization: PublicOrganization | null;
 }
@@ -56,6 +57,7 @@ export async function toPublicUser(userId: string): Promise<PublicUser> {
     lastName: user.lastName,
     phone: user.phone || undefined,
     isActive: user.isActive,
+    mustChangePassword: user.mustChangePassword === true,
     organizationId: user.organizationId ? user.organizationId.toString() : null,
     organization,
   };
@@ -242,8 +244,12 @@ export async function changePassword(
   if (!matches) {
     throw new ApiError(400, 'Mot de passe actuel incorrect', 'INVALID_PASSWORD');
   }
+  if (currentPassword === newPassword) {
+    throw new ApiError(400, 'Choisissez un mot de passe différent du mot de passe temporaire', 'PASSWORD_UNCHANGED');
+  }
 
   user.passwordHash = await hashPassword(newPassword);
+  user.mustChangePassword = false;
   user.tokenVersion += 1;
   await user.save();
 

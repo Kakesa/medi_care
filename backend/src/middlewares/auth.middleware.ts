@@ -29,6 +29,12 @@ export const authenticate = asyncHandler(async (req: Request, _res: Response, ne
     }
   }
 
+  const path = req.originalUrl.split('?')[0];
+  const allowedDuringPasswordChange = ['/api/auth/me', '/api/auth/change-password', '/api/auth/logout'];
+  if (user.mustChangePassword && !allowedDuringPasswordChange.includes(path)) {
+    throw new ApiError(403, 'Vous devez changer votre mot de passe avant de continuer', 'PASSWORD_CHANGE_REQUIRED');
+  }
+
   req.auth = {
     id: user.id,
     role: user.role,

@@ -10,6 +10,7 @@ const userSchema = new Schema(
     lastName: { type: String, required: true, trim: true, maxlength: 80 },
     phone: { type: String, trim: true, maxlength: 30 },
     isActive: { type: Boolean, default: true, required: true },
+    mustChangePassword: { type: Boolean, default: false, required: true },
     tokenVersion: { type: Number, default: 0, required: true },
     organizationId: {
       type: Schema.Types.ObjectId,
@@ -44,6 +45,7 @@ export interface UserDoc {
   lastName: string;
   phone?: string;
   isActive: boolean;
+  mustChangePassword: boolean;
   tokenVersion: number;
   organizationId?: mongoose.Types.ObjectId | null;
 }

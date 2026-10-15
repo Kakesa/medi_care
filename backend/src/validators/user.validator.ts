@@ -9,7 +9,7 @@ const userBody = {
   lastName: z.string().min(1).max(80),
   email: z.string().email('Email invalide').max(160),
   phone: z.string().max(30).optional(),
-  password: passwordSchema,
+  password: passwordSchema.optional(),
   role: z.enum(ASSIGNABLE_ROLES),
 };
 

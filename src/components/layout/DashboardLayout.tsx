@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
 import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
 import { roleLabels } from "@/lib/roles";
+import { ForcePasswordChange } from "@/components/auth/ForcePasswordChange";
 
 export function DashboardLayout() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -16,6 +17,10 @@ export function DashboardLayout() {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (user?.mustChangePassword) {
+    return <ForcePasswordChange />;
   }
 
   return (

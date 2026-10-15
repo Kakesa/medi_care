@@ -1,5 +1,6 @@
 import mongoose, { type FilterQuery } from 'mongoose';
 import { ROLES, type UserRole } from '../config/permissions.js';
+import { Organization } from '../models/Organization.js';
 import { Patient } from '../models/Patient.js';
 import { User } from '../models/User.js';
 import { ApiError } from '../utils/ApiError.js';
@@ -8,6 +9,7 @@ import { paginated, readPagination } from '../utils/pagination.js';
 import { dateOnly } from '../utils/dates.js';
 import { doctorCanSeePatient, linkedPatientIds } from './access.service.js';
 import { recordAudit } from './audit.service.js';
+import { issuePatientLogin } from './user.service.js';
 import type { AuthContext } from '../types/express.js';
 
 interface PatientWriteInput {
@@ -232,6 +234,30 @@ export async function createPatient(
     primaryDoctorId: input.primaryDoctorId,
     linkedUserId: input.linkedUserId,
   });
+
+  if (!patient.linkedUserId && patient.email) {
+    const existingAccount = await User.findOne({ email: patient.email });
+    if (!existingAccount) {
+      const organization = await Organization.findById(organizationId);
+      try {
+        const account = await issuePatientLogin({
+          organizationId,
+          organizationName: organization?.name || 'MediCare',
+          firstName: patient.firstName,
+          lastName: patient.lastName,
+          email: patient.email,
+          phone: patient.phone,
+        });
+        patient.linkedUserId = account._id;
+        await patient.save();
+      } catch (error) {
+        if (error instanceof ApiError && (error.code === 'EMAIL_NOT_CONFIGURED' || error.code === 'EMAIL_FAILED')) {
+          throw new ApiError(error.status, "Le dossier est enregistré, mais l'e-mail avec le mot de passe n'a pas pu être envoyé.", error.code);
+        }
+        throw error;
+      }
+    }
+  }
 
   await recordAudit({
     actorId: actor.id,

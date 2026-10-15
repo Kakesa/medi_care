@@ -48,6 +48,7 @@ export interface User {
   phone?: string;
   avatar?: string;
   isActive?: boolean;
+  mustChangePassword?: boolean;
   organizationId?: string | null;
   organization?: OrganizationSummary | null;
 }

@@ -174,7 +174,9 @@ export default function Patients() {
         await patientService.create(patientData);
         toast({
           title: "Patient ajouté",
-          description: `${formData.firstName} ${formData.lastName} a été enregistré`,
+          description: patientData.email
+            ? `${formData.firstName} ${formData.lastName} recevra un mot de passe temporaire par e-mail et devra le changer à la première connexion.`
+            : `${formData.firstName} ${formData.lastName} a été enregistré`,
         });
       }
       setIsDialogOpen(false);

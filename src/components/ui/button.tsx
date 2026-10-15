@@ -2,6 +2,7 @@ import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 
+import { usePendingClick } from "@/hooks/use-pending-click";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
@@ -41,9 +42,19 @@ export interface ButtonProps
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, onClick, disabled, ...props }, ref) => {
     const Comp = asChild ? Slot : "button";
-    return <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />;
+    const { pending, handleClick } = usePendingClick(onClick, disabled);
+    return (
+      <Comp
+        className={cn(buttonVariants({ variant, size, className }))}
+        ref={ref}
+        {...props}
+        disabled={disabled || pending}
+        aria-busy={pending || undefined}
+        onClick={handleClick}
+      />
+    );
   }
 );
 Button.displayName = "Button";

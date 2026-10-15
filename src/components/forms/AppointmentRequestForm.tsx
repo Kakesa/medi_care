@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Calendar, Clock, User, Phone, Mail, Stethoscope, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,6 +45,7 @@ interface FormData {
 export function AppointmentRequestForm() {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitLock = useRef(false);
   const [hospitals, setHospitals] = useState<PublicHospital[]>([]);
   const [doctors, setDoctors] = useState<PublicDoctor[]>([]);
   const [formData, setFormData] = useState<FormData>({
@@ -95,32 +96,35 @@ export function AppointmentRequestForm() {
       });
       return;
     }
+    if (submitLock.current) return;
+    submitLock.current = true;
     setIsSubmitting(true);
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-    toast({
-      title: "Demande envoyée !",
-      description: "Votre demande de rendez-vous a été envoyée. Nous vous contacterons sous 24h pour confirmer.",
-    });
+      toast({
+        title: "Demande envoyée !",
+        description: "Votre demande de rendez-vous a été envoyée. Nous vous contacterons sous 24h pour confirmer.",
+      });
 
-    // Reset form
-    setFormData({
-      firstName: "",
-      lastName: "",
-      email: "",
-      phone: "",
-      dateOfBirth: "",
-      preferredDate: "",
-      preferredTime: "",
-      organizationSlug: "",
-      doctorId: "",
-      reason: "",
-      notes: ""
-    });
-
-    setIsSubmitting(false);
+      setFormData({
+        firstName: "",
+        lastName: "",
+        email: "",
+        phone: "",
+        dateOfBirth: "",
+        preferredDate: "",
+        preferredTime: "",
+        organizationSlug: "",
+        doctorId: "",
+        reason: "",
+        notes: ""
+      });
+    } finally {
+      submitLock.current = false;
+      setIsSubmitting(false);
+    }
   };
 
   const timeSlots = [

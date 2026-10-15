@@ -8,9 +8,9 @@ interface NotificationContextType {
   notifications: Notification[];
   unreadCount: number;
   addNotification: (notification: Omit<Notification, 'id' | 'createdAt' | 'read'>) => void;
-  markAsRead: (id: string) => void;
-  markAllAsRead: () => void;
-  clearNotification: (id: string) => void;
+  markAsRead: (id: string) => Promise<void>;
+  markAllAsRead: () => Promise<void>;
+  clearNotification: (id: string) => Promise<void>;
   refreshNotifications: () => void;
 }
 
@@ -73,17 +73,17 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   const markAsRead = useCallback((id: string) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-    void notificationService.markAsRead(id).catch(() => undefined);
+    return notificationService.markAsRead(id).then(() => undefined).catch(() => undefined);
   }, []);
 
   const markAllAsRead = useCallback(() => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-    void notificationService.markAllAsRead().catch(() => undefined);
+    return notificationService.markAllAsRead().then(() => undefined).catch(() => undefined);
   }, []);
 
   const clearNotification = useCallback((id: string) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
-    void notificationService.markAsRead(id).catch(() => undefined);
+    return notificationService.markAsRead(id).then(() => undefined).catch(() => undefined);
   }, []);
 
   return (

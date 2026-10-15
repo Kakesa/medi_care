@@ -325,7 +325,7 @@ export default function BedManagement() {
                       <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setWardDialog({ id: ward.id, name: ward.name, floor: String(ward.floor), department: ward.department })}>
                         <Pencil className="h-4 w-4" />
                       </Button>
-                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => void removeWard(ward)}>
+                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => removeWard(ward)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -348,12 +348,12 @@ export default function BedManagement() {
                             </Button>
                           )}
                           {bed.status === "occupied" && (
-                            <Button size="sm" variant="ghost" className="h-7 text-xs text-red-600" onClick={() => void releaseBed(bed.id)}>
+                            <Button size="sm" variant="ghost" className="h-7 text-xs text-red-600" onClick={() => releaseBed(bed.id)}>
                               <UserMinus className="h-3 w-3 mr-1" />Libérer
                             </Button>
                           )}
                           {(bed.status === "available" || bed.status === "maintenance") && (
-                            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => void toggleMaintenance(bed)}>
+                            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => toggleMaintenance(bed)}>
                               <Wrench className="h-3 w-3 mr-1" />{bed.status === "maintenance" ? "Dispo" : "Maint."}
                             </Button>
                           )}
@@ -361,7 +361,7 @@ export default function BedManagement() {
                             <Pencil className="h-3 w-3 mr-1" />Modifier
                           </Button>
                           {bed.status !== "occupied" && (
-                            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => void removeBed(bed)}>
+                            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => removeBed(bed)}>
                               <Trash2 className="h-3 w-3 mr-1" />Supprimer
                             </Button>
                           )}
@@ -414,7 +414,7 @@ export default function BedManagement() {
                         </Button>
                       )}
                       {bed.status === "occupied" && (
-                        <Button size="icon" variant="outline" className="h-7 w-7 text-red-600" onClick={() => void releaseBed(bed.id)}>
+                        <Button size="icon" variant="outline" className="h-7 w-7 text-red-600" onClick={() => releaseBed(bed.id)}>
                           <UserMinus className="h-3 w-3" />
                         </Button>
                       )}
@@ -422,7 +422,7 @@ export default function BedManagement() {
                         <Pencil className="h-3 w-3" />
                       </Button>
                       {bed.status !== "occupied" && (
-                        <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => void removeBed(bed)}>
+                        <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => removeBed(bed)}>
                           <Trash2 className="h-3 w-3" />
                         </Button>
                       )}
@@ -543,7 +543,7 @@ export default function BedManagement() {
                 <Input list="ward-departments" value={wardDialog.department} onChange={(event) => setWardDialog({ ...wardDialog, department: event.target.value })} />
                 <datalist id="ward-departments">{departments.map((department) => <option key={department} value={department} />)}</datalist>
               </div>
-              <Button className="w-full" onClick={() => void saveWard()} disabled={wardDialog.name.trim().length < 2 || wardDialog.department.trim().length < 2}>Enregistrer</Button>
+              <Button className="w-full" onClick={() => saveWard()} disabled={wardDialog.name.trim().length < 2 || wardDialog.department.trim().length < 2}>Enregistrer</Button>
             </div>
           )}
         </DialogContent>
@@ -594,7 +594,7 @@ export default function BedManagement() {
                 <Label>Notes</Label>
                 <Textarea value={bedDialog.notes} onChange={(event) => setBedDialog({ ...bedDialog, notes: event.target.value })} />
               </div>
-              <Button className="w-full" onClick={() => void saveBed()} disabled={!bedDialog.number.trim() || !bedDialog.wardId}>Enregistrer</Button>
+              <Button className="w-full" onClick={() => saveBed()} disabled={!bedDialog.number.trim() || !bedDialog.wardId}>Enregistrer</Button>
             </div>
           )}
         </DialogContent>
@@ -619,7 +619,7 @@ export default function BedManagement() {
               <Label>Sortie prévue</Label>
               <Input type="date" value={assignDialog.expectedDischarge} onChange={(event) => setAssignDialog({ ...assignDialog, expectedDischarge: event.target.value })} />
             </div>
-            <Button onClick={() => void assignBed()} disabled={!assignDialog.patientId}>Confirmer l'attribution</Button>
+            <Button onClick={() => assignBed()} disabled={!assignDialog.patientId}>Confirmer l'attribution</Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -517,9 +517,7 @@ export default function Examinations() {
                       size="sm"
                       onClick={() => {
                         const input = document.getElementById('results-input') as HTMLTextAreaElement;
-                        if (input.value) {
-                          handleAddResults(selectedExam.id, input.value);
-                        }
+                        if (input?.value) return handleAddResults(selectedExam.id, input.value);
                       }}
                     >
                       Enregistrer les résultats

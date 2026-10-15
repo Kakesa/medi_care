@@ -216,14 +216,14 @@ export default function PatientDashboard() {
               <Calendar className="h-5 w-5 text-primary" />
               Mes rendez-vous
             </CardTitle>
-            <Button variant="outline" size="sm" onClick={() => void openRequest()}>Demander un rendez-vous</Button>
+            <Button variant="outline" size="sm" onClick={() => openRequest()}>Demander un rendez-vous</Button>
           </CardHeader>
           <CardContent className="space-y-4">
             {upcomingAppointments.length === 0 ? (
               <div className="text-center py-8">
                 <Calendar className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
                 <p className="text-muted-foreground">Aucun rendez-vous prévu</p>
-                <Button className="mt-4" size="sm" onClick={() => void openRequest()}>Prendre rendez-vous</Button>
+                <Button className="mt-4" size="sm" onClick={() => openRequest()}>Prendre rendez-vous</Button>
               </div>
             ) : (
               upcomingAppointments.map((apt) => (
@@ -248,16 +248,16 @@ export default function PatientDashboard() {
                     {getStatusBadge(apt.status)}
                     {apt.status === "pending" && apt.requestedBy !== "patient" && (
                       <>
-                        <Button size="sm" onClick={() => void respond(apt.id, "accept")} disabled={respondingId === apt.id}>
+                        <Button size="sm" onClick={() => respond(apt.id, "accept")} disabled={respondingId === apt.id}>
                           <Check className="mr-1 h-4 w-4" />Accepter
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => void respond(apt.id, "decline")} disabled={respondingId === apt.id}>
+                        <Button size="sm" variant="outline" onClick={() => respond(apt.id, "decline")} disabled={respondingId === apt.id}>
                           <X className="mr-1 h-4 w-4" />Refuser
                         </Button>
                       </>
                     )}
                     {apt.status === "pending" && apt.requestedBy === "patient" && (
-                      <Button size="sm" variant="outline" onClick={() => void respond(apt.id, "decline")} disabled={respondingId === apt.id}>
+                      <Button size="sm" variant="outline" onClick={() => respond(apt.id, "decline")} disabled={respondingId === apt.id}>
                         Annuler
                       </Button>
                     )}
@@ -438,7 +438,7 @@ export default function PatientDashboard() {
             </div>
           </fieldset>
           <div className="shrink-0 border-t bg-background px-5 py-4">
-            <Button className="w-full disabled:opacity-100" variant="hero" size="lg" type="button" disabled={requesting} onClick={() => void requestAppointment()}>
+            <Button className="w-full disabled:opacity-100" variant="hero" size="lg" type="button" disabled={requesting} onClick={() => requestAppointment()}>
               {requesting ? <><Loader2 className="h-4 w-4 animate-spin" />Envoi...</> : "Envoyer la demande"}
             </Button>
           </div>

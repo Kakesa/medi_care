@@ -104,7 +104,7 @@ export default function Hospitals() {
               <div className="space-y-2"><Label>Adresse</Label><Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></div>
               <div className="space-y-2"><Label>Téléphone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
               <div className="space-y-2"><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
-              <Button className="w-full" onClick={() => void createHospital()}>Créer</Button>
+              <Button className="w-full" onClick={() => createHospital()}>Créer</Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -127,7 +127,7 @@ export default function Hospitals() {
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline" onClick={() => setAdminFor(hospital)}>Créer un administrateur</Button>
-                <Button variant="outline" onClick={() => void toggleStatus(hospital)}>
+                <Button variant="outline" onClick={() => toggleStatus(hospital)}>
                   {hospital.status === "active" ? "Suspendre" : "Réactiver"}
                 </Button>
               </div>
@@ -146,7 +146,7 @@ export default function Hospitals() {
             </div>
             <div className="space-y-2"><Label>Email</Label><Input type="email" value={adminForm.email} onChange={(e) => setAdminForm({ ...adminForm, email: e.target.value })} /></div>
             <p className="text-sm text-muted-foreground">Un mot de passe temporaire sera envoyé à cet e-mail. L'administrateur devra le changer à sa première connexion.</p>
-            <Button className="w-full" onClick={() => void createAdmin()}>Créer le compte</Button>
+            <Button className="w-full" onClick={() => createAdmin()}>Créer le compte</Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -228,10 +228,10 @@ export default function DoctorDashboard() {
                   <p className="text-sm text-muted-foreground">{appointment.date} à {appointment.time}</p>
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" onClick={() => void respond(appointment.id, "accept")} disabled={respondingId === appointment.id}>
+                  <Button size="sm" onClick={() => respond(appointment.id, "accept")} disabled={respondingId === appointment.id}>
                     <Check className="mr-1 h-4 w-4" />Accepter
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => void respond(appointment.id, "decline")} disabled={respondingId === appointment.id}>
+                  <Button size="sm" variant="outline" onClick={() => respond(appointment.id, "decline")} disabled={respondingId === appointment.id}>
                     <X className="mr-1 h-4 w-4" />Refuser
                   </Button>
                 </div>

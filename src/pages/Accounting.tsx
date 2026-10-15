@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +49,8 @@ export default function Accounting() {
   const [filterType, setFilterType] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const createLock = useRef(false);
+  const rowLock = useRef(new Set<string>());
   const [newMovement, setNewMovement] = useState({
     type: "income" as "income" | "expense",
     category: "",
@@ -126,7 +128,9 @@ export default function Accounting() {
   }, [movements]);
 
   const handleCreate = () => {
+    if (createLock.current) return;
     if (!newMovement.label || !newMovement.amount || !newMovement.category) return;
+    createLock.current = true;
     const movement = {
       id: `mov-${Date.now()}`,
       ...newMovement,
@@ -140,10 +144,14 @@ export default function Accounting() {
   };
 
   const handleValidate = (id: string) => {
+    if (rowLock.current.has(id)) return;
+    rowLock.current.add(id);
     setMovements(movements.map((m) => m.id === id ? { ...m, status: "validated" as const, validatedBy: "Admin" } : m));
   };
 
   const handleCancel = (id: string) => {
+    if (rowLock.current.has(id)) return;
+    rowLock.current.add(id);
     setMovements(movements.map((m) => m.id === id ? { ...m, status: "cancelled" as const } : m));
   };
 
@@ -156,7 +164,10 @@ export default function Accounting() {
           <h1 className="text-3xl font-bold text-foreground">Comptabilité</h1>
           <p className="text-muted-foreground mt-1">Gestion des mouvements financiers</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (open) createLock.current = false;
+        }}>
           <DialogTrigger asChild>
             <Button><Plus className="h-4 w-4 mr-2" />Nouveau mouvement</Button>
           </DialogTrigger>

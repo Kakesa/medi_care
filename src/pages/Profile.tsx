@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { User, Mail, Phone, Lock, Save, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,8 @@ export default function Profile() {
   
   const [isUpdating, setIsUpdating] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const profileLock = useRef(false);
+  const passwordLock = useRef(false);
 
   const handleProfileChange = (field: string, value: string) => {
     setProfileData(prev => ({ ...prev, [field]: value }));
@@ -45,17 +47,22 @@ export default function Profile() {
 
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (profileLock.current) return;
+    profileLock.current = true;
     setIsUpdating(true);
 
-    const result = await updateProfile(profileData);
-    
-    toast({
-      variant: result.success ? "default" : "destructive",
-      title: result.success ? "Profil mis à jour" : "Erreur",
-      description: result.message,
-    });
-    
-    setIsUpdating(false);
+    try {
+      const result = await updateProfile(profileData);
+
+      toast({
+        variant: result.success ? "default" : "destructive",
+        title: result.success ? "Profil mis à jour" : "Erreur",
+        description: result.message,
+      });
+    } finally {
+      profileLock.current = false;
+      setIsUpdating(false);
+    }
   };
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
@@ -79,25 +86,30 @@ export default function Profile() {
       return;
     }
 
+    if (passwordLock.current) return;
+    passwordLock.current = true;
     setIsChangingPassword(true);
 
-    const result = await changePassword(passwordData.currentPassword, passwordData.newPassword);
-    
-    toast({
-      variant: result.success ? "default" : "destructive",
-      title: result.success ? "Mot de passe modifié" : "Erreur",
-      description: result.message,
-    });
-    
-    if (result.success) {
-      setPasswordData({
-        currentPassword: "",
-        newPassword: "",
-        confirmPassword: ""
+    try {
+      const result = await changePassword(passwordData.currentPassword, passwordData.newPassword);
+
+      toast({
+        variant: result.success ? "default" : "destructive",
+        title: result.success ? "Mot de passe modifié" : "Erreur",
+        description: result.message,
       });
+
+      if (result.success) {
+        setPasswordData({
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: ""
+        });
+      }
+    } finally {
+      passwordLock.current = false;
+      setIsChangingPassword(false);
     }
-    
-    setIsChangingPassword(false);
   };
 
   return (

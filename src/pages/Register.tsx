@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Activity, Mail, Lock, Eye, EyeOff, ArrowRight, User, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ export default function Register() {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const submitLock = useRef(false);
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -50,32 +51,37 @@ export default function Register() {
       return;
     }
 
+    if (submitLock.current) return;
+    submitLock.current = true;
     setIsLoading(true);
 
-    const result = await register({
-      email: formData.email,
-      password: formData.password,
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-      phone: formData.phone,
-      organizationSlug: formData.organizationSlug.trim().toLowerCase()
-    });
-    
-    if (result.success) {
-      toast({
-        title: "Inscription réussie",
-        description: "Bienvenue sur MediCare SIH",
+    try {
+      const result = await register({
+        email: formData.email,
+        password: formData.password,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        phone: formData.phone,
+        organizationSlug: formData.organizationSlug.trim().toLowerCase()
       });
-      navigate("/dashboard");
-    } else {
-      toast({
-        variant: "destructive",
-        title: "Erreur d'inscription",
-        description: result.message,
-      });
+
+      if (result.success) {
+        toast({
+          title: "Inscription réussie",
+          description: "Bienvenue sur MediCare SIH",
+        });
+        navigate("/dashboard");
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Erreur d'inscription",
+          description: result.message,
+        });
+      }
+    } finally {
+      submitLock.current = false;
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
   };
 
   return (

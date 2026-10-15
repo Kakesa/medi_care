@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Plus, Search, FileText, Download, CreditCard, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,7 @@ export default function Billing() {
     items: [{ description: "", quantity: 1, unitPrice: 0, type: "consultation" as "consultation" | "exam" | "medication" }],
     notes: "",
   });
+  const pdfLock = useRef(new Set<string>());
 
   const loadBilling = async () => {
     try {
@@ -104,8 +105,16 @@ export default function Billing() {
   };
 
   const handleDownloadPDF = (invoice: Invoice) => {
+    if (pdfLock.current.has(invoice.id)) return;
+    pdfLock.current.add(invoice.id);
     generateInvoicePDF(invoice);
     toast.success("PDF téléchargé");
+    return new Promise<void>((resolve) => {
+      window.setTimeout(() => {
+        pdfLock.current.delete(invoice.id);
+        resolve();
+      }, 800);
+    });
   };
 
   const getStatusBadge = (status: InvoiceStatus) => {

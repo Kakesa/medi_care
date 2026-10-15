@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ export function ForcePasswordChange() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const submitLock = useRef(false);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -23,11 +24,17 @@ export function ForcePasswordChange() {
       setError("Les deux nouveaux mots de passe ne correspondent pas.");
       return;
     }
+    if (submitLock.current) return;
+    submitLock.current = true;
     setIsSaving(true);
     setError("");
-    const result = await changePassword(currentPassword, newPassword);
-    setIsSaving(false);
-    if (!result.success) setError(result.message);
+    try {
+      const result = await changePassword(currentPassword, newPassword);
+      if (!result.success) setError(result.message);
+    } finally {
+      submitLock.current = false;
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -37,7 +44,7 @@ export function ForcePasswordChange() {
         <p className="mt-2 text-sm text-muted-foreground">
           C'est votre première connexion. Le mot de passe reçu par e-mail doit être remplacé avant d'accéder à MediCare.
         </p>
-        <form onSubmit={(event) => void submit(event)} className="mt-6 space-y-4">
+        <form onSubmit={submit} className="mt-6 space-y-4">
           <div className="space-y-2">
             <Label htmlFor="currentPassword">Mot de passe reçu par e-mail</Label>
             <Input id="currentPassword" type="password" required value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} />

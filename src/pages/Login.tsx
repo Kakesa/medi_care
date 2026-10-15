@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Activity, Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,28 +17,34 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const submitLock = useRef(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitLock.current) return;
+    submitLock.current = true;
     setIsLoading(true);
 
-    const result = await login(email, password);
-    
-    if (result.success) {
-      toast({
-        title: "Connexion réussie",
-        description: "Bienvenue sur MediCare SIH",
-      });
-      navigate("/dashboard");
-    } else {
-      toast({
-        variant: "destructive",
-        title: "Erreur de connexion",
-        description: result.message,
-      });
+    try {
+      const result = await login(email, password);
+
+      if (result.success) {
+        toast({
+          title: "Connexion réussie",
+          description: "Bienvenue sur MediCare SIH",
+        });
+        navigate("/dashboard");
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Erreur de connexion",
+          description: result.message,
+        });
+      }
+    } finally {
+      submitLock.current = false;
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
   };
 
   return (

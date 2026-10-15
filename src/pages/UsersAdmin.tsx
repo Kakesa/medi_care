@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -38,6 +38,7 @@ export default function UsersAdmin() {
   const [error, setError] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const roleLock = useRef(false);
 
   const load = async () => {
     setIsLoading(true);
@@ -78,11 +79,15 @@ export default function UsersAdmin() {
   };
 
   const changeRole = async (account: User, role: AssignableRole) => {
+    if (roleLock.current) return;
+    roleLock.current = true;
     try {
       await userAdminService.updateRole(account.id, role);
       await load();
     } catch (reason) {
       toast({ variant: "destructive", title: "Modification refusée", description: (reason as ApiError).message });
+    } finally {
+      roleLock.current = false;
     }
   };
 
@@ -125,7 +130,7 @@ export default function UsersAdmin() {
                   </SelectContent>
                 </Select>
               </div>
-              <Button className="w-full" onClick={() => void createUser()}>Créer</Button>
+              <Button className="w-full" onClick={() => createUser()}>Créer</Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -153,7 +158,7 @@ export default function UsersAdmin() {
                   {roles.map((role) => <SelectItem key={role} value={role}>{roleLabels[role]}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Button variant="outline" onClick={() => void toggleStatus(account)} disabled={account.id === user?.id}>
+              <Button variant="outline" onClick={() => toggleStatus(account)} disabled={account.id === user?.id}>
                 {account.isActive === false ? "Activer" : "Désactiver"}
               </Button>
             </div>

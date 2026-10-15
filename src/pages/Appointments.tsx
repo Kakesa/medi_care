@@ -193,10 +193,10 @@ export default function Appointments() {
             </Badge>
             {appointment.status === "pending" && appointment.requestedBy === "patient" && (
               <>
-                <Button size="sm" type="button" onClick={() => void respond(appointment.id, "accept")} disabled={respondingId === appointment.id}>
+                <Button size="sm" type="button" onClick={() => respond(appointment.id, "accept")} disabled={respondingId === appointment.id}>
                   <Check className="mr-1 h-4 w-4" />Accepter
                 </Button>
-                <Button size="sm" type="button" variant="outline" onClick={() => void respond(appointment.id, "decline")} disabled={respondingId === appointment.id}>
+                <Button size="sm" type="button" variant="outline" onClick={() => respond(appointment.id, "decline")} disabled={respondingId === appointment.id}>
                   <X className="mr-1 h-4 w-4" />Refuser
                 </Button>
               </>
@@ -360,7 +360,7 @@ export default function Appointments() {
             size="lg"
             type="button"
             aria-busy={saving}
-            onClick={() => void createAppointment()}
+            onClick={() => createAppointment()}
             disabled={saving}
           >
             {saving ? (

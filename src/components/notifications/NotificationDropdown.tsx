@@ -80,10 +80,11 @@ export function NotificationDropdown() {
                     !notification.read && "bg-secondary/50"
                   )}
                   onClick={() => {
-                    markAsRead(notification.id);
+                    const pending = markAsRead(notification.id);
                     if (notification.type === 'appointment') {
                       navigate(user?.role === 'PATIENT' ? '/dashboard' : '/dashboard/appointments');
                     }
+                    return pending;
                   }}
                 >
                   <div className={cn("mt-0.5", typeColors[notification.type])}>
@@ -106,7 +107,7 @@ export function NotificationDropdown() {
                     className="h-6 w-6 shrink-0"
                     onClick={(e) => {
                       e.stopPropagation();
-                      clearNotification(notification.id);
+                      return clearNotification(notification.id);
                     }}
                   >
                     <Trash2 className="h-3 w-3" />

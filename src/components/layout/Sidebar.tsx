@@ -28,7 +28,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "next-themes";
 import type { UserRole } from "@/types";
 
-const allNavigation: { name: string; href: string; icon: typeof LayoutDashboard; roles: UserRole[] }[] = [
+export const allNavigation: { name: string; href: string; icon: typeof LayoutDashboard; roles: UserRole[] }[] = [
   { name: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard, roles: ['SUPERADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'RECEPTIONIST', 'NURSE', 'ACCOUNTANT', 'PHARMACIST', 'PATIENT'] },
   { name: "Hôpitaux", href: "/dashboard/hospitals", icon: Building2, roles: ['SUPERADMIN'] },
   { name: "Utilisateurs", href: "/dashboard/users", icon: UserCog, roles: ['HOSPITAL_ADMIN'] },

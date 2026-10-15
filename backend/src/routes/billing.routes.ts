@@ -27,6 +27,7 @@ router.get('/invoices', validate(listInvoicesSchema), clinical.listInvoices);
 router.post('/invoices', validate(createInvoiceSchema), clinical.createInvoice);
 router.get('/invoices/:id', validate(invoiceParamsSchema), clinical.getInvoice);
 router.put('/invoices/:id', validate(updateInvoiceSchema), clinical.updateInvoice);
+router.patch('/invoices/:id/finalize', validate(invoiceParamsSchema), clinical.finalizeInvoice);
 router.patch('/invoices/:id/pay', validate(payInvoiceSchema), clinical.payInvoice);
 router.patch('/invoices/:id/cancel', validate(invoiceParamsSchema), clinical.cancelInvoice);
 router.delete('/invoices/:id', validate(invoiceParamsSchema), clinical.deleteInvoice);

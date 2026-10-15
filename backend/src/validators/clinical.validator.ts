@@ -293,7 +293,7 @@ const invoiceItem = z.object({
 export const listInvoicesSchema = envelope(
   empty,
   paginationSchema.extend({
-    status: z.enum(['pending', 'paid', 'cancelled', 'overdue']).optional(),
+    status: z.enum(['draft', 'pending', 'paid', 'cancelled', 'overdue']).optional(),
     patientId: objectIdSchema.optional(),
     startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),

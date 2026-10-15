@@ -48,6 +48,10 @@ class BillingService {
     return httpClient.delete<ApiResponse<void>>(`${this.basePath}/invoices/${id}`);
   }
 
+  async finalizeInvoice(id: string): Promise<Invoice> {
+    return httpClient.patch<Invoice>(`${this.basePath}/invoices/${id}/finalize`, {});
+  }
+
   async markAsPaid(id: string, paymentMethod: PaymentMethod): Promise<Invoice> {
     return httpClient.patch<Invoice>(`${this.basePath}/invoices/${id}/pay`, { paymentMethod });
   }

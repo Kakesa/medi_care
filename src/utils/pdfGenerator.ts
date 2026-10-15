@@ -59,22 +59,24 @@ export const generateInvoicePDF = (invoice: Invoice): void => {
 
   // Status badge
   const statusColors: Record<string, [number, number, number]> = {
+    draft: [100, 116, 139],
     paid: [34, 197, 94],
     pending: [234, 179, 8],
     overdue: [239, 68, 68],
     cancelled: [107, 114, 128],
   };
   const statusLabels: Record<string, string> = {
+    draft: 'BROUILLON',
     paid: 'PAYÉE',
-    pending: 'EN ATTENTE',
+    pending: 'FINALISÉE',
     overdue: 'EN RETARD',
     cancelled: 'ANNULÉE',
   };
   doc.setFillColor(...(statusColors[invoice.status] || COLORS.secondary));
-  doc.roundedRect(pageWidth - 60, 55, 40, 12, 2, 2, 'F');
+  doc.roundedRect(pageWidth - 72, 55, 52, 12, 2, 2, 'F');
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(9);
-  doc.text(statusLabels[invoice.status] || invoice.status.toUpperCase(), pageWidth - 40, 63, { align: 'center' });
+  doc.setFontSize(8);
+  doc.text(statusLabels[invoice.status] || invoice.status.toUpperCase(), pageWidth - 46, 63, { align: 'center' });
 
   // Patient info box
   doc.setTextColor(0, 0, 0);

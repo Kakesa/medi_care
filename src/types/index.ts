@@ -34,7 +34,7 @@ export type ExamStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
 export type NotificationType = 'appointment' | 'patient_arrival' | 'exam_result' | 'pharmacy' | 'general' | 'billing';
 export type ProductStatus = 'in_stock' | 'low_stock' | 'out_of_stock';
 export type OrderStatus = 'pending' | 'confirmed' | 'delivered' | 'cancelled';
-export type InvoiceStatus = 'pending' | 'paid' | 'cancelled' | 'overdue';
+export type InvoiceStatus = 'draft' | 'pending' | 'paid' | 'cancelled' | 'overdue';
 export type PaymentMethod = 'cash' | 'card' | 'transfer' | 'insurance';
 
 // ============ User & Auth ============
@@ -378,6 +378,7 @@ export interface Invoice {
   total: number;
   status: InvoiceStatus;
   paymentMethod?: PaymentMethod;
+  finalizedAt?: string;
   paidAt?: string;
   dueDate: string;
   notes?: string;

@@ -222,6 +222,9 @@ export const createInvoice = asyncHandler(async (req: Request, res: Response) =>
 export const updateInvoice = asyncHandler(async (req: Request, res: Response) => {
   res.json(await billingService.updateInvoice(auth(req), org(req), req.params.id, req.body, req.ip));
 });
+export const finalizeInvoice = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await billingService.finalizeInvoice(auth(req), org(req), req.params.id, req.ip));
+});
 export const payInvoice = asyncHandler(async (req: Request, res: Response) => {
   res.json(await billingService.payInvoice(auth(req), org(req), req.params.id, req.body.paymentMethod, req.ip));
 });

@@ -39,6 +39,7 @@ function toInvoiceDto(row: {
   total: number;
   status: string;
   paymentMethod?: string | null;
+  finalizedAt?: Date | null;
   paidAt?: Date | null;
   notes?: string | null;
   createdAt?: Date;
@@ -67,6 +68,7 @@ function toInvoiceDto(row: {
     total: row.total,
     status,
     paymentMethod: row.paymentMethod || undefined,
+    finalizedAt: row.finalizedAt || undefined,
     paidAt: row.paidAt,
     dueDate: dateOnly(row.dueDate),
     notes: row.notes || undefined,
@@ -161,7 +163,7 @@ export async function createInvoice(
     date: new Date(),
     dueDate: due,
     ...priced,
-    status: 'pending',
+    status: 'draft',
     notes: input.notes?.trim(),
   });
   await recordAudit({
@@ -185,8 +187,8 @@ export async function updateInvoice(
   ip?: string
 ) {
   const row = await requireOwned(Invoice, id, organizationId, actor, 'invoice', ip);
-  if (row.status === 'paid') {
-    throw new ApiError(409, 'Une facture payée ne peut plus être modifiée', 'INVOICE_LOCKED');
+  if (row.status !== 'draft') {
+    throw new ApiError(409, 'Une facture finalisée ne peut plus être modifiée', 'INVOICE_LOCKED');
   }
   if (input.items) {
     const priced = priceItems(input.items);
@@ -214,6 +216,9 @@ export async function payInvoice(
   if (row.status === 'paid') {
     return toInvoiceDto(row);
   }
+  if (row.status === 'draft') {
+    throw new ApiError(409, 'Finalisez la facture avant de l\'encaisser', 'INVOICE_NOT_FINALIZED');
+  }
   if (row.status === 'cancelled') {
     throw new ApiError(409, 'Une facture annulée ne peut pas être encaissée', 'INVOICE_LOCKED');
   }
@@ -231,6 +236,33 @@ export async function payInvoice(
     success: true,
     ip,
     metadata: { paymentMethod },
+  });
+  return toInvoiceDto(row);
+}
+
+export async function finalizeInvoice(actor: AuthContext, organizationId: string, id: string, ip?: string) {
+  const row = await requireOwned(Invoice, id, organizationId, actor, 'invoice', ip);
+  if (row.status === 'pending' || row.status === 'overdue') {
+    return toInvoiceDto(row);
+  }
+  if (row.status !== 'draft') {
+    throw new ApiError(409, 'Cette facture ne peut plus être finalisée', 'INVOICE_LOCKED');
+  }
+  if (!row.items.length) {
+    throw new ApiError(400, 'La facture doit contenir au moins une ligne', 'VALIDATION_ERROR');
+  }
+  row.status = 'pending';
+  row.finalizedAt = new Date();
+  await row.save();
+  await recordAudit({
+    actorId: actor.id,
+    actorRole: actor.role,
+    organizationId,
+    action: 'INVOICE_FINALIZED',
+    resourceType: 'invoice',
+    resourceId: id,
+    success: true,
+    ip,
   });
   return toInvoiceDto(row);
 }

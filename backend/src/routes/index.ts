@@ -10,6 +10,8 @@ import receptionRoutes from './reception.routes.js';
 import examRoutes from './exam.routes.js';
 import pharmacyRoutes from './pharmacy.routes.js';
 import billingRoutes from './billing.routes.js';
+import wardRoutes from './ward.routes.js';
+import bedRoutes from './bed.routes.js';
 
 const router = Router();
 
@@ -28,5 +30,7 @@ router.use('/reception', receptionRoutes);
 router.use('/exams', examRoutes);
 router.use('/pharmacy', pharmacyRoutes);
 router.use('/billing', billingRoutes);
+router.use('/wards', wardRoutes);
+router.use('/beds', bedRoutes);
 
 export default router;

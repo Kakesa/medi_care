@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -6,142 +6,267 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   BedDouble, Users, Wrench, Clock, CheckCircle,
-  UserPlus, UserMinus, History, TrendingUp
+  UserPlus, UserMinus, History, TrendingUp, Plus, Pencil, Trash2
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, LineChart, Line, Legend
+  ResponsiveContainer, Legend
 } from "recharts";
-import { mockBeds, mockWards, mockPatients, bedTypeLabels, bedStatusLabels } from "@/data/mockData";
-import type { Bed } from "@/data/mockData";
+import { bedTypeLabels, bedStatusLabels, departments } from "@/data/mockData";
+import { bedService } from "@/services/bedService";
+import { patientService } from "@/services/patientService";
+import { apiMessage } from "@/lib/apiError";
+import { useToast } from "@/hooks/use-toast";
+import type { Bed, BedOccupation, BedStatus, BedType, Patient, Ward } from "@/types";
 
-const statusColors: Record<string, string> = {
+const statusColors: Record<BedStatus, string> = {
   available: "bg-green-500",
   occupied: "bg-red-500",
   maintenance: "bg-yellow-500",
   reserved: "bg-blue-500",
 };
 
-const statusBadgeVariant: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+const statusBadgeVariant: Record<BedStatus, "default" | "secondary" | "destructive" | "outline"> = {
   available: "default",
   occupied: "destructive",
   maintenance: "outline",
   reserved: "secondary",
 };
 
-// Mock occupation history data
-const mockOccupationHistory = [
-  { id: "occ-1", bedNumber: "A-101", wardName: "Cardiologie A", patientName: "Jean Martin", admissionDate: "2024-01-10", dischargeDate: null, durationDays: 12, status: "active" },
-  { id: "occ-2", bedNumber: "B-201", wardName: "Neurologie B", patientName: "Pierre Durand", admissionDate: "2024-01-05", dischargeDate: null, durationDays: 17, status: "active" },
-  { id: "occ-3", bedNumber: "SI-01", wardName: "Soins intensifs", patientName: "Robert Moreau", admissionDate: "2024-01-21", dischargeDate: null, durationDays: 1, status: "active" },
-  { id: "occ-4", bedNumber: "A-102", wardName: "Cardiologie A", patientName: "Michel Bernard", admissionDate: "2024-01-02", dischargeDate: "2024-01-18", durationDays: 16, status: "completed" },
-  { id: "occ-5", bedNumber: "B-203", wardName: "Neurologie B", patientName: "Anne Lefebvre", admissionDate: "2023-12-28", dischargeDate: "2024-01-15", durationDays: 18, status: "completed" },
-  { id: "occ-6", bedNumber: "C-101", wardName: "Pédiatrie C", patientName: "Lucas Petit", admissionDate: "2024-01-20", dischargeDate: null, durationDays: 2, status: "active" },
-  { id: "occ-7", bedNumber: "D-301", wardName: "Maternité D", patientName: "Camille Rousseau", admissionDate: "2024-01-22", dischargeDate: null, durationDays: 0, status: "active" },
-  { id: "occ-8", bedNumber: "E-203", wardName: "Chirurgie E", patientName: "François Blanc", admissionDate: "2024-01-17", dischargeDate: null, durationDays: 5, status: "active" },
-  { id: "occ-9", bedNumber: "A-103", wardName: "Cardiologie A", patientName: "Claire Moreau", admissionDate: "2023-12-20", dischargeDate: "2024-01-08", durationDays: 19, status: "completed" },
-  { id: "occ-10", bedNumber: "SI-02", wardName: "Soins intensifs", patientName: "Henri Dupuis", admissionDate: "2024-01-12", dischargeDate: "2024-01-19", durationDays: 7, status: "completed" },
-];
+const bedTypes = Object.keys(bedTypeLabels) as BedType[];
 
-// Weekly occupation rate data
-const weeklyOccupationData = [
-  { semaine: "Sem 1", Cardiologie: 62, Neurologie: 50, Pédiatrie: 30, "Soins intensifs": 75, Maternité: 25, Chirurgie: 33 },
-  { semaine: "Sem 2", Cardiologie: 75, Neurologie: 67, Pédiatrie: 40, "Soins intensifs": 50, Maternité: 38, Chirurgie: 50 },
-  { semaine: "Sem 3", Cardiologie: 50, Neurologie: 33, Pédiatrie: 20, "Soins intensifs": 100, Maternité: 50, Chirurgie: 67 },
-  { semaine: "Sem 4", Cardiologie: 25, Neurologie: 67, Pédiatrie: 30, "Soins intensifs": 67, Maternité: 38, Chirurgie: 50 },
-];
-
-const LINE_COLORS = ["#ef4444", "#3b82f6", "#22c55e", "#f59e0b", "#ec4899", "#8b5cf6"];
+const emptyWard = { name: "", floor: "1", department: "" };
+const emptyBed = { number: "", wardId: "", type: "standard" as BedType, notes: "", status: "available" as Exclude<BedStatus, "occupied">, expectedDischarge: "" };
 
 export default function BedManagement() {
-  const [beds, setBeds] = useState<Bed[]>(mockBeds);
-  const [selectedWard, setSelectedWard] = useState<string>("all");
-  const [assignDialog, setAssignDialog] = useState<{ open: boolean; bedId: string | null }>({ open: false, bedId: null });
-  const [assignPatient, setAssignPatient] = useState({ patientName: "", expectedDischarge: "" });
+  const { toast } = useToast();
+  const [wards, setWards] = useState<Ward[]>([]);
+  const [beds, setBeds] = useState<Bed[]>([]);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [occupations, setOccupations] = useState<BedOccupation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [selectedWard, setSelectedWard] = useState("all");
+  const [wardDialog, setWardDialog] = useState<{ id?: string } & typeof emptyWard | null>(null);
+  const [bedDialog, setBedDialog] = useState<{ id?: string; occupied?: boolean } & typeof emptyBed | null>(null);
+  const [assignDialog, setAssignDialog] = useState<{ bedId: string | null; patientId: string; expectedDischarge: string }>({
+    bedId: null,
+    patientId: "",
+    expectedDischarge: "",
+  });
+
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    setError("");
+    try {
+      const [wardRows, bedRows, occupationRows, patientPage] = await Promise.all([
+        bedService.getWards(),
+        bedService.listAll(),
+        bedService.listOccupations(),
+        patientService.getAll({ limit: 100 }),
+      ]);
+      setWards(wardRows);
+      setBeds(bedRows);
+      setOccupations(occupationRows);
+      setPatients(patientPage.data.filter((patient) => patient.status !== "discharged"));
+    } catch (reason) {
+      setError(apiMessage(reason));
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const fail = (reason: unknown) => {
+    toast({ variant: "destructive", title: "Opération impossible", description: apiMessage(reason) });
+  };
 
   const filteredBeds = useMemo(() => {
     if (selectedWard === "all") return beds;
-    return beds.filter((b) => b.wardId === selectedWard);
+    return beds.filter((bed) => bed.wardId === selectedWard);
   }, [beds, selectedWard]);
 
   const stats = useMemo(() => {
     const total = beds.length;
-    const available = beds.filter((b) => b.status === "available").length;
-    const occupied = beds.filter((b) => b.status === "occupied").length;
-    const maintenance = beds.filter((b) => b.status === "maintenance").length;
-    const reserved = beds.filter((b) => b.status === "reserved").length;
+    const available = beds.filter((bed) => bed.status === "available").length;
+    const occupied = beds.filter((bed) => bed.status === "occupied").length;
+    const maintenance = beds.filter((bed) => bed.status === "maintenance").length;
+    const reserved = beds.filter((bed) => bed.status === "reserved").length;
     return { total, available, occupied, maintenance, reserved, occupancyRate: total > 0 ? Math.round((occupied / total) * 100) : 0 };
   }, [beds]);
 
   const wardStats = useMemo(() => {
-    return mockWards.map((w) => {
-      const wardBeds = beds.filter((b) => b.wardId === w.id);
-      const occupied = wardBeds.filter((b) => b.status === "occupied").length;
-      const available = wardBeds.filter((b) => b.status === "available").length;
-      return { ...w, bedsCount: wardBeds.length, occupied, available, rate: wardBeds.length > 0 ? Math.round((occupied / wardBeds.length) * 100) : 0 };
+    return wards.map((ward) => {
+      const wardBeds = beds.filter((bed) => bed.wardId === ward.id);
+      const occupied = wardBeds.filter((bed) => bed.status === "occupied").length;
+      const available = wardBeds.filter((bed) => bed.status === "available").length;
+      return { ...ward, bedsCount: wardBeds.length, occupied, available, rate: wardBeds.length > 0 ? Math.round((occupied / wardBeds.length) * 100) : 0 };
     });
-  }, [beds]);
+  }, [beds, wards]);
 
-  // Bar chart data: occupancy by ward
-  const wardOccupancyData = useMemo(() => {
-    return wardStats.map((w) => ({
-      name: w.name.replace(/\s[A-Z]$/, ""),
-      Occupés: w.occupied,
-      Disponibles: w.available,
-      Total: w.bedsCount,
-    }));
-  }, [wardStats]);
+  const wardOccupancyData = useMemo(
+    () => wardStats.map((ward) => ({ name: ward.name, Occupés: ward.occupied, Disponibles: ward.available })),
+    [wardStats]
+  );
 
-  // Average stay duration
-  const avgStay = useMemo(() => {
-    const completed = mockOccupationHistory.filter((o) => o.status === "completed");
-    if (completed.length === 0) return 0;
-    return Math.round(completed.reduce((s, o) => s + o.durationDays, 0) / completed.length);
-  }, []);
+  const monthKey = new Date().toISOString().slice(0, 7);
+  const completedStays = occupations.filter((stay) => stay.status === "completed");
+  const avgStay = completedStays.length
+    ? Math.round(completedStays.reduce((sum, stay) => sum + stay.durationDays, 0) / completedStays.length)
+    : 0;
+  const dischargesThisMonth = completedStays.filter((stay) => stay.dischargeDate?.startsWith(monthKey)).length;
 
-  const handleAssign = () => {
-    if (!assignDialog.bedId || !assignPatient.patientName) return;
-    setBeds(beds.map((b) =>
-      b.id === assignDialog.bedId
-        ? { ...b, status: "occupied" as const, patientName: assignPatient.patientName, admissionDate: new Date().toISOString().split("T")[0], expectedDischarge: assignPatient.expectedDischarge || undefined }
-        : b
-    ));
-    setAssignDialog({ open: false, bedId: null });
-    setAssignPatient({ patientName: "", expectedDischarge: "" });
+  const saveWard = async () => {
+    if (!wardDialog) return;
+    const payload = {
+      name: wardDialog.name.trim(),
+      floor: Number(wardDialog.floor),
+      department: wardDialog.department.trim(),
+    };
+    try {
+      if (wardDialog.id) {
+        await bedService.updateWard(wardDialog.id, payload);
+        toast({ title: "Service mis à jour" });
+      } else {
+        await bedService.createWard(payload);
+        toast({ title: "Service créé" });
+      }
+      setWardDialog(null);
+      await load();
+    } catch (reason) {
+      fail(reason);
+    }
   };
 
-  const handleRelease = (bedId: string) => {
-    setBeds(beds.map((b) =>
-      b.id === bedId
-        ? { ...b, status: "available" as const, patientId: undefined, patientName: undefined, admissionDate: undefined, expectedDischarge: undefined, notes: undefined }
-        : b
-    ));
+  const removeWard = async (ward: Ward) => {
+    if (!window.confirm(`Supprimer le service ${ward.name} ?`)) return;
+    try {
+      await bedService.deleteWard(ward.id);
+      toast({ title: "Service supprimé" });
+      await load();
+    } catch (reason) {
+      fail(reason);
+    }
   };
 
-  const handleToggleMaintenance = (bedId: string) => {
-    setBeds(beds.map((b) => {
-      if (b.id !== bedId) return b;
-      return b.status === "maintenance"
-        ? { ...b, status: "available" as const, notes: undefined }
-        : { ...b, status: "maintenance" as const };
-    }));
+  const saveBed = async () => {
+    if (!bedDialog) return;
+    try {
+      if (bedDialog.id) {
+        await bedService.update(bedDialog.id, {
+          ...(bedDialog.occupied ? {} : {
+            number: bedDialog.number.trim(),
+            wardId: bedDialog.wardId,
+            status: bedDialog.status,
+          }),
+          type: bedDialog.type,
+          notes: bedDialog.notes.trim(),
+          expectedDischarge: bedDialog.expectedDischarge,
+        });
+        toast({ title: "Lit mis à jour" });
+      } else {
+        await bedService.create({
+          number: bedDialog.number.trim(),
+          wardId: bedDialog.wardId,
+          type: bedDialog.type,
+          notes: bedDialog.notes.trim() || undefined,
+        });
+        toast({ title: "Lit créé" });
+      }
+      setBedDialog(null);
+      await load();
+    } catch (reason) {
+      fail(reason);
+    }
+  };
+
+  const removeBed = async (bed: Bed) => {
+    if (!window.confirm(`Supprimer le lit ${bed.number} ?`)) return;
+    try {
+      await bedService.delete(bed.id);
+      toast({ title: "Lit supprimé" });
+      await load();
+    } catch (reason) {
+      fail(reason);
+    }
+  };
+
+  const assignBed = async () => {
+    if (!assignDialog.bedId || !assignDialog.patientId) return;
+    try {
+      await bedService.assign(assignDialog.bedId, {
+        patientId: assignDialog.patientId,
+        expectedDischarge: assignDialog.expectedDischarge || undefined,
+      });
+      setAssignDialog({ bedId: null, patientId: "", expectedDischarge: "" });
+      toast({ title: "Lit attribué" });
+      await load();
+    } catch (reason) {
+      fail(reason);
+    }
+  };
+
+  const releaseBed = async (bedId: string) => {
+    try {
+      await bedService.release(bedId);
+      toast({ title: "Lit libéré" });
+      await load();
+    } catch (reason) {
+      fail(reason);
+    }
+  };
+
+  const toggleMaintenance = async (bed: Bed) => {
+    try {
+      await bedService.update(bed.id, { status: bed.status === "maintenance" ? "available" : "maintenance" });
+      await load();
+    } catch (reason) {
+      fail(reason);
+    }
+  };
+
+  const openBedEditor = (bed: Bed) => {
+    setBedDialog({
+      id: bed.id,
+      occupied: bed.status === "occupied",
+      number: bed.number,
+      wardId: bed.wardId,
+      type: bed.type,
+      notes: bed.notes ?? "",
+      status: bed.status === "occupied" ? "available" : bed.status,
+      expectedDischarge: bed.expectedDischarge ?? "",
+    });
   };
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Gestion des lits</h1>
-          <p className="text-muted-foreground mt-1">Vue d'ensemble de l'occupation hospitalière</p>
+          <p className="text-muted-foreground mt-1">Services, lits et occupation de votre établissement</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setWardDialog({ ...emptyWard })}>
+            <Plus className="mr-2 h-4 w-4" />Nouveau service
+          </Button>
+          <Button variant="hero" onClick={() => setBedDialog({ ...emptyBed, wardId: wards[0]?.id ?? "" })} disabled={wards.length === 0}>
+            <Plus className="mr-2 h-4 w-4" />Nouveau lit
+          </Button>
         </div>
       </div>
 
-      {/* Stats */}
+      {isLoading && <p className="text-sm text-muted-foreground">Chargement...</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
+
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[
           { label: "Total lits", value: stats.total, icon: BedDouble, color: "text-foreground" },
@@ -149,20 +274,19 @@ export default function BedManagement() {
           { label: "Occupés", value: stats.occupied, icon: Users, color: "text-red-500" },
           { label: "Maintenance", value: stats.maintenance, icon: Wrench, color: "text-yellow-500" },
           { label: "Réservés", value: stats.reserved, icon: Clock, color: "text-blue-500" },
-        ].map((s) => (
-          <Card key={s.label}>
+        ].map((item) => (
+          <Card key={item.label}>
             <CardContent className="p-4 flex items-center gap-3">
-              <s.icon className={`h-8 w-8 ${s.color}`} />
+              <item.icon className={`h-8 w-8 ${item.color}`} />
               <div>
-                <p className="text-2xl font-bold">{s.value}</p>
-                <p className="text-xs text-muted-foreground">{s.label}</p>
+                <p className="text-2xl font-bold">{item.value}</p>
+                <p className="text-xs text-muted-foreground">{item.label}</p>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {/* Occupancy bar */}
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-2">
@@ -182,12 +306,15 @@ export default function BedManagement() {
         </TabsList>
 
         <TabsContent value="visual" className="space-y-4">
+          {!isLoading && wards.length === 0 && (
+            <Card><CardContent className="p-6 text-sm text-muted-foreground">Aucun service. Créez un service avant d’ajouter des lits.</CardContent></Card>
+          )}
           {wardStats.map((ward) => {
-            const wardBeds = beds.filter((b) => b.wardId === ward.id);
+            const wardBeds = beds.filter((bed) => bed.wardId === ward.id);
             return (
               <Card key={ward.id}>
                 <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <CardTitle className="text-lg">{ward.name}</CardTitle>
                       <p className="text-sm text-muted-foreground">Étage {ward.floor} • {ward.department} • {ward.occupied}/{ward.bedsCount} occupés</p>
@@ -195,35 +322,47 @@ export default function BedManagement() {
                     <div className="flex items-center gap-2">
                       <Progress value={ward.rate} className="w-24 h-2" />
                       <span className="text-sm font-medium w-10 text-right">{ward.rate}%</span>
+                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setWardDialog({ id: ward.id, name: ward.name, floor: String(ward.floor), department: ward.department })}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => void removeWard(ward)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent>
+                  {wardBeds.length === 0 && <p className="text-sm text-muted-foreground">Aucun lit dans ce service.</p>}
                   <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
                     {wardBeds.map((bed) => (
-                      <div
-                        key={bed.id}
-                        className="relative group rounded-xl border border-border p-3 text-center transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
-                      >
+                      <div key={bed.id} className="relative group rounded-xl border border-border p-3 text-center transition-all duration-200 hover:shadow-md">
                         <div className={`absolute top-2 right-2 h-2.5 w-2.5 rounded-full ${statusColors[bed.status]}`} />
                         <BedDouble className={`h-6 w-6 mx-auto mb-1 ${bed.status === "occupied" ? "text-red-500" : bed.status === "available" ? "text-green-500" : "text-muted-foreground"}`} />
                         <p className="text-sm font-semibold">{bed.number}</p>
                         <p className="text-[10px] text-muted-foreground">{bedTypeLabels[bed.type]}</p>
                         {bed.patientName && <p className="text-[10px] text-foreground mt-1 truncate">{bed.patientName}</p>}
-                        <div className="absolute inset-0 bg-background/90 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1">
-                          {bed.status === "available" && (
-                            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setAssignDialog({ open: true, bedId: bed.id })}>
+                        <div className="mt-2 flex flex-wrap justify-center gap-1">
+                          {(bed.status === "available" || bed.status === "reserved") && (
+                            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setAssignDialog({ bedId: bed.id, patientId: "", expectedDischarge: "" })}>
                               <UserPlus className="h-3 w-3 mr-1" />Attribuer
                             </Button>
                           )}
                           {bed.status === "occupied" && (
-                            <Button size="sm" variant="ghost" className="h-7 text-xs text-red-600" onClick={() => handleRelease(bed.id)}>
+                            <Button size="sm" variant="ghost" className="h-7 text-xs text-red-600" onClick={() => void releaseBed(bed.id)}>
                               <UserMinus className="h-3 w-3 mr-1" />Libérer
                             </Button>
                           )}
                           {(bed.status === "available" || bed.status === "maintenance") && (
-                            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => handleToggleMaintenance(bed.id)}>
+                            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => void toggleMaintenance(bed)}>
                               <Wrench className="h-3 w-3 mr-1" />{bed.status === "maintenance" ? "Dispo" : "Maint."}
+                            </Button>
+                          )}
+                          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => openBedEditor(bed)}>
+                            <Pencil className="h-3 w-3 mr-1" />Modifier
+                          </Button>
+                          {bed.status !== "occupied" && (
+                            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => void removeBed(bed)}>
+                              <Trash2 className="h-3 w-3 mr-1" />Supprimer
                             </Button>
                           )}
                         </div>
@@ -239,23 +378,24 @@ export default function BedManagement() {
         <TabsContent value="list">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-3">
                 <CardTitle>Tous les lits</CardTitle>
                 <Select value={selectedWard} onValueChange={setSelectedWard}>
-                  <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="w-[220px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Tous les services</SelectItem>
-                    {mockWards.map((w) => (
-                      <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
+                    {wards.map((ward) => (
+                      <SelectItem key={ward.id} value={ward.id}>{ward.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             </CardHeader>
             <CardContent>
+              {filteredBeds.length === 0 && <p className="text-sm text-muted-foreground">Aucun lit à afficher.</p>}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {filteredBeds.map((bed) => (
-                  <div key={bed.id} className="flex items-center gap-3 rounded-lg border border-border p-3 transition-colors hover:bg-secondary/30">
+                  <div key={bed.id} className="flex items-center gap-3 rounded-lg border border-border p-3">
                     <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${bed.status === "occupied" ? "bg-red-500/10" : bed.status === "available" ? "bg-green-500/10" : bed.status === "reserved" ? "bg-blue-500/10" : "bg-yellow-500/10"}`}>
                       <BedDouble className={`h-5 w-5 ${bed.status === "occupied" ? "text-red-500" : bed.status === "available" ? "text-green-500" : bed.status === "reserved" ? "text-blue-500" : "text-yellow-500"}`} />
                     </div>
@@ -268,14 +408,22 @@ export default function BedManagement() {
                       {bed.patientName && <p className="text-xs text-foreground truncate">{bed.patientName}</p>}
                     </div>
                     <div className="flex gap-1">
-                      {bed.status === "available" && (
-                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setAssignDialog({ open: true, bedId: bed.id })}>
+                      {(bed.status === "available" || bed.status === "reserved") && (
+                        <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => setAssignDialog({ bedId: bed.id, patientId: "", expectedDischarge: "" })}>
                           <UserPlus className="h-3 w-3" />
                         </Button>
                       )}
                       {bed.status === "occupied" && (
-                        <Button size="sm" variant="outline" className="h-7 text-xs text-red-600" onClick={() => handleRelease(bed.id)}>
+                        <Button size="icon" variant="outline" className="h-7 w-7 text-red-600" onClick={() => void releaseBed(bed.id)}>
                           <UserMinus className="h-3 w-3" />
+                        </Button>
+                      )}
+                      <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => openBedEditor(bed)}>
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                      {bed.status !== "occupied" && (
+                        <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => void removeBed(bed)}>
+                          <Trash2 className="h-3 w-3" />
                         </Button>
                       )}
                     </div>
@@ -286,14 +434,11 @@ export default function BedManagement() {
           </Card>
         </TabsContent>
 
-        {/* Statistics Tab */}
         <TabsContent value="stats" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card>
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <TrendingUp className="h-5 w-5 text-primary" />
-                </div>
+                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center"><TrendingUp className="h-5 w-5 text-primary" /></div>
                 <div>
                   <p className="text-sm text-muted-foreground">Durée moy. de séjour</p>
                   <p className="text-2xl font-bold">{avgStay} jours</p>
@@ -302,149 +447,189 @@ export default function BedManagement() {
             </Card>
             <Card>
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-green-500/10 flex items-center justify-center">
-                  <Users className="h-5 w-5 text-green-500" />
-                </div>
+                <div className="h-10 w-10 rounded-lg bg-green-500/10 flex items-center justify-center"><Users className="h-5 w-5 text-green-500" /></div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Patients actifs</p>
-                  <p className="text-2xl font-bold">{mockOccupationHistory.filter(o => o.status === "active").length}</p>
+                  <p className="text-sm text-muted-foreground">Patients hospitalisés</p>
+                  <p className="text-2xl font-bold">{stats.occupied}</p>
                 </div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                  <History className="h-5 w-5 text-blue-500" />
-                </div>
+                <div className="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center"><History className="h-5 w-5 text-blue-500" /></div>
                 <div>
                   <p className="text-sm text-muted-foreground">Sorties ce mois</p>
-                  <p className="text-2xl font-bold">{mockOccupationHistory.filter(o => o.status === "completed").length}</p>
+                  <p className="text-2xl font-bold">{dischargesThisMonth}</p>
                 </div>
               </CardContent>
             </Card>
           </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Occupation par service</CardTitle>
-              </CardHeader>
-              <CardContent>
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-base">Occupation par service</CardTitle></CardHeader>
+            <CardContent>
+              {wardOccupancyData.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Aucune donnée d’occupation.</p>
+              ) : (
                 <ResponsiveContainer width="100%" height={280}>
                   <BarChart data={wardOccupancyData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                    <XAxis dataKey="name" fontSize={11} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-                    <YAxis fontSize={11} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                    <XAxis dataKey="name" fontSize={11} tick={{ fill: "hsl(var(--muted-foreground))" }} />
+                    <YAxis fontSize={11} tick={{ fill: "hsl(var(--muted-foreground))" }} allowDecimals={false} />
                     <Tooltip />
                     <Legend />
                     <Bar dataKey="Occupés" fill="#ef4444" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="Disponibles" fill="#22c55e" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Évolution du taux d'occupation (%)</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={280}>
-                  <LineChart data={weeklyOccupationData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                    <XAxis dataKey="semaine" fontSize={11} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-                    <YAxis fontSize={11} tick={{ fill: 'hsl(var(--muted-foreground))' }} domain={[0, 100]} />
-                    <Tooltip />
-                    <Legend />
-                    {["Cardiologie", "Neurologie", "Pédiatrie", "Soins intensifs", "Maternité", "Chirurgie"].map((dept, i) => (
-                      <Line key={dept} type="monotone" dataKey={dept} stroke={LINE_COLORS[i]} strokeWidth={2} dot={{ r: 3 }} />
-                    ))}
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
-        {/* History Tab */}
         <TabsContent value="history">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <History className="h-5 w-5" />
-                Historique d'occupation
-              </CardTitle>
+              <CardTitle className="flex items-center gap-2"><History className="h-5 w-5" />Historique d'occupation</CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Lit</TableHead>
-                    <TableHead>Service</TableHead>
-                    <TableHead>Patient</TableHead>
-                    <TableHead>Admission</TableHead>
-                    <TableHead>Sortie</TableHead>
-                    <TableHead>Durée</TableHead>
-                    <TableHead>Statut</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {mockOccupationHistory.map((occ) => (
-                    <TableRow key={occ.id}>
-                      <TableCell className="font-semibold">{occ.bedNumber}</TableCell>
-                      <TableCell className="text-muted-foreground">{occ.wardName}</TableCell>
-                      <TableCell>{occ.patientName}</TableCell>
-                      <TableCell className="text-muted-foreground">{occ.admissionDate}</TableCell>
-                      <TableCell className="text-muted-foreground">{occ.dischargeDate || "—"}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{occ.durationDays} jour{occ.durationDays > 1 ? "s" : ""}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={occ.status === "active" ? "default" : "outline"}>
-                          {occ.status === "active" ? "En cours" : "Terminé"}
-                        </Badge>
-                      </TableCell>
+              {occupations.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Aucune occupation enregistrée.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Lit</TableHead>
+                      <TableHead>Service</TableHead>
+                      <TableHead>Patient</TableHead>
+                      <TableHead>Admission</TableHead>
+                      <TableHead>Sortie</TableHead>
+                      <TableHead>Durée</TableHead>
+                      <TableHead>Statut</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {occupations.map((stay) => (
+                      <TableRow key={stay.id}>
+                        <TableCell className="font-semibold">{stay.bedNumber}</TableCell>
+                        <TableCell className="text-muted-foreground">{stay.wardName}</TableCell>
+                        <TableCell>{stay.patientName}</TableCell>
+                        <TableCell className="text-muted-foreground">{stay.admissionDate}</TableCell>
+                        <TableCell className="text-muted-foreground">{stay.dischargeDate || "—"}</TableCell>
+                        <TableCell><Badge variant="secondary">{stay.durationDays} jour{stay.durationDays > 1 ? "s" : ""}</Badge></TableCell>
+                        <TableCell>
+                          <Badge variant={stay.status === "active" ? "default" : "outline"}>
+                            {stay.status === "active" ? "En cours" : "Terminé"}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
 
-      {/* Assign dialog */}
-      <Dialog open={assignDialog.open} onOpenChange={(o) => setAssignDialog({ open: o, bedId: o ? assignDialog.bedId : null })}>
+      <Dialog open={!!wardDialog} onOpenChange={(open) => !open && setWardDialog(null)}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Attribuer le lit {beds.find(b => b.id === assignDialog.bedId)?.number}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{wardDialog?.id ? "Modifier le service" : "Nouveau service"}</DialogTitle></DialogHeader>
+          {wardDialog && (
+            <div className="space-y-3">
+              <div className="space-y-2"><Label>Nom</Label><Input value={wardDialog.name} onChange={(event) => setWardDialog({ ...wardDialog, name: event.target.value })} /></div>
+              <div className="space-y-2"><Label>Étage</Label><Input type="number" min={0} value={wardDialog.floor} onChange={(event) => setWardDialog({ ...wardDialog, floor: event.target.value })} /></div>
+              <div className="space-y-2">
+                <Label>Département</Label>
+                <Input list="ward-departments" value={wardDialog.department} onChange={(event) => setWardDialog({ ...wardDialog, department: event.target.value })} />
+                <datalist id="ward-departments">{departments.map((department) => <option key={department} value={department} />)}</datalist>
+              </div>
+              <Button className="w-full" onClick={() => void saveWard()} disabled={wardDialog.name.trim().length < 2 || wardDialog.department.trim().length < 2}>Enregistrer</Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!bedDialog} onOpenChange={(open) => !open && setBedDialog(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{bedDialog?.id ? "Modifier le lit" : "Nouveau lit"}</DialogTitle></DialogHeader>
+          {bedDialog && (
+            <div className="space-y-3">
+              <div className="space-y-2"><Label>Numéro</Label><Input value={bedDialog.number} disabled={bedDialog.occupied} onChange={(event) => setBedDialog({ ...bedDialog, number: event.target.value })} placeholder="A-101" /></div>
+              <div className="space-y-2">
+                <Label>Service</Label>
+                <Select value={bedDialog.wardId} onValueChange={(wardId) => setBedDialog({ ...bedDialog, wardId })} disabled={bedDialog.occupied}>
+                  <SelectTrigger><SelectValue placeholder="Choisir un service" /></SelectTrigger>
+                  <SelectContent>
+                    {wards.map((ward) => <SelectItem key={ward.id} value={ward.id}>{ward.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Type</Label>
+                <Select value={bedDialog.type} onValueChange={(type: BedType) => setBedDialog({ ...bedDialog, type })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {bedTypes.map((type) => <SelectItem key={type} value={type}>{bedTypeLabels[type]}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              {bedDialog.id && !bedDialog.occupied && (
+                <div className="space-y-2">
+                  <Label>Statut</Label>
+                  <Select value={bedDialog.status} onValueChange={(status: Exclude<BedStatus, "occupied">) => setBedDialog({ ...bedDialog, status })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="available">Disponible</SelectItem>
+                      <SelectItem value="reserved">Réservé</SelectItem>
+                      <SelectItem value="maintenance">Maintenance</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label>Sortie prévue</Label>
+                <Input type="date" value={bedDialog.expectedDischarge} onChange={(event) => setBedDialog({ ...bedDialog, expectedDischarge: event.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Notes</Label>
+                <Textarea value={bedDialog.notes} onChange={(event) => setBedDialog({ ...bedDialog, notes: event.target.value })} />
+              </div>
+              <Button className="w-full" onClick={() => void saveBed()} disabled={!bedDialog.number.trim() || !bedDialog.wardId}>Enregistrer</Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!assignDialog.bedId} onOpenChange={(open) => !open && setAssignDialog({ bedId: null, patientId: "", expectedDischarge: "" })}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Attribuer le lit {beds.find((bed) => bed.id === assignDialog.bedId)?.number}</DialogTitle></DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
               <Label>Patient</Label>
-              <Select onValueChange={(v) => setAssignPatient({ ...assignPatient, patientName: v })}>
+              <Select key={assignDialog.bedId ?? "none"} onValueChange={(patientId) => setAssignDialog({ ...assignDialog, patientId })}>
                 <SelectTrigger><SelectValue placeholder="Sélectionner un patient" /></SelectTrigger>
                 <SelectContent>
-                  {mockPatients.filter(p => p.status !== "discharged").map((p) => (
-                    <SelectItem key={p.id} value={`${p.firstName} ${p.lastName}`}>{p.firstName} {p.lastName}</SelectItem>
+                  {patients.map((patient) => (
+                    <SelectItem key={patient.id} value={patient.id}>{patient.firstName} {patient.lastName}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label>Sortie prévue</Label>
-              <Input type="date" value={assignPatient.expectedDischarge} onChange={(e) => setAssignPatient({ ...assignPatient, expectedDischarge: e.target.value })} />
+              <Input type="date" value={assignDialog.expectedDischarge} onChange={(event) => setAssignDialog({ ...assignDialog, expectedDischarge: event.target.value })} />
             </div>
-            <Button onClick={handleAssign} disabled={!assignPatient.patientName}>Confirmer l'attribution</Button>
+            <Button onClick={() => void assignBed()} disabled={!assignDialog.patientId}>Confirmer l'attribution</Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Legend */}
       <Card>
         <CardContent className="p-4">
           <div className="flex flex-wrap gap-4 text-sm">
-            {Object.entries(statusColors).map(([status, color]) => (
+            {(Object.keys(statusColors) as BedStatus[]).map((status) => (
               <div key={status} className="flex items-center gap-2">
-                <div className={`h-3 w-3 rounded-full ${color}`} />
+                <div className={`h-3 w-3 rounded-full ${statusColors[status]}`} />
                 <span className="text-muted-foreground">{bedStatusLabels[status]}</span>
               </div>
             ))}

@@ -539,21 +539,46 @@ export interface Bed {
   notes?: string;
 }
 
+export interface CreateWardData {
+  name: string;
+  floor: number;
+  department: string;
+}
+
+export interface UpdateWardData extends Partial<CreateWardData> {}
+
 export interface CreateBedData {
   number: string;
   wardId: string;
-  wardName: string;
-  floor: number;
   type: BedType;
+  notes?: string;
 }
 
-export interface UpdateBedData extends Partial<CreateBedData> {
-  status?: BedStatus;
-  patientId?: string;
-  patientName?: string;
-  admissionDate?: string;
+export interface UpdateBedData {
+  number?: string;
+  wardId?: string;
+  type?: BedType;
+  status?: Exclude<BedStatus, 'occupied'>;
   expectedDischarge?: string;
   notes?: string;
+}
+
+export interface AssignBedData {
+  patientId: string;
+  expectedDischarge?: string;
+}
+
+export interface BedOccupation {
+  id: string;
+  bedId: string;
+  bedNumber: string;
+  wardName: string;
+  patientId?: string;
+  patientName: string;
+  admissionDate: string;
+  dischargeDate?: string;
+  durationDays: number;
+  status: 'active' | 'completed';
 }
 
 export interface BedQueryParams extends PaginationParams {

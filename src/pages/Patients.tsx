@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { 
   Plus, 
   Search, 
@@ -50,7 +50,9 @@ import {
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { mockPatients, type Patient } from "@/data/mockData";
+import { patientService } from "@/services/patientService";
+import type { Patient } from "@/types";
+import { apiMessage } from "@/lib/apiError";
 
 const statusConfig = {
   hospitalized: { label: "Hospitalisé", color: "bg-warning/10 text-warning border-warning/20" },
@@ -62,7 +64,7 @@ const bloodTypes = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 
 export default function Patients() {
   const { toast } = useToast();
-  const [patients, setPatients] = useState<Patient[]>(mockPatients);
+  const [patients, setPatients] = useState<Patient[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -82,6 +84,19 @@ export default function Patients() {
     status: "outpatient" as Patient["status"],
     room: ""
   });
+
+  const loadPatients = async () => {
+    try {
+      const result = await patientService.getAll({ limit: 100 });
+      setPatients(result.data);
+    } catch (error) {
+      toast({ variant: "destructive", title: "Erreur", description: apiMessage(error) });
+    }
+  };
+
+  useEffect(() => {
+    void loadPatients();
+  }, []);
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -124,74 +139,79 @@ export default function Patients() {
     setIsDialogOpen(true);
   };
 
-  const handleSubmit = () => {
-    if (!formData.firstName || !formData.lastName || !formData.email) {
+  const handleSubmit = async () => {
+    if (!formData.firstName || !formData.lastName || !formData.email || !formData.dateOfBirth) {
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: "Veuillez remplir tous les champs obligatoires",
+        description: "Veuillez remplir le nom, l'email et la date de naissance",
       });
       return;
     }
 
     const patientData = {
-      ...formData,
-      allergies: formData.allergies ? formData.allergies.split(",").map(a => a.trim()) : undefined,
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      email: formData.email,
+      phone: formData.phone || undefined,
+      dateOfBirth: formData.dateOfBirth,
+      gender: formData.gender,
+      address: formData.address || undefined,
+      allergies: formData.allergies ? formData.allergies.split(",").map(a => a.trim()).filter(Boolean) : undefined,
       bloodType: formData.bloodType || undefined,
-      room: formData.status === "hospitalized" ? formData.room : undefined,
-      admissionDate: formData.status === "hospitalized" ? new Date().toISOString().split('T')[0] : undefined
+      status: formData.status,
+      room: formData.status === "hospitalized" ? formData.room || undefined : undefined,
     };
 
-    if (isEditing && selectedPatient) {
-      setPatients(prev => 
-        prev.map(p => p.id === selectedPatient.id ? { ...p, ...patientData } : p)
-      );
-      toast({
-        title: "Patient modifié",
-        description: `${formData.firstName} ${formData.lastName} a été mis à jour`,
-      });
-    } else {
-      const newPatient: Patient = {
-        id: `pat-${Date.now()}`,
-        ...patientData,
-        createdAt: new Date().toISOString().split('T')[0]
-      };
-      setPatients(prev => [newPatient, ...prev]);
-      toast({
-        title: "Patient ajouté",
-        description: `${formData.firstName} ${formData.lastName} a été enregistré`,
-      });
+    try {
+      if (isEditing && selectedPatient) {
+        await patientService.update(selectedPatient.id, patientData);
+        toast({
+          title: "Patient modifié",
+          description: `${formData.firstName} ${formData.lastName} a été mis à jour`,
+        });
+      } else {
+        await patientService.create(patientData);
+        toast({
+          title: "Patient ajouté",
+          description: `${formData.firstName} ${formData.lastName} a été enregistré`,
+        });
+      }
+      setIsDialogOpen(false);
+      resetForm();
+      await loadPatients();
+    } catch (error) {
+      toast({ variant: "destructive", title: "Erreur", description: apiMessage(error) });
     }
-
-    setIsDialogOpen(false);
-    resetForm();
   };
 
-  const handleDelete = () => {
-    if (selectedPatient) {
-      setPatients(prev => prev.filter(p => p.id !== selectedPatient.id));
+  const handleDelete = async () => {
+    if (!selectedPatient) return;
+    try {
+      await patientService.delete(selectedPatient.id);
       toast({
-        title: "Patient supprimé",
-        description: `${selectedPatient.firstName} ${selectedPatient.lastName} a été supprimé`,
+        title: "Dossier archivé",
+        description: `${selectedPatient.firstName} ${selectedPatient.lastName} a été archivé`,
       });
+      setIsDeleteDialogOpen(false);
+      setSelectedPatient(null);
+      await loadPatients();
+    } catch (error) {
+      toast({ variant: "destructive", title: "Erreur", description: apiMessage(error) });
     }
-    setIsDeleteDialogOpen(false);
-    setSelectedPatient(null);
   };
 
-  const handleDischarge = (patient: Patient) => {
-    setPatients(prev => 
-      prev.map(p => p.id === patient.id ? { 
-        ...p, 
-        status: "discharged" as const, 
-        room: undefined,
-        dischargeDate: new Date().toISOString().split('T')[0]
-      } : p)
-    );
-    toast({
-      title: "Patient libéré",
-      description: `${patient.firstName} ${patient.lastName} a été marqué comme sorti`,
-    });
+  const handleDischarge = async (patient: Patient) => {
+    try {
+      await patientService.update(patient.id, { status: "discharged", room: "" });
+      toast({
+        title: "Patient libéré",
+        description: `${patient.firstName} ${patient.lastName} a été marqué comme sorti`,
+      });
+      await loadPatients();
+    } catch (error) {
+      toast({ variant: "destructive", title: "Erreur", description: apiMessage(error) });
+    }
   };
 
   const filteredPatients = patients.filter(patient =>

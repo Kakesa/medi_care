@@ -41,19 +41,6 @@ export default function Login() {
     setIsLoading(false);
   };
 
-  // Demo accounts
-  const demoAccounts = [
-    { role: "Admin", email: "admin@medicare.fr", password: "admin123" },
-    { role: "Médecin", email: "dr.bernard@medicare.fr", password: "doctor123" },
-    { role: "Patient", email: "patient@email.fr", password: "patient123" },
-    { role: "Réception", email: "reception@medicare.fr", password: "reception123" },
-  ];
-
-  const fillDemo = (email: string, password: string) => {
-    setEmail(email);
-    setPassword(password);
-  };
-
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6">
       <div className="w-full max-w-md space-y-8 animate-fade-in">
@@ -134,28 +121,10 @@ export default function Login() {
           </form>
 
           <div className="mt-6 text-center text-sm">
-            <span className="text-muted-foreground">Pas encore de compte ?</span>{" "}
+            <span className="text-muted-foreground">Pas encore de compte patient ?</span>{" "}
             <Link to="/register" className="text-primary hover:underline font-medium">
               S'inscrire
             </Link>
-          </div>
-        </Card>
-
-        {/* Demo accounts */}
-        <Card className="p-4 bg-secondary/50">
-          <p className="text-sm font-medium mb-3 text-center">Comptes de démo</p>
-          <div className="grid grid-cols-2 gap-2">
-            {demoAccounts.map((account) => (
-              <button
-                key={account.email}
-                onClick={() => fillDemo(account.email, account.password)}
-                className="text-xs px-3 py-2 rounded-lg bg-background hover:bg-primary/10 border border-border transition-colors text-left"
-              >
-                <span className="font-medium text-foreground">{account.role}</span>
-                <br />
-                <span className="text-muted-foreground truncate block">{account.email}</span>
-              </button>
-            ))}
           </div>
         </Card>
       </div>

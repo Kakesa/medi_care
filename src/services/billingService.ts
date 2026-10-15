@@ -16,6 +16,10 @@ import type {
 class BillingService {
   private readonly basePath = '/billing';
 
+  async getBillingPatients(): Promise<Array<{ id: string; firstName: string; lastName: string }>> {
+    return httpClient.get(`${this.basePath}/patients`);
+  }
+
   async getInvoices(params?: InvoiceQueryParams): Promise<PaginatedResponse<Invoice>> {
     const queryParams: Record<string, string> = {};
     if (params?.page) queryParams.page = String(params.page);

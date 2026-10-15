@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { 
   Pill, 
   Search, 
@@ -47,18 +47,15 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
-import { 
-  mockPharmacyProducts, 
-  mockPharmacyOrders, 
-  pharmacyCategories,
-  PharmacyProduct, 
-  PharmacyOrder 
-} from "@/data/mockData";
+import { pharmacyCategories } from "@/data/mockData";
+import { pharmacyService } from "@/services/pharmacyService";
+import type { PharmacyOrder, PharmacyProduct } from "@/types";
+import { apiMessage } from "@/lib/apiError";
 import { toast } from "sonner";
 
 export default function Pharmacy() {
-  const [products, setProducts] = useState<PharmacyProduct[]>(mockPharmacyProducts);
-  const [orders, setOrders] = useState<PharmacyOrder[]>(mockPharmacyOrders);
+  const [products, setProducts] = useState<PharmacyProduct[]>([]);
+  const [orders, setOrders] = useState<PharmacyOrder[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -83,6 +80,23 @@ export default function Pharmacy() {
     supplier: "",
     notes: ""
   });
+
+  const loadPharmacy = async () => {
+    try {
+      const [productResult, orderResult] = await Promise.all([
+        pharmacyService.getProducts({ limit: 100 }),
+        pharmacyService.getOrders({ limit: 100 }),
+      ]);
+      setProducts(productResult.data);
+      setOrders(orderResult.data);
+    } catch (error) {
+      toast.error(apiMessage(error));
+    }
+  };
+
+  useEffect(() => {
+    void loadPharmacy();
+  }, []);
 
   // Stats
   const inStockCount = products.filter(p => p.status === 'in_stock').length;
@@ -113,56 +127,57 @@ export default function Pharmacy() {
     setEditingProduct(null);
   };
 
-  const handleProductSubmit = () => {
-    const status: PharmacyProduct['status'] = 
-      productFormData.quantity === 0 ? 'out_of_stock' :
-      productFormData.quantity < productFormData.minStock ? 'low_stock' : 'in_stock';
-
-    if (editingProduct) {
-      setProducts(prev => prev.map(p => 
-        p.id === editingProduct.id 
-          ? { ...p, ...productFormData, status } 
-          : p
-      ));
-      toast.success("Produit modifié avec succès");
-    } else {
-      const newProduct: PharmacyProduct = {
-        id: `prod-${Date.now()}`,
-        ...productFormData,
-        status,
-        lastRestocked: new Date().toISOString().split('T')[0]
-      };
-      setProducts(prev => [newProduct, ...prev]);
-      toast.success("Produit ajouté avec succès");
-    }
-
-    setIsProductDialogOpen(false);
-    resetProductForm();
-  };
-
-  const handleOrderSubmit = () => {
-    const product = products.find(p => p.id === orderFormData.productId);
-    if (!product) {
-      toast.error("Produit non trouvé");
+  const handleProductSubmit = async () => {
+    if (!productFormData.name || !productFormData.category || !productFormData.unit) {
+      toast.error("Nom, catégorie et unité sont requis");
       return;
     }
-
-    const newOrder: PharmacyOrder = {
-      id: `order-${Date.now()}`,
-      productId: orderFormData.productId,
-      productName: product.name,
-      quantity: orderFormData.quantity,
-      supplier: orderFormData.supplier || product.supplier,
-      orderDate: new Date().toISOString().split('T')[0],
-      status: "pending",
-      totalCost: product.price * orderFormData.quantity,
-      notes: orderFormData.notes
+    const payload = {
+      name: productFormData.name,
+      category: productFormData.category,
+      quantity: productFormData.quantity,
+      minStock: productFormData.minStock,
+      unit: productFormData.unit,
+      price: productFormData.price,
+      supplier: productFormData.supplier,
+      expiryDate: productFormData.expiryDate || undefined,
     };
+    try {
+      if (editingProduct) {
+        await pharmacyService.updateProduct(editingProduct.id, payload);
+        toast.success("Produit modifié avec succès");
+      } else {
+        await pharmacyService.createProduct(payload);
+        toast.success("Produit ajouté avec succès");
+      }
+      setIsProductDialogOpen(false);
+      resetProductForm();
+      await loadPharmacy();
+    } catch (error) {
+      toast.error(apiMessage(error));
+    }
+  };
 
-    setOrders(prev => [newOrder, ...prev]);
-    toast.success("Commande créée avec succès");
-    setIsOrderDialogOpen(false);
-    setOrderFormData({ productId: "", quantity: 0, supplier: "", notes: "" });
+  const handleOrderSubmit = async () => {
+    if (!orderFormData.productId || orderFormData.quantity < 1) {
+      toast.error("Sélectionnez un produit et une quantité");
+      return;
+    }
+    try {
+      await pharmacyService.createOrder({
+        productId: orderFormData.productId,
+        productName: "",
+        quantity: orderFormData.quantity,
+        supplier: orderFormData.supplier,
+        notes: orderFormData.notes || undefined,
+      });
+      toast.success("Commande créée avec succès");
+      setIsOrderDialogOpen(false);
+      setOrderFormData({ productId: "", quantity: 0, supplier: "", notes: "" });
+      await loadPharmacy();
+    } catch (error) {
+      toast.error(apiMessage(error));
+    }
   };
 
   const handleEditProduct = (product: PharmacyProduct) => {
@@ -180,36 +195,24 @@ export default function Pharmacy() {
     setIsProductDialogOpen(true);
   };
 
-  const handleDeleteProduct = (productId: string) => {
-    setProducts(prev => prev.filter(p => p.id !== productId));
-    toast.success("Produit supprimé");
+  const handleDeleteProduct = async (productId: string) => {
+    try {
+      await pharmacyService.deleteProduct(productId);
+      toast.success("Produit archivé");
+      await loadPharmacy();
+    } catch (error) {
+      toast.error(apiMessage(error));
+    }
   };
 
-  const handleOrderStatusChange = (orderId: string, status: PharmacyOrder['status']) => {
-    setOrders(prev => prev.map(o => 
-      o.id === orderId ? { ...o, status } : o
-    ));
-
-    // If delivered, update product stock
-    if (status === 'delivered') {
-      const order = orders.find(o => o.id === orderId);
-      if (order) {
-        setProducts(prev => prev.map(p => {
-          if (p.id === order.productId) {
-            const newQuantity = p.quantity + order.quantity;
-            return {
-              ...p,
-              quantity: newQuantity,
-              status: newQuantity === 0 ? 'out_of_stock' : newQuantity < p.minStock ? 'low_stock' : 'in_stock',
-              lastRestocked: new Date().toISOString().split('T')[0]
-            };
-          }
-          return p;
-        }));
-        toast.success("Stock mis à jour");
-      }
+  const handleOrderStatusChange = async (orderId: string, status: PharmacyOrder['status']) => {
+    try {
+      await pharmacyService.updateOrderStatus(orderId, status);
+      toast.success(status === "delivered" ? "Stock mis à jour" : "Statut de commande mis à jour");
+      await loadPharmacy();
+    } catch (error) {
+      toast.error(apiMessage(error));
     }
-    toast.success("Statut de commande mis à jour");
   };
 
   const getStatusBadge = (status: string) => {

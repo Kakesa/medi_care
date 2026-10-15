@@ -19,6 +19,8 @@ export { examService } from './examService';
 export { pharmacyService } from './pharmacyService';
 export { billingService } from './billingService';
 export { notificationService } from './notificationService';
+export { organizationService } from './organizationService';
+export { userAdminService } from './userAdminService';
 
 // Usage example:
 // import { patientService, appointmentService } from '@/services';

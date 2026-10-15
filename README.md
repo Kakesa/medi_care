@@ -2,15 +2,6 @@
 
 ## Project info
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
-
-## How can I edit this code?
-
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
 
 Changes made via Lovable will be committed automatically to this repo.
 
@@ -60,14 +51,11 @@ This project is built with:
 - shadcn-ui
 - Tailwind CSS
 
+## Backend
+
+Les fondations de l'API sont dans `backend/`. Voir `backend/README.md` pour MongoDB, le superadmin et les variables d'environnement. Le frontend appelle `VITE_API_URL` (par défaut `http://localhost:3001/api`).
+
+Les écrans cliniques historiques restent en données de démonstration tant qu'ils ne sont pas branchés à l'API.
+
 ## How can I deploy this project?
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)

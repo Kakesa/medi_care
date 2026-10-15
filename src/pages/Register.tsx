@@ -5,13 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -27,7 +20,7 @@ export default function Register() {
     phone: "",
     password: "",
     confirmPassword: "",
-    role: "patient" as "patient" | "doctor"
+    organizationSlug: ""
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -48,11 +41,11 @@ export default function Register() {
       return;
     }
 
-    if (formData.password.length < 6) {
+    if (formData.password.length < 8) {
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: "Le mot de passe doit contenir au moins 6 caractères",
+        description: "Le mot de passe doit contenir au moins 8 caractères",
       });
       return;
     }
@@ -65,15 +58,13 @@ export default function Register() {
       firstName: formData.firstName,
       lastName: formData.lastName,
       phone: formData.phone,
-      role: formData.role
+      organizationSlug: formData.organizationSlug.trim().toLowerCase()
     });
     
     if (result.success) {
       toast({
         title: "Inscription réussie",
-        description: formData.role === "doctor" 
-          ? "Votre compte sera activé après validation par l'administrateur"
-          : "Bienvenue sur MediCare SIH",
+        description: "Bienvenue sur MediCare SIH",
       });
       navigate("/dashboard");
     } else {
@@ -100,7 +91,7 @@ export default function Register() {
           </Link>
           <h1 className="text-3xl font-bold">Inscription</h1>
           <p className="mt-2 text-muted-foreground">
-            Créez votre compte MediCare
+            Créez votre compte patient
           </p>
         </div>
 
@@ -163,21 +154,17 @@ export default function Register() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="role">Je suis</Label>
-              <Select value={formData.role} onValueChange={(value) => handleChange("role", value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionnez votre rôle" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="patient">Patient</SelectItem>
-                  <SelectItem value="doctor">Médecin / Personnel médical</SelectItem>
-                </SelectContent>
-              </Select>
-              {formData.role === "doctor" && (
-                <p className="text-xs text-muted-foreground">
-                  Votre compte nécessitera une validation par l'administrateur
-                </p>
-              )}
+              <Label htmlFor="organizationSlug">Code de l'établissement</Label>
+              <Input
+                id="organizationSlug"
+                required
+                value={formData.organizationSlug}
+                onChange={(e) => handleChange("organizationSlug", e.target.value)}
+                placeholder="clinique-nord"
+              />
+              <p className="text-xs text-muted-foreground">
+                L'inscription publique crée un compte patient. Le personnel est créé par l'administrateur de l'établissement.
+              </p>
             </div>
 
             <div className="space-y-2">

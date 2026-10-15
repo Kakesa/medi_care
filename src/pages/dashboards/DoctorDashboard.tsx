@@ -1,23 +1,44 @@
+import { useEffect, useState } from "react";
 import { Calendar, Users, Stethoscope, Clock, Activity, FileText } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { mockAppointments, mockConsultations, mockPatients } from "@/data/mockData";
+import { appointmentService } from "@/services/appointmentService";
+import { consultationService } from "@/services/consultationService";
+import { patientService } from "@/services/patientService";
+import type { Appointment, Consultation, Patient } from "@/types";
 import { Link } from "react-router-dom";
+
+function todayIso() {
+  const date = new Date();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
 
 export default function DoctorDashboard() {
   const { user } = useAuth();
-  
-  // Filter data for current doctor (using mock doctor id for demo)
-  const doctorId = "pers-1"; // In real app, this would come from user profile
-  
-  const myAppointments = mockAppointments.filter(a => a.doctorId === doctorId);
-  const myConsultations = mockConsultations.filter(c => c.doctorId === doctorId);
-  const todayAppointments = myAppointments.filter(a => a.status !== 'cancelled');
-  const pendingAppointments = myAppointments.filter(a => a.status === 'pending');
-  const myPatients = [...new Set(myConsultations.map(c => c.patientId))];
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [consultations, setConsultations] = useState<Consultation[]>([]);
+  const [patients, setPatients] = useState<Patient[]>([]);
+
+  useEffect(() => {
+    const load = async () => {
+      const [appointmentResult, consultationResult, patientResult] = await Promise.allSettled([
+        appointmentService.getAll({ limit: 100 }),
+        consultationService.getAll({ limit: 100 }),
+        patientService.getAll({ limit: 100 }),
+      ]);
+      if (appointmentResult.status === "fulfilled") setAppointments(appointmentResult.value.data);
+      if (consultationResult.status === "fulfilled") setConsultations(consultationResult.value.data);
+      if (patientResult.status === "fulfilled") setPatients(patientResult.value.data);
+    };
+    void load();
+  }, []);
+
+  const todayAppointments = appointments.filter((appointment) => appointment.date === todayIso() && appointment.status !== "cancelled");
+  const pendingAppointments = appointments.filter((appointment) => appointment.status === "pending");
+  const myConsultations = consultations;
 
   const stats = [
     {
@@ -30,7 +51,7 @@ export default function DoctorDashboard() {
     },
     {
       title: "Mes patients",
-      value: myPatients.length,
+      value: patients.length,
       change: "Patients suivis",
       changeType: "positive" as const,
       icon: Users,
@@ -39,7 +60,7 @@ export default function DoctorDashboard() {
     {
       title: "Consultations ce mois",
       value: myConsultations.length,
-      change: "+15% vs mois dernier",
+      change: "Dossiers enregistrés",
       changeType: "positive" as const,
       icon: Stethoscope,
       iconColor: "bg-success/10 text-success"
@@ -180,13 +201,10 @@ export default function DoctorDashboard() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {myPatients.slice(0, 6).map((patientId) => {
-              const patient = mockPatients.find(p => p.id === patientId);
-              const lastConsultation = myConsultations.find(c => c.patientId === patientId);
-              if (!patient) return null;
-              
+            {patients.slice(0, 6).map((patient) => {
+              const lastConsultation = myConsultations.find(c => c.patientId === patient.id);
               return (
-                <div key={patientId} className="p-4 rounded-lg border bg-card">
+                <div key={patient.id} className="p-4 rounded-lg border bg-card">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-semibold">
                       {patient.firstName[0]}{patient.lastName[0]}
@@ -194,7 +212,7 @@ export default function DoctorDashboard() {
                     <div>
                       <p className="font-medium">{patient.firstName} {patient.lastName}</p>
                       <p className="text-xs text-muted-foreground">
-                        Dernier: {lastConsultation?.date}
+                        Dernier: {lastConsultation?.date || "—"}
                       </p>
                     </div>
                   </div>

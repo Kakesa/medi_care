@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { roleLabels } from "@/lib/roles";
 
 export default function Profile() {
   const { toast } = useToast();
@@ -69,11 +70,11 @@ export default function Profile() {
       return;
     }
 
-    if (passwordData.newPassword.length < 6) {
+    if (passwordData.newPassword.length < 8) {
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: "Le mot de passe doit contenir au moins 6 caractères",
+        description: "Le mot de passe doit contenir au moins 8 caractères",
       });
       return;
     }
@@ -99,13 +100,6 @@ export default function Profile() {
     setIsChangingPassword(false);
   };
 
-  const roleLabels = {
-    admin: "Administrateur",
-    doctor: "Médecin",
-    patient: "Patient",
-    receptionist: "Réceptionniste"
-  };
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -125,7 +119,7 @@ export default function Profile() {
             </div>
             <div>
               <h2 className="text-xl font-semibold">{user?.firstName} {user?.lastName}</h2>
-              <p className="text-muted-foreground">{roleLabels[user?.role as keyof typeof roleLabels]}</p>
+              <p className="text-muted-foreground">{user ? roleLabels[user.role] : ""}</p>
             </div>
           </div>
 

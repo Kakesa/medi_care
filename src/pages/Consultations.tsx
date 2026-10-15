@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { 
   Plus, 
   Search, 
@@ -39,7 +39,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { mockConsultations, mockPatients, availableDoctors, Consultation } from "@/data/mockData";
+import { consultationService } from "@/services/consultationService";
+import { patientService } from "@/services/patientService";
+import { personnelService } from "@/services/personnelService";
+import type { Consultation, Patient, Personnel } from "@/types";
+import { apiMessage } from "@/lib/apiError";
 
 const statusConfig = {
   in_progress: { label: "En cours", color: "bg-warning/10 text-warning border-warning/20", icon: Clock },
@@ -48,7 +52,9 @@ const statusConfig = {
 
 export default function Consultations() {
   const { toast } = useToast();
-  const [consultations, setConsultations] = useState<Consultation[]>(mockConsultations);
+  const [consultations, setConsultations] = useState<Consultation[]>([]);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [doctors, setDoctors] = useState<Personnel[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedConsultation, setSelectedConsultation] = useState<Consultation | null>(null);
@@ -64,15 +70,31 @@ export default function Consultations() {
     followUpDate: ""
   });
 
+  const loadConsultations = async () => {
+    try {
+      const [consultationResult, patientResult, doctorResult] = await Promise.all([
+        consultationService.getAll({ limit: 100 }),
+        patientService.getAll({ limit: 100 }),
+        personnelService.getDoctors(),
+      ]);
+      setConsultations(consultationResult.data);
+      setPatients(patientResult.data);
+      setDoctors(doctorResult);
+    } catch (error) {
+      toast({ variant: "destructive", title: "Erreur", description: apiMessage(error) });
+    }
+  };
+
+  useEffect(() => {
+    void loadConsultations();
+  }, []);
+
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = () => {
-    const patient = mockPatients.find(p => p.id === formData.patientId);
-    const doctor = availableDoctors.find(d => d.id === formData.doctorId);
-    
-    if (!patient || !doctor) {
+  const handleSubmit = async () => {
+    if (!formData.patientId || !formData.doctorId) {
       toast({
         variant: "destructive",
         title: "Erreur",
@@ -81,49 +103,51 @@ export default function Consultations() {
       return;
     }
 
-    const newConsultation: Consultation = {
-      id: `cons-${Date.now()}`,
-      patientId: formData.patientId,
-      patientName: `${patient.firstName} ${patient.lastName}`,
-      doctorId: formData.doctorId,
-      doctorName: `Dr. ${doctor.firstName} ${doctor.lastName}`,
-      date: new Date().toISOString().split('T')[0],
-      diagnosis: formData.diagnosis,
-      symptoms: formData.symptoms.split(',').map(s => s.trim()),
-      treatment: formData.treatment,
-      prescription: formData.prescription,
-      notes: formData.notes,
-      followUpDate: formData.followUpDate || undefined,
-      status: "in_progress"
-    };
-
-    setConsultations(prev => [newConsultation, ...prev]);
-    setIsDialogOpen(false);
-    setFormData({
-      patientId: "",
-      doctorId: "",
-      diagnosis: "",
-      symptoms: "",
-      treatment: "",
-      prescription: "",
-      notes: "",
-      followUpDate: ""
-    });
-
-    toast({
-      title: "Consultation créée",
-      description: "La consultation a été enregistrée avec succès",
-    });
+    try {
+      await consultationService.create({
+        patientId: formData.patientId,
+        patientName: "",
+        doctorId: formData.doctorId,
+        doctorName: "",
+        diagnosis: formData.diagnosis,
+        symptoms: formData.symptoms.split(",").map((item) => item.trim()).filter(Boolean),
+        treatment: formData.treatment,
+        prescription: formData.prescription || undefined,
+        notes: formData.notes || undefined,
+        followUpDate: formData.followUpDate || undefined,
+      });
+      setIsDialogOpen(false);
+      setFormData({
+        patientId: "",
+        doctorId: "",
+        diagnosis: "",
+        symptoms: "",
+        treatment: "",
+        prescription: "",
+        notes: "",
+        followUpDate: ""
+      });
+      toast({
+        title: "Consultation créée",
+        description: "La consultation a été enregistrée avec succès",
+      });
+      await loadConsultations();
+    } catch (error) {
+      toast({ variant: "destructive", title: "Erreur", description: apiMessage(error) });
+    }
   };
 
-  const handleComplete = (id: string) => {
-    setConsultations(prev => 
-      prev.map(c => c.id === id ? { ...c, status: "completed" as const } : c)
-    );
-    toast({
-      title: "Consultation terminée",
-      description: "La consultation a été marquée comme terminée",
-    });
+  const handleComplete = async (id: string) => {
+    try {
+      await consultationService.complete(id);
+      toast({
+        title: "Consultation terminée",
+        description: "La consultation a été marquée comme terminée",
+      });
+      await loadConsultations();
+    } catch (error) {
+      toast({ variant: "destructive", title: "Erreur", description: apiMessage(error) });
+    }
   };
 
   const filteredConsultations = consultations.filter(c =>
@@ -162,7 +186,7 @@ export default function Consultations() {
                       <SelectValue placeholder="Sélectionner" />
                     </SelectTrigger>
                     <SelectContent>
-                      {mockPatients.map(p => (
+                      {patients.map(p => (
                         <SelectItem key={p.id} value={p.id}>
                           {p.firstName} {p.lastName}
                         </SelectItem>
@@ -177,7 +201,7 @@ export default function Consultations() {
                       <SelectValue placeholder="Sélectionner" />
                     </SelectTrigger>
                     <SelectContent>
-                      {availableDoctors.map(d => (
+                      {doctors.map(d => (
                         <SelectItem key={d.id} value={d.id}>
                           Dr. {d.firstName} {d.lastName}
                         </SelectItem>

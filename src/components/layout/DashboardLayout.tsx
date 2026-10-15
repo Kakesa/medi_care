@@ -4,13 +4,7 @@ import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
 import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
-
-const roleLabels: Record<string, string> = {
-  admin: "Administrateur",
-  doctor: "Médecin",
-  patient: "Patient",
-  receptionist: "Réceptionniste"
-};
+import { roleLabels } from "@/lib/roles";
 
 export function DashboardLayout() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -50,7 +44,10 @@ export function DashboardLayout() {
               </div>
               <div className="hidden md:block">
                 <p className="text-sm font-medium">{user?.firstName} {user?.lastName}</p>
-                <p className="text-xs text-muted-foreground">{roleLabels[user?.role || ''] || user?.role}</p>
+                <p className="text-xs text-muted-foreground">
+                  {roleLabels[user?.role || "PATIENT"]}
+                  {user?.organization?.name ? ` · ${user.organization.name}` : ""}
+                </p>
               </div>
             </div>
           </div>

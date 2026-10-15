@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { 
   FlaskConical, 
   Search, 
@@ -45,11 +45,18 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { mockExams, mockPatients, availableDoctors, examCategories, Exam } from "@/data/mockData";
+import { examCategories } from "@/data/mockData";
+import { examService } from "@/services/examService";
+import { patientService } from "@/services/patientService";
+import { personnelService } from "@/services/personnelService";
+import type { Exam, Patient, Personnel } from "@/types";
+import { apiMessage } from "@/lib/apiError";
 import { toast } from "sonner";
 
 export default function Examinations() {
-  const [exams, setExams] = useState<Exam[]>(mockExams);
+  const [exams, setExams] = useState<Exam[]>([]);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [doctors, setDoctors] = useState<Personnel[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -67,6 +74,25 @@ export default function Examinations() {
     notes: "",
     results: ""
   });
+
+  const loadExams = async () => {
+    try {
+      const [examResult, patientResult, doctorResult] = await Promise.all([
+        examService.getAll({ limit: 100 }),
+        patientService.getAll({ limit: 100 }),
+        personnelService.getDoctors(),
+      ]);
+      setExams(examResult.data);
+      setPatients(patientResult.data);
+      setDoctors(doctorResult);
+    } catch (error) {
+      toast.error(apiMessage(error));
+    }
+  };
+
+  useEffect(() => {
+    void loadExams();
+  }, []);
 
   const filteredExams = exams.filter(exam => {
     const matchesSearch = 
@@ -95,48 +121,46 @@ export default function Examinations() {
     setEditingExam(null);
   };
 
-  const handleSubmit = () => {
-    const patient = mockPatients.find(p => p.id === formData.patientId);
-    const doctor = availableDoctors.find(d => d.id === formData.doctorId);
-
-    if (!patient || !doctor) {
-      toast.error("Veuillez sélectionner un patient et un médecin");
+  const handleSubmit = async () => {
+    if (!formData.patientId || !formData.doctorId || !formData.name || !formData.category || !formData.date) {
+      toast.error("Veuillez sélectionner un patient, un médecin, une catégorie, un nom et une date");
       return;
     }
 
-    if (editingExam) {
-      setExams(prev => prev.map(e => 
-        e.id === editingExam.id 
-          ? { 
-              ...e, 
-              ...formData,
-              patientName: `${patient.firstName} ${patient.lastName}`,
-              doctorName: `Dr. ${doctor.firstName} ${doctor.lastName}`
-            } 
-          : e
-      ));
-      toast.success("Examen modifié avec succès");
-    } else {
-      const newExam: Exam = {
-        id: `exam-${Date.now()}`,
-        patientId: formData.patientId,
-        patientName: `${patient.firstName} ${patient.lastName}`,
-        doctorId: formData.doctorId,
-        doctorName: `Dr. ${doctor.firstName} ${doctor.lastName}`,
-        type: formData.type,
-        category: formData.category,
-        name: formData.name,
-        date: formData.date,
-        status: "pending",
-        notes: formData.notes,
-        createdAt: new Date().toISOString().split('T')[0]
-      };
-      setExams(prev => [newExam, ...prev]);
-      toast.success("Examen planifié avec succès");
+    try {
+      if (editingExam) {
+        await examService.update(editingExam.id, {
+          patientId: formData.patientId,
+          patientName: "",
+          doctorId: formData.doctorId,
+          doctorName: "",
+          type: formData.type,
+          category: formData.category,
+          name: formData.name,
+          date: formData.date,
+          notes: formData.notes || undefined,
+        });
+        toast.success("Examen modifié avec succès");
+      } else {
+        await examService.create({
+          patientId: formData.patientId,
+          patientName: "",
+          doctorId: formData.doctorId,
+          doctorName: "",
+          type: formData.type,
+          category: formData.category,
+          name: formData.name,
+          date: formData.date,
+          notes: formData.notes || undefined,
+        });
+        toast.success("Examen planifié avec succès");
+      }
+      setIsDialogOpen(false);
+      resetForm();
+      await loadExams();
+    } catch (error) {
+      toast.error(apiMessage(error));
     }
-
-    setIsDialogOpen(false);
-    resetForm();
   };
 
   const handleEdit = (exam: Exam) => {
@@ -154,24 +178,35 @@ export default function Examinations() {
     setIsDialogOpen(true);
   };
 
-  const handleDelete = (examId: string) => {
-    setExams(prev => prev.filter(e => e.id !== examId));
-    toast.success("Examen supprimé");
+  const handleDelete = async (examId: string) => {
+    try {
+      await examService.delete(examId);
+      toast.success("Examen supprimé");
+      await loadExams();
+    } catch (error) {
+      toast.error(apiMessage(error));
+    }
   };
 
-  const handleStatusChange = (examId: string, status: Exam['status']) => {
-    setExams(prev => prev.map(e => 
-      e.id === examId ? { ...e, status } : e
-    ));
-    toast.success("Statut mis à jour");
+  const handleStatusChange = async (examId: string, status: Exam['status']) => {
+    try {
+      await examService.updateStatus(examId, status);
+      toast.success("Statut mis à jour");
+      await loadExams();
+    } catch (error) {
+      toast.error(apiMessage(error));
+    }
   };
 
-  const handleAddResults = (examId: string, results: string) => {
-    setExams(prev => prev.map(e => 
-      e.id === examId ? { ...e, results, status: 'completed' } : e
-    ));
-    toast.success("Résultats ajoutés");
-    setSelectedExam(null);
+  const handleAddResults = async (examId: string, results: string) => {
+    try {
+      await examService.addResults(examId, results);
+      toast.success("Résultats ajoutés");
+      setSelectedExam(null);
+      await loadExams();
+    } catch (error) {
+      toast.error(apiMessage(error));
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -301,7 +336,7 @@ export default function Examinations() {
                 <Select value={formData.patientId} onValueChange={(v) => setFormData({...formData, patientId: v})}>
                   <SelectTrigger><SelectValue placeholder="Sélectionner un patient" /></SelectTrigger>
                   <SelectContent>
-                    {mockPatients.map(p => (
+                    {patients.map(p => (
                       <SelectItem key={p.id} value={p.id}>{p.firstName} {p.lastName}</SelectItem>
                     ))}
                   </SelectContent>
@@ -312,7 +347,7 @@ export default function Examinations() {
                 <Select value={formData.doctorId} onValueChange={(v) => setFormData({...formData, doctorId: v})}>
                   <SelectTrigger><SelectValue placeholder="Sélectionner un médecin" /></SelectTrigger>
                   <SelectContent>
-                    {availableDoctors.map(d => (
+                    {doctors.map(d => (
                       <SelectItem key={d.id} value={d.id}>Dr. {d.firstName} {d.lastName}</SelectItem>
                     ))}
                   </SelectContent>

@@ -2,7 +2,7 @@
 // HTTP Client - Base pour toutes les requêtes API
 // ============================================
 
-import { API_CONFIG, getAuthToken } from './config';
+import { API_CONFIG, getAuthToken, removeAuthToken } from './config';
 import type { ApiError } from '@/types';
 
 class HttpClient {
@@ -42,6 +42,13 @@ class HttpClient {
           error.code = errorData.code;
         } catch {
           // Ignore JSON parse error
+        }
+
+        const isCredentialAttempt = endpoint.startsWith('/auth/login') || endpoint.startsWith('/auth/register');
+        const sessionEnded = response.status === 401 || error.code === 'ORG_SUSPENDED' || error.code === 'ACCOUNT_DISABLED';
+        if (sessionEnded && !isCredentialAttempt) {
+          removeAuthToken();
+          window.dispatchEvent(new Event('auth:expired'));
         }
 
         throw error;

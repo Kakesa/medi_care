@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { 
   Plus, 
   Search, 
@@ -57,7 +57,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { mockPersonnel, type Personnel, departments, roleLabels } from "@/data/mockData";
+import { departments, roleLabels } from "@/data/mockData";
+import { personnelService } from "@/services/personnelService";
+import type { Personnel } from "@/types";
+import { apiMessage } from "@/lib/apiError";
 
 const statusConfig = {
   active: { label: "Actif", color: "bg-success/10 text-success border-success/20", icon: CheckCircle },
@@ -67,7 +70,7 @@ const statusConfig = {
 
 export default function Personnel() {
   const { toast } = useToast();
-  const [personnel, setPersonnel] = useState<Personnel[]>(mockPersonnel);
+  const [personnel, setPersonnel] = useState<Personnel[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -84,6 +87,19 @@ export default function Personnel() {
     speciality: "",
     status: "pending" as Personnel["status"]
   });
+
+  const loadPersonnel = async () => {
+    try {
+      const result = await personnelService.getAll({ limit: 100 });
+      setPersonnel(result.data);
+    } catch (error) {
+      toast({ variant: "destructive", title: "Erreur", description: apiMessage(error) });
+    }
+  };
+
+  useEffect(() => {
+    void loadPersonnel();
+  }, []);
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -120,8 +136,8 @@ export default function Personnel() {
     setIsDialogOpen(true);
   };
 
-  const handleSubmit = () => {
-    if (!formData.firstName || !formData.lastName || !formData.email) {
+  const handleSubmit = async () => {
+    if (!formData.firstName || !formData.lastName || !formData.email || !formData.department) {
       toast({
         variant: "destructive",
         title: "Erreur",
@@ -130,58 +146,66 @@ export default function Personnel() {
       return;
     }
 
-    if (isEditing && selectedPerson) {
-      // Update
-      setPersonnel(prev => 
-        prev.map(p => p.id === selectedPerson.id ? {
-          ...p,
-          ...formData,
-          avatar: formData.firstName[0] + formData.lastName[0]
-        } : p)
-      );
-      toast({
-        title: "Personnel modifié",
-        description: `${formData.firstName} ${formData.lastName} a été mis à jour`,
-      });
-    } else {
-      // Create
-      const newPerson: Personnel = {
-        id: `pers-${Date.now()}`,
-        ...formData,
-        hireDate: new Date().toISOString().split('T')[0],
-        avatar: formData.firstName[0] + formData.lastName[0]
-      };
-      setPersonnel(prev => [newPerson, ...prev]);
-      toast({
-        title: "Personnel ajouté",
-        description: `${formData.firstName} ${formData.lastName} a été ajouté`,
-      });
-    }
+    const payload = {
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      email: formData.email,
+      phone: formData.phone,
+      role: formData.role,
+      department: formData.department,
+      speciality: formData.speciality || undefined,
+      status: formData.status,
+    };
 
-    setIsDialogOpen(false);
-    resetForm();
+    try {
+      if (isEditing && selectedPerson) {
+        await personnelService.update(selectedPerson.id, payload);
+        toast({
+          title: "Personnel modifié",
+          description: `${formData.firstName} ${formData.lastName} a été mis à jour`,
+        });
+      } else {
+        await personnelService.create(payload);
+        toast({
+          title: "Personnel ajouté",
+          description: `${formData.firstName} ${formData.lastName} a été ajouté`,
+        });
+      }
+      setIsDialogOpen(false);
+      resetForm();
+      await loadPersonnel();
+    } catch (error) {
+      toast({ variant: "destructive", title: "Erreur", description: apiMessage(error) });
+    }
   };
 
-  const handleDelete = () => {
-    if (selectedPerson) {
-      setPersonnel(prev => prev.filter(p => p.id !== selectedPerson.id));
+  const handleDelete = async () => {
+    if (!selectedPerson) return;
+    try {
+      await personnelService.delete(selectedPerson.id);
       toast({
-        title: "Personnel supprimé",
-        description: `${selectedPerson.firstName} ${selectedPerson.lastName} a été supprimé`,
+        title: "Personnel archivé",
+        description: `${selectedPerson.firstName} ${selectedPerson.lastName} a été archivé`,
       });
+      setIsDeleteDialogOpen(false);
+      setSelectedPerson(null);
+      await loadPersonnel();
+    } catch (error) {
+      toast({ variant: "destructive", title: "Erreur", description: apiMessage(error) });
     }
-    setIsDeleteDialogOpen(false);
-    setSelectedPerson(null);
   };
 
-  const handleStatusChange = (id: string, status: Personnel["status"]) => {
-    setPersonnel(prev => 
-      prev.map(p => p.id === id ? { ...p, status } : p)
-    );
-    toast({
-      title: "Statut mis à jour",
-      description: status === "active" ? "Le membre a été activé" : "Le statut a été modifié",
-    });
+  const handleStatusChange = async (id: string, status: Personnel["status"]) => {
+    try {
+      await personnelService.updateStatus(id, status);
+      toast({
+        title: "Statut mis à jour",
+        description: status === "active" ? "Le membre a été activé" : "Le statut a été modifié",
+      });
+      await loadPersonnel();
+    } catch (error) {
+      toast({ variant: "destructive", title: "Erreur", description: apiMessage(error) });
+    }
   };
 
   const filteredPersonnel = personnel.filter(person =>

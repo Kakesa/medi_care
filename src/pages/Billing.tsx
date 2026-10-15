@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, Search, FileText, Download, CreditCard, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,56 +9,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { mockPatients, mockConsultations, mockExams } from "@/data/mockData";
 import { generateInvoicePDF } from "@/utils/pdfGenerator";
-import type { Invoice, InvoiceItem, InvoiceStatus, PaymentMethod } from "@/types";
-
-// Mock invoices
-const initialInvoices: Invoice[] = [
-  {
-    id: "inv-1",
-    invoiceNumber: "FAC-2024-001",
-    patientId: "pat-1",
-    patientName: "Jean Martin",
-    patientAddress: "12 Rue de Paris, 75001 Paris",
-    patientPhone: "06 12 34 56 78",
-    items: [
-      { id: "item-1", description: "Consultation cardiologie", quantity: 1, unitPrice: 50, total: 50, type: "consultation" },
-      { id: "item-2", description: "ECG", quantity: 1, unitPrice: 30, total: 30, type: "exam" },
-    ],
-    subtotal: 80,
-    tax: 0,
-    discount: 0,
-    total: 80,
-    status: "paid",
-    paymentMethod: "card",
-    paidAt: "2024-01-20",
-    dueDate: "2024-02-01",
-    createdAt: "2024-01-15",
-    updatedAt: "2024-01-20",
-  },
-  {
-    id: "inv-2",
-    invoiceNumber: "FAC-2024-002",
-    patientId: "pat-2",
-    patientName: "Marie Dupont",
-    patientAddress: "8 Avenue Victor Hugo, 75016 Paris",
-    items: [
-      { id: "item-3", description: "Consultation générale", quantity: 1, unitPrice: 25, total: 25, type: "consultation" },
-    ],
-    subtotal: 25,
-    tax: 0,
-    discount: 0,
-    total: 25,
-    status: "pending",
-    dueDate: "2024-02-15",
-    createdAt: "2024-01-22",
-    updatedAt: "2024-01-22",
-  },
-];
+import { billingService } from "@/services/billingService";
+import type { Invoice, InvoiceStatus, PaymentMethod } from "@/types";
+import { apiMessage } from "@/lib/apiError";
 
 export default function Billing() {
-  const [invoices, setInvoices] = useState<Invoice[]>(initialInvoices);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [patients, setPatients] = useState<Array<{ id: string; firstName: string; lastName: string }>>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -68,6 +26,23 @@ export default function Billing() {
     items: [{ description: "", quantity: 1, unitPrice: 0, type: "consultation" as "consultation" | "exam" | "medication" }],
     notes: "",
   });
+
+  const loadBilling = async () => {
+    try {
+      const [invoiceResult, patientResult] = await Promise.all([
+        billingService.getInvoices({ limit: 100 }),
+        billingService.getBillingPatients(),
+      ]);
+      setInvoices(invoiceResult.data);
+      setPatients(patientResult);
+    } catch (error) {
+      toast.error(apiMessage(error));
+    }
+  };
+
+  useEffect(() => {
+    void loadBilling();
+  }, []);
 
   const filteredInvoices = invoices.filter(inv => {
     const matchesSearch = inv.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -82,56 +57,50 @@ export default function Billing() {
     pending: invoices.filter(inv => inv.status === "pending").reduce((sum, inv) => sum + inv.total, 0),
   };
 
-  const handleCreateInvoice = () => {
-    const patient = mockPatients.find(p => p.id === newInvoice.patientId);
-    if (!patient) {
+  const handleCreateInvoice = async () => {
+    if (!newInvoice.patientId) {
       toast.error("Veuillez sélectionner un patient");
       return;
     }
+    const items = newInvoice.items.filter((item) => item.description.trim());
+    if (items.length === 0) {
+      toast.error("Ajoutez au moins une ligne");
+      return;
+    }
 
-    const items: InvoiceItem[] = newInvoice.items.map((item, idx) => ({
-      id: `item-${Date.now()}-${idx}`,
-      description: item.description,
-      quantity: item.quantity,
-      unitPrice: item.unitPrice,
-      total: item.quantity * item.unitPrice,
-      type: item.type,
-    }));
-
-    const subtotal = items.reduce((sum, item) => sum + item.total, 0);
-
-    const invoice: Invoice = {
-      id: `inv-${Date.now()}`,
-      invoiceNumber: `FAC-2024-${String(invoices.length + 1).padStart(3, "0")}`,
-      patientId: patient.id,
-      patientName: `${patient.firstName} ${patient.lastName}`,
-      patientAddress: patient.address,
-      patientPhone: patient.phone,
-      items,
-      subtotal,
-      tax: 0,
-      discount: 0,
-      total: subtotal,
-      status: "pending",
-      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-      notes: newInvoice.notes,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    setInvoices([invoice, ...invoices]);
-    setIsDialogOpen(false);
-    setNewInvoice({ patientId: "", items: [{ description: "", quantity: 1, unitPrice: 0, type: "consultation" }], notes: "" });
-    toast.success("Facture créée avec succès");
+    try {
+      await billingService.createInvoice({
+        patientId: newInvoice.patientId,
+        patientName: "",
+        items: items.map((item) => ({
+          description: item.description,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          total: item.quantity * item.unitPrice,
+          type: item.type,
+        })),
+        tax: 0,
+        discount: 0,
+        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+        notes: newInvoice.notes || undefined,
+      });
+      setIsDialogOpen(false);
+      setNewInvoice({ patientId: "", items: [{ description: "", quantity: 1, unitPrice: 0, type: "consultation" }], notes: "" });
+      toast.success("Facture créée avec succès");
+      await loadBilling();
+    } catch (error) {
+      toast.error(apiMessage(error));
+    }
   };
 
-  const handleMarkAsPaid = (invoice: Invoice, method: PaymentMethod) => {
-    setInvoices(invoices.map(inv =>
-      inv.id === invoice.id
-        ? { ...inv, status: "paid" as InvoiceStatus, paymentMethod: method, paidAt: new Date().toISOString() }
-        : inv
-    ));
-    toast.success("Facture marquée comme payée");
+  const handleMarkAsPaid = async (invoice: Invoice, method: PaymentMethod) => {
+    try {
+      await billingService.markAsPaid(invoice.id, method);
+      toast.success("Facture marquée comme payée");
+      await loadBilling();
+    } catch (error) {
+      toast.error(apiMessage(error));
+    }
   };
 
   const handleDownloadPDF = (invoice: Invoice) => {
@@ -171,7 +140,7 @@ export default function Billing() {
                 <Select value={newInvoice.patientId} onValueChange={v => setNewInvoice({ ...newInvoice, patientId: v })}>
                   <SelectTrigger><SelectValue placeholder="Sélectionner un patient" /></SelectTrigger>
                   <SelectContent>
-                    {mockPatients.map(p => (
+                    {patients.map(p => (
                       <SelectItem key={p.id} value={p.id}>{p.firstName} {p.lastName}</SelectItem>
                     ))}
                   </SelectContent>

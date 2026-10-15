@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { 
   Plus, 
   Search, 
@@ -32,7 +32,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { mockReception, mockPatients, availableDoctors, Reception } from "@/data/mockData";
+import { receptionService } from "@/services/receptionService";
+import { patientService } from "@/services/patientService";
+import { personnelService } from "@/services/personnelService";
+import type { Patient, Personnel, Reception } from "@/types";
+import { apiMessage } from "@/lib/apiError";
 
 const priorityConfig = {
   low: { label: "Faible", color: "bg-info/10 text-info border-info/20" },
@@ -50,7 +54,9 @@ const statusConfig = {
 
 export default function ReceptionPage() {
   const { toast } = useToast();
-  const [receptionList, setReceptionList] = useState<Reception[]>(mockReception);
+  const [receptionList, setReceptionList] = useState<Reception[]>([]);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [doctors, setDoctors] = useState<Personnel[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   
@@ -60,22 +66,36 @@ export default function ReceptionPage() {
     reason: "",
     priority: "low" as "low" | "medium" | "high" | "urgent",
     notes: "",
-    isNewPatient: false
+    isNewPatient: false,
+    dateOfBirth: "",
+    gender: "M" as "M" | "F"
   });
+
+  const loadReception = async () => {
+    try {
+      const [queue, patientResult, doctorResult] = await Promise.all([
+        receptionService.getQueue({ limit: 100 }),
+        patientService.getAll({ limit: 100 }),
+        personnelService.getDoctors(),
+      ]);
+      setReceptionList(queue.data);
+      setPatients(patientResult.data);
+      setDoctors(doctorResult);
+    } catch (error) {
+      toast({ variant: "destructive", title: "Erreur", description: apiMessage(error) });
+    }
+  };
+
+  useEffect(() => {
+    void loadReception();
+  }, []);
 
   const handleChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = () => {
-    let patientName = formData.patientName;
-    
-    if (!formData.isNewPatient && formData.patientId) {
-      const patient = mockPatients.find(p => p.id === formData.patientId);
-      patientName = patient ? `${patient.firstName} ${patient.lastName}` : formData.patientName;
-    }
-
-    if (!patientName || !formData.reason) {
+  const handleSubmit = async () => {
+    if (!formData.reason || (formData.isNewPatient ? !formData.patientName : !formData.patientId)) {
       toast({
         variant: "destructive",
         title: "Erreur",
@@ -83,48 +103,74 @@ export default function ReceptionPage() {
       });
       return;
     }
+    if (formData.isNewPatient && !formData.dateOfBirth) {
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: "La date de naissance est requise pour un nouveau patient",
+      });
+      return;
+    }
 
-    const newEntry: Reception = {
-      id: `rec-${Date.now()}`,
-      patientId: formData.patientId || "",
-      patientName,
-      arrivalTime: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-      reason: formData.reason,
-      priority: formData.priority,
-      status: "waiting",
-      notes: formData.notes,
-      createdAt: new Date().toISOString().split('T')[0]
-    };
+    try {
+      let patientId = formData.patientId;
+      if (formData.isNewPatient) {
+        const [firstName, ...rest] = formData.patientName.trim().split(/\s+/);
+        const created = await patientService.create({
+          firstName: firstName || formData.patientName,
+          lastName: rest.join(" ") || firstName || "Inconnu",
+          email: `accueil-${Date.now()}@patient.local`,
+          phone: "",
+          dateOfBirth: formData.dateOfBirth,
+          gender: formData.gender,
+          address: "",
+        });
+        patientId = created.id;
+      }
 
-    setReceptionList(prev => [newEntry, ...prev]);
-    setIsDialogOpen(false);
-    setFormData({
-      patientId: "",
-      patientName: "",
-      reason: "",
-      priority: "low",
-      notes: "",
-      isNewPatient: false
-    });
-
-    toast({
-      title: "Patient enregistré",
-      description: "Le patient a été ajouté à la file d'attente",
-    });
+      await receptionService.registerArrival({
+        patientId,
+        patientName: "",
+        reason: formData.reason,
+        priority: formData.priority,
+        notes: formData.notes || undefined,
+      });
+      setIsDialogOpen(false);
+      setFormData({
+        patientId: "",
+        patientName: "",
+        reason: "",
+        priority: "low",
+        notes: "",
+        isNewPatient: false,
+        dateOfBirth: "",
+        gender: "M"
+      });
+      toast({
+        title: "Patient enregistré",
+        description: "Le patient a été ajouté à la file d'attente",
+      });
+      await loadReception();
+    } catch (error) {
+      toast({ variant: "destructive", title: "Erreur", description: apiMessage(error) });
+    }
   };
 
-  const handleStatusChange = (id: string, newStatus: Reception["status"], doctorName?: string) => {
-    setReceptionList(prev => 
-      prev.map(r => r.id === id ? { 
-        ...r, 
-        status: newStatus,
-        assignedDoctor: doctorName 
-      } : r)
-    );
-    toast({
-      title: "Statut mis à jour",
-      description: `Le patient a été ${newStatus === "in_consultation" ? "pris en charge" : newStatus === "completed" ? "libéré" : "mis à jour"}`,
-    });
+  const handleStatusChange = async (id: string, newStatus: Reception["status"], doctorId?: string) => {
+    try {
+      if (newStatus === "in_consultation" && doctorId) {
+        await receptionService.assignDoctor(id, doctorId);
+      } else {
+        await receptionService.updateStatus(id, newStatus);
+      }
+      toast({
+        title: "Statut mis à jour",
+        description: `Le patient a été ${newStatus === "in_consultation" ? "pris en charge" : newStatus === "completed" ? "libéré" : "mis à jour"}`,
+      });
+      await loadReception();
+    } catch (error) {
+      toast({ variant: "destructive", title: "Erreur", description: apiMessage(error) });
+    }
   };
 
   const filteredList = receptionList.filter(r =>
@@ -175,6 +221,7 @@ export default function ReceptionPage() {
               </div>
 
               {formData.isNewPatient ? (
+                <>
                 <div className="space-y-2">
                   <Label>Nom du patient *</Label>
                   <Input 
@@ -183,6 +230,23 @@ export default function ReceptionPage() {
                     placeholder="Prénom Nom"
                   />
                 </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Date de naissance *</Label>
+                    <Input type="date" value={formData.dateOfBirth} onChange={(e) => handleChange("dateOfBirth", e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Sexe *</Label>
+                    <Select value={formData.gender} onValueChange={(v) => handleChange("gender", v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="M">Masculin</SelectItem>
+                        <SelectItem value="F">Féminin</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                </>
               ) : (
                 <div className="space-y-2">
                   <Label>Sélectionner un patient *</Label>
@@ -191,7 +255,7 @@ export default function ReceptionPage() {
                       <SelectValue placeholder="Rechercher un patient" />
                     </SelectTrigger>
                     <SelectContent>
-                      {mockPatients.map(p => (
+                      {patients.map(p => (
                         <SelectItem key={p.id} value={p.id}>
                           {p.firstName} {p.lastName} - {p.id}
                         </SelectItem>
@@ -359,8 +423,7 @@ export default function ReceptionPage() {
 
                     {entry.status === "waiting" && (
                       <Select onValueChange={(doctorId) => {
-                        const doctor = availableDoctors.find(d => d.id === doctorId);
-                        handleStatusChange(entry.id, "in_consultation", `Dr. ${doctor?.firstName} ${doctor?.lastName}`);
+                        handleStatusChange(entry.id, "in_consultation", doctorId);
                       }}>
                         <SelectTrigger className="w-auto">
                           <Button variant="outline" size="sm" asChild>
@@ -371,7 +434,7 @@ export default function ReceptionPage() {
                           </Button>
                         </SelectTrigger>
                         <SelectContent>
-                          {availableDoctors.map(d => (
+                          {doctors.map(d => (
                             <SelectItem key={d.id} value={d.id}>
                               Dr. {d.firstName} {d.lastName} - {d.department}
                             </SelectItem>

@@ -16,21 +16,25 @@ import {
   Pill,
   FileText
 } from "lucide-react";
+import { Building2, UserCog } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import type { UserRole } from "@/types";
 
-const allNavigation = [
-  { name: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard, roles: ['admin', 'doctor', 'patient', 'receptionist'] },
-  { name: "Réception", href: "/dashboard/reception", icon: UserPlus, roles: ['admin', 'receptionist'] },
-  { name: "Personnel", href: "/dashboard/personnel", icon: Users, roles: ['admin'] },
-  { name: "Patients", href: "/dashboard/patients", icon: UserCircle, roles: ['admin', 'doctor', 'receptionist'] },
-  { name: "Rendez-vous", href: "/dashboard/appointments", icon: Calendar, roles: ['admin', 'doctor', 'receptionist'] },
-  { name: "Consultations", href: "/dashboard/consultations", icon: Stethoscope, roles: ['admin', 'doctor'] },
-  { name: "Examens", href: "/dashboard/examinations", icon: FlaskConical, roles: ['admin', 'doctor'] },
-  { name: "Facturation", href: "/dashboard/billing", icon: FileText, roles: ['admin'] },
-  { name: "Pharmacie", href: "/dashboard/pharmacy", icon: Pill, roles: ['admin'] },
-  { name: "Profil", href: "/dashboard/profile", icon: Settings, roles: ['admin', 'doctor', 'patient', 'receptionist'] },
+const allNavigation: { name: string; href: string; icon: typeof LayoutDashboard; roles: UserRole[] }[] = [
+  { name: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard, roles: ['SUPERADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'RECEPTIONIST', 'NURSE', 'ACCOUNTANT', 'PHARMACIST', 'PATIENT'] },
+  { name: "Hôpitaux", href: "/dashboard/hospitals", icon: Building2, roles: ['SUPERADMIN'] },
+  { name: "Utilisateurs", href: "/dashboard/users", icon: UserCog, roles: ['HOSPITAL_ADMIN'] },
+  { name: "Réception", href: "/dashboard/reception", icon: UserPlus, roles: ['HOSPITAL_ADMIN', 'RECEPTIONIST'] },
+  { name: "Personnel", href: "/dashboard/personnel", icon: Users, roles: ['HOSPITAL_ADMIN'] },
+  { name: "Patients", href: "/dashboard/patients", icon: UserCircle, roles: ['HOSPITAL_ADMIN', 'DOCTOR', 'RECEPTIONIST', 'NURSE'] },
+  { name: "Rendez-vous", href: "/dashboard/appointments", icon: Calendar, roles: ['HOSPITAL_ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
+  { name: "Consultations", href: "/dashboard/consultations", icon: Stethoscope, roles: ['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE'] },
+  { name: "Examens", href: "/dashboard/examinations", icon: FlaskConical, roles: ['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE'] },
+  { name: "Facturation", href: "/dashboard/billing", icon: FileText, roles: ['HOSPITAL_ADMIN', 'ACCOUNTANT'] },
+  { name: "Pharmacie", href: "/dashboard/pharmacy", icon: Pill, roles: ['HOSPITAL_ADMIN', 'PHARMACIST'] },
+  { name: "Profil", href: "/dashboard/profile", icon: Settings, roles: ['SUPERADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'RECEPTIONIST', 'NURSE', 'ACCOUNTANT', 'PHARMACIST', 'PATIENT'] },
 ];
 
 export function Sidebar() {
@@ -39,8 +43,8 @@ export function Sidebar() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
-  const navigation = allNavigation.filter(item => 
-    item.roles.includes(user?.role || 'patient')
+  const navigation = allNavigation.filter(item =>
+    user ? item.roles.includes(user.role) : false
   );
 
   const handleLogout = () => {

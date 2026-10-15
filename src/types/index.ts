@@ -4,7 +4,22 @@
 
 // ============ Enums ============
 
-export type UserRole = 'admin' | 'doctor' | 'patient' | 'receptionist';
+export type UserRole =
+  | 'SUPERADMIN'
+  | 'HOSPITAL_ADMIN'
+  | 'DOCTOR'
+  | 'RECEPTIONIST'
+  | 'NURSE'
+  | 'ACCOUNTANT'
+  | 'PHARMACIST'
+  | 'PATIENT';
+
+export interface OrganizationSummary {
+  id: string;
+  name: string;
+  slug: string;
+  status: 'active' | 'suspended';
+}
 export type PersonnelRole = 'doctor' | 'nurse' | 'secretary' | 'admin' | 'receptionist';
 export type PersonnelStatus = 'active' | 'pending' | 'inactive';
 export type PatientStatus = 'hospitalized' | 'outpatient' | 'discharged';
@@ -27,12 +42,14 @@ export type PaymentMethod = 'cash' | 'card' | 'transfer' | 'insurance';
 export interface User {
   id: string;
   email: string;
-  password: string;
   role: UserRole;
   firstName: string;
   lastName: string;
   phone?: string;
   avatar?: string;
+  isActive?: boolean;
+  organizationId?: string | null;
+  organization?: OrganizationSummary | null;
 }
 
 export interface LoginCredentials {
@@ -45,8 +62,8 @@ export interface RegisterData {
   password: string;
   firstName: string;
   lastName: string;
-  phone: string;
-  role: UserRole;
+  phone?: string;
+  organizationSlug: string;
 }
 
 export interface AuthResponse {

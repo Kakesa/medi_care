@@ -1,20 +1,38 @@
+import { useEffect, useState } from "react";
 import { Calendar, FileText, FlaskConical, Pill, User, Clock, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { mockAppointments, mockConsultations, mockExams } from "@/data/mockData";
+import { appointmentService } from "@/services/appointmentService";
+import { consultationService } from "@/services/consultationService";
+import { examService } from "@/services/examService";
+import type { Appointment, Consultation, Exam } from "@/types";
 import { Link } from "react-router-dom";
 
 export default function PatientDashboard() {
   const { user } = useAuth();
-  
-  // Filter data for current patient (using mock patient id for demo)
-  const patientId = "pat-2"; // In real app, this would come from user profile
-  
-  const myAppointments = mockAppointments.filter(a => a.patientId === patientId);
-  const myConsultations = mockConsultations.filter(c => c.patientId === patientId);
-  const myExams = mockExams.filter(e => e.patientId === patientId);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [consultations, setConsultations] = useState<Consultation[]>([]);
+  const [exams, setExams] = useState<Exam[]>([]);
+
+  useEffect(() => {
+    const load = async () => {
+      const [appointmentResult, consultationResult, examResult] = await Promise.allSettled([
+        appointmentService.getAll({ limit: 100 }),
+        consultationService.getAll({ limit: 100 }),
+        examService.getAll({ limit: 100 }),
+      ]);
+      if (appointmentResult.status === "fulfilled") setAppointments(appointmentResult.value.data);
+      if (consultationResult.status === "fulfilled") setConsultations(consultationResult.value.data);
+      if (examResult.status === "fulfilled") setExams(examResult.value.data);
+    };
+    void load();
+  }, []);
+
+  const myAppointments = appointments;
+  const myConsultations = consultations;
+  const myExams = exams;
   
   const upcomingAppointments = myAppointments.filter(a => a.status === 'confirmed' || a.status === 'pending');
   const completedConsultations = myConsultations.filter(c => c.status === 'completed');

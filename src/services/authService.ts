@@ -53,8 +53,8 @@ class AuthService {
     return httpClient.put<User>(`${this.basePath}/profile`, data);
   }
 
-  async changePassword(currentPassword: string, newPassword: string): Promise<ApiResponse<void>> {
-    return httpClient.post<ApiResponse<void>>(`${this.basePath}/change-password`, {
+  async changePassword(currentPassword: string, newPassword: string): Promise<ApiResponse<void> & { token?: string; user?: User }> {
+    return httpClient.post<ApiResponse<void> & { token?: string; user?: User }>(`${this.basePath}/change-password`, {
       currentPassword,
       newPassword,
     });

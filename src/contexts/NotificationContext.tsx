@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { mockNotifications, Notification } from '@/data/mockData';
+import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
+import { Notification } from '@/data/mockData';
 import { toast } from 'sonner';
 
 interface NotificationContextType {
@@ -14,7 +14,7 @@ interface NotificationContextType {
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -48,28 +48,6 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const clearNotification = useCallback((id: string) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
   }, []);
-
-  // Simulate real-time notifications (for demo)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const random = Math.random();
-      if (random < 0.1) { // 10% chance every 30 seconds
-        const types = ['appointment', 'patient_arrival', 'exam_result', 'pharmacy'] as const;
-        const type = types[Math.floor(Math.random() * types.length)];
-        
-        const messages: Record<typeof type, { title: string; message: string }> = {
-          appointment: { title: 'Nouveau RDV', message: 'Un patient a demandé un nouveau rendez-vous' },
-          patient_arrival: { title: 'Arrivée patient', message: 'Un patient vient d\'arriver à l\'accueil' },
-          exam_result: { title: 'Résultats prêts', message: 'De nouveaux résultats d\'examen sont disponibles' },
-          pharmacy: { title: 'Alerte stock', message: 'Un produit pharmaceutique est en rupture' }
-        };
-        
-        addNotification({ type, ...messages[type] });
-      }
-    }, 30000);
-
-    return () => clearInterval(interval);
-  }, [addNotification]);
 
   return (
     <NotificationContext.Provider value={{

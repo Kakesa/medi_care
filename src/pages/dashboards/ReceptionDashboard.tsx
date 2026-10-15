@@ -1,19 +1,41 @@
+import { useEffect, useState } from "react";
 import { UserPlus, Clock, Users, CheckCircle, AlertCircle } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { mockReception, mockAppointments } from "@/data/mockData";
+import { receptionService } from "@/services/receptionService";
+import { appointmentService } from "@/services/appointmentService";
+import type { Appointment, Reception } from "@/types";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
+function todayIso() {
+  const date = new Date();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
 export default function ReceptionDashboard() {
   const { user } = useAuth();
-  
-  const waitingPatients = mockReception.filter(r => r.status === 'waiting');
-  const inConsultation = mockReception.filter(r => r.status === 'in_consultation');
-  const completedToday = mockReception.filter(r => r.status === 'completed');
-  const todayAppointments = mockAppointments.filter(a => a.status === 'confirmed');
+  const [queue, setQueue] = useState<Reception[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+
+  useEffect(() => {
+    const load = async () => {
+      const [queueResult, appointmentResult] = await Promise.allSettled([
+        receptionService.getQueue({ limit: 100 }),
+        appointmentService.getByDate(todayIso()),
+      ]);
+      if (queueResult.status === "fulfilled") setQueue(queueResult.value.data);
+      if (appointmentResult.status === "fulfilled") setAppointments(appointmentResult.value);
+    };
+    void load();
+  }, []);
+
+  const waitingPatients = queue.filter(r => r.status === 'waiting');
+  const inConsultation = queue.filter(r => r.status === 'in_consultation');
+  const completedToday = queue.filter(r => r.status === 'completed');
+  const todayAppointments = appointments.filter(a => a.status === 'confirmed' || a.status === 'pending');
 
   const stats = [
     {
@@ -188,7 +210,7 @@ export default function ReceptionDashboard() {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {mockReception.map((entry) => (
+            {queue.map((entry) => (
               <div key={entry.id} className="flex items-center justify-between p-3 rounded-lg border">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">

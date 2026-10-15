@@ -14,12 +14,18 @@ import {
   Activity,
   UserPlus,
   Pill,
-  FileText
+  FileText,
+  Moon,
+  Sun,
+  Landmark,
+  BedDouble,
+  Building2,
+  UserCog
 } from "lucide-react";
-import { Building2, UserCog } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "next-themes";
 import type { UserRole } from "@/types";
 
 const allNavigation: { name: string; href: string; icon: typeof LayoutDashboard; roles: UserRole[] }[] = [
@@ -33,6 +39,8 @@ const allNavigation: { name: string; href: string; icon: typeof LayoutDashboard;
   { name: "Consultations", href: "/dashboard/consultations", icon: Stethoscope, roles: ['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE'] },
   { name: "Examens", href: "/dashboard/examinations", icon: FlaskConical, roles: ['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE'] },
   { name: "Facturation", href: "/dashboard/billing", icon: FileText, roles: ['HOSPITAL_ADMIN', 'ACCOUNTANT'] },
+  { name: "Comptabilité", href: "/dashboard/accounting", icon: Landmark, roles: ['HOSPITAL_ADMIN', 'ACCOUNTANT'] },
+  { name: "Gestion des lits", href: "/dashboard/beds", icon: BedDouble, roles: ['HOSPITAL_ADMIN', 'RECEPTIONIST'] },
   { name: "Pharmacie", href: "/dashboard/pharmacy", icon: Pill, roles: ['HOSPITAL_ADMIN', 'PHARMACIST'] },
   { name: "Profil", href: "/dashboard/profile", icon: Settings, roles: ['SUPERADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'RECEPTIONIST', 'NURSE', 'ACCOUNTANT', 'PHARMACIST', 'PATIENT'] },
 ];
@@ -42,6 +50,7 @@ export function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { theme, setTheme } = useTheme();
 
   const navigation = allNavigation.filter(item =>
     user ? item.roles.includes(user.role) : false
@@ -111,7 +120,30 @@ export function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-sidebar-border p-3">
+      <div className="border-t border-sidebar-border p-3 space-y-1">
+        {/* Theme toggle */}
+        <Button
+          variant="ghost"
+          className={cn(
+            "w-full justify-start gap-3 text-muted-foreground",
+            "transition-all duration-200 hover:text-foreground hover:bg-secondary",
+            "group"
+          )}
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+        >
+          {theme === "dark" ? (
+            <Sun className="h-5 w-5 transition-transform group-hover:scale-110 group-hover:rotate-45" />
+          ) : (
+            <Moon className="h-5 w-5 transition-transform group-hover:scale-110 group-hover:-rotate-12" />
+          )}
+          <span className={cn(
+            "transition-all duration-300",
+            collapsed ? "w-0 opacity-0 hidden" : "w-auto opacity-100"
+          )}>
+            {theme === "dark" ? "Mode clair" : "Mode sombre"}
+          </span>
+        </Button>
+
         <Button
           variant="ghost"
           className={cn(

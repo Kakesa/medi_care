@@ -21,6 +21,8 @@ export { billingService } from './billingService';
 export { notificationService } from './notificationService';
 export { organizationService } from './organizationService';
 export { userAdminService } from './userAdminService';
+export { accountingService } from './accountingService';
+export { bedService } from './bedService';
 
 // Usage example:
 // import { patientService, appointmentService } from '@/services';

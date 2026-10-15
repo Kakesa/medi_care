@@ -60,7 +60,7 @@ export const personnelStatusSchema = envelope(
 export const personnelParamsSchema = envelope(empty, empty, paramsId);
 
 const appointmentBody = {
-  patientId: objectIdSchema,
+  patientId: objectIdSchema.optional(),
   doctorId: objectIdSchema,
   patientName: z.string().max(160).optional(),
   doctorName: z.string().max(160).optional(),

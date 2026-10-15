@@ -17,7 +17,7 @@ const router = Router();
 const read = [ROLES.HOSPITAL_ADMIN, ROLES.DOCTOR, ROLES.RECEPTIONIST, ROLES.NURSE] as const;
 
 router.use(authenticate, requireTenant);
-router.get('/doctors', requireRoles(...read), clinical.listDoctors);
+router.get('/doctors', requireRoles(...read, ROLES.PATIENT), clinical.listDoctors);
 router.get('/', requireRoles(...read), validate(listPersonnelSchema), clinical.listPersonnel);
 router.post('/', requireRoles(ROLES.HOSPITAL_ADMIN), validate(createPersonnelSchema), clinical.createPersonnel);
 router.get('/:id', requireRoles(...read), validate(personnelParamsSchema), clinical.getPersonnel);

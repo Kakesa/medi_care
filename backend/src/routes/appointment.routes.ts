@@ -26,12 +26,13 @@ router.get('/by-date/:date', requireRoles(...read), validate(appointmentByDateSc
 router.get('/by-doctor/:doctorId', requireRoles(...read), validate(appointmentByDoctorSchema), clinical.appointmentsByDoctor);
 router.get('/by-patient/:patientId', requireRoles(...read), validate(appointmentByPatientSchema), clinical.appointmentsByPatient);
 router.get('/', requireRoles(...read), validate(listAppointmentsSchema), clinical.listAppointments);
-router.post('/', requireRoles(...write), validate(createAppointmentSchema), clinical.createAppointment);
+router.post('/', requireRoles(...write, ROLES.PATIENT), validate(createAppointmentSchema), clinical.createAppointment);
 router.get('/:id', requireRoles(...read), validate(appointmentParamsSchema), clinical.getAppointment);
 router.put('/:id', requireRoles(...write), validate(updateAppointmentSchema), clinical.updateAppointment);
 router.patch('/:id/status', requireRoles(...write), validate(appointmentStatusSchema), clinical.updateAppointmentStatus);
-router.patch('/:id/accept', requireRoles(ROLES.PATIENT), validate(appointmentResponseSchema), clinical.acceptAppointment);
-router.patch('/:id/decline', requireRoles(ROLES.PATIENT), validate(appointmentResponseSchema), clinical.declineAppointment);
+const responders = [ROLES.PATIENT, ROLES.DOCTOR, ROLES.HOSPITAL_ADMIN, ROLES.RECEPTIONIST] as const;
+router.patch('/:id/accept', requireRoles(...responders), validate(appointmentResponseSchema), clinical.acceptAppointment);
+router.patch('/:id/decline', requireRoles(...responders), validate(appointmentResponseSchema), clinical.declineAppointment);
 router.delete('/:id', requireRoles(...write), validate(appointmentParamsSchema), clinical.deleteAppointment);
 
 export default router;

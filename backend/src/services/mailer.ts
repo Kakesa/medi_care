@@ -19,12 +19,13 @@ export async function sendMail(input: { to: string; subject: string; text: strin
     host: env.SMTP_HOST,
     port: env.SMTP_PORT,
     secure: env.SMTP_PORT === 465,
+    requireTLS: env.SMTP_PORT === 587,
     auth: env.SMTP_USER ? { user: env.SMTP_USER, pass: env.SMTP_PASS } : undefined,
   });
 
   try {
     await transport.sendMail({
-      from: env.SMTP_FROM,
+      from: senderAddress(env.SMTP_FROM, env.SMTP_USER),
       to: input.to,
       subject: input.subject,
       text: input.text,
@@ -32,4 +33,11 @@ export async function sendMail(input: { to: string; subject: string; text: strin
   } catch {
     throw new ApiError(502, "L'e-mail n'a pas pu être envoyé", 'EMAIL_FAILED');
   }
+}
+
+function senderAddress(from: string, user: string) {
+  const label = from.trim();
+  if (label.includes('@')) return label;
+  if (user.includes('@')) return `"${label.replace(/"/g, '') || 'MediCare'}" <${user}>`;
+  return label;
 }

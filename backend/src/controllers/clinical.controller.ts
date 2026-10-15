@@ -15,7 +15,7 @@ export const listPersonnel = asyncHandler(async (req: Request, res: Response) =>
   res.json(await personnelService.listPersonnel(org(req), req.query as never));
 });
 export const listDoctors = asyncHandler(async (req: Request, res: Response) => {
-  res.json(await personnelService.listDoctors(org(req)));
+  res.json(await personnelService.listDoctors(org(req), auth(req).role));
 });
 export const getPersonnel = asyncHandler(async (req: Request, res: Response) => {
   res.json(await personnelService.getPersonnel(auth(req), org(req), req.params.id, req.ip));

@@ -95,14 +95,26 @@ export async function listPersonnel(
   return paginated(rows.map((row) => toPersonnelDto(row)), total, page, limit);
 }
 
-export async function listDoctors(organizationId: string) {
+export async function listDoctors(organizationId: string, actorRole?: string) {
   const rows = await Personnel.find({
     organizationId,
     role: 'doctor',
     status: 'active',
     archivedAt: null,
   }).sort({ lastName: 1 });
-  return rows.map((row) => toPersonnelDto(row));
+  return rows.map((row) => {
+    const doctor = toPersonnelDto(row);
+    if (actorRole !== ROLES.PATIENT) return doctor;
+    return {
+      id: doctor.id,
+      firstName: doctor.firstName,
+      lastName: doctor.lastName,
+      role: doctor.role,
+      department: doctor.department,
+      speciality: doctor.speciality,
+      status: doctor.status,
+    };
+  });
 }
 
 export async function getPersonnel(actor: AuthContext, organizationId: string, id: string, ip?: string) {

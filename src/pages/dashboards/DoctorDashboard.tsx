@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Calendar, Users, Stethoscope, Clock, Activity, FileText } from "lucide-react";
+import { Calendar, Users, Stethoscope, Clock, Activity, FileText, Check, X } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,8 @@ import { consultationService } from "@/services/consultationService";
 import { patientService } from "@/services/patientService";
 import type { Appointment, Consultation, Patient } from "@/types";
 import { Link } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
+import { apiMessage } from "@/lib/apiError";
 
 function todayIso() {
   const date = new Date();
@@ -18,7 +20,9 @@ function todayIso() {
 
 export default function DoctorDashboard() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [respondingId, setRespondingId] = useState<string | null>(null);
   const [consultations, setConsultations] = useState<Consultation[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
 
@@ -38,6 +42,23 @@ export default function DoctorDashboard() {
 
   const todayAppointments = appointments.filter((appointment) => appointment.date === todayIso() && appointment.status !== "cancelled");
   const pendingAppointments = appointments.filter((appointment) => appointment.status === "pending");
+  const patientRequests = pendingAppointments.filter((appointment) => appointment.requestedBy === "patient");
+
+  const respond = async (id: string, decision: "accept" | "decline") => {
+    setRespondingId(id);
+    try {
+      const updated = decision === "accept"
+        ? await appointmentService.accept(id)
+        : await appointmentService.decline(id);
+      setAppointments((current) => current.map((item) => item.id === id ? updated : item));
+      window.dispatchEvent(new Event("notifications:refresh"));
+      toast({ title: decision === "accept" ? "Demande acceptée" : "Demande refusée", description: "Le patient est informé." });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Réponse impossible", description: apiMessage(error) });
+    } finally {
+      setRespondingId(null);
+    }
+  };
   const myConsultations = consultations;
 
   const stats = [
@@ -190,6 +211,35 @@ export default function DoctorDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {patientRequests.length > 0 && (
+        <Card className="card-elevated">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-primary" />
+              Demandes de patients
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {patientRequests.map((appointment) => (
+              <div key={appointment.id} className="flex flex-col items-start gap-3 rounded-lg bg-secondary/50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-medium">{appointment.patientName}</p>
+                  <p className="text-sm text-muted-foreground">{appointment.date} à {appointment.time}</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={() => void respond(appointment.id, "accept")} disabled={respondingId === appointment.id}>
+                    <Check className="mr-1 h-4 w-4" />Accepter
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => void respond(appointment.id, "decline")} disabled={respondingId === appointment.id}>
+                    <X className="mr-1 h-4 w-4" />Refuser
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Patients to follow up */}
       <Card className="card-elevated">

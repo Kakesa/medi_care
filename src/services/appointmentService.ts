@@ -35,6 +35,17 @@ class AppointmentService {
     return httpClient.post<Appointment>(this.basePath, data);
   }
 
+  async request(data: {
+    doctorId: string;
+    date: string;
+    time: string;
+    duration: number;
+    type: Appointment["type"];
+    notes?: string;
+  }): Promise<Appointment> {
+    return httpClient.post<Appointment>(this.basePath, data);
+  }
+
   async update(id: string, data: UpdateAppointmentData): Promise<Appointment> {
     return httpClient.put<Appointment>(`${this.basePath}/${id}`, data);
   }

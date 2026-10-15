@@ -16,6 +16,7 @@ const appointmentSchema = new Schema(
       enum: ['pending', 'confirmed', 'completed', 'cancelled'],
       default: 'pending',
     },
+    requestedBy: { type: String, enum: ['staff', 'patient'], default: 'staff' },
     notes: { type: String, trim: true },
   },
   { timestamps: true }

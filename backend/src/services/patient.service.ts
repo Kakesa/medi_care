@@ -237,7 +237,16 @@ export async function createPatient(
 
   if (!patient.linkedUserId && patient.email) {
     const existingAccount = await User.findOne({ email: patient.email });
-    if (!existingAccount) {
+    const sameHospital = existingAccount
+      && existingAccount.role === ROLES.PATIENT
+      && String(existingAccount.organizationId ?? '') === organizationId;
+    if (sameHospital) {
+      const taken = await Patient.exists({ linkedUserId: existingAccount._id });
+      if (!taken) {
+        patient.linkedUserId = existingAccount._id;
+        await patient.save();
+      }
+    } else if (!existingAccount) {
       const organization = await Organization.findById(organizationId);
       try {
         const account = await issuePatientLogin({

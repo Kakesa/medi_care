@@ -153,8 +153,10 @@ export interface Appointment {
   duration: number;
   type: AppointmentType;
   status: AppointmentStatus;
+  requestedBy?: "staff" | "patient";
   notes?: string;
   createdAt: string;
+  notice?: string;
 }
 
 export interface CreateAppointmentData {

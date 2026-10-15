@@ -1,4 +1,5 @@
 import { ROLES } from '../config/permissions.js';
+import { Organization } from '../models/Organization.js';
 import { Personnel } from '../models/Personnel.js';
 import { User } from '../models/User.js';
 import { ApiError } from '../utils/ApiError.js';
@@ -8,6 +9,7 @@ import { paginated, readPagination } from '../utils/pagination.js';
 import type { AuthContext } from '../types/express.js';
 import { requireActorPersonnel, requireOwned } from './access.service.js';
 import { recordAudit } from './audit.service.js';
+import { issueTemporaryLogin } from './user.service.js';
 
 function toPersonnelDto(person: {
   id?: string;
@@ -95,6 +97,26 @@ export async function listPersonnel(
   return paginated(rows.map((row) => toPersonnelDto(row)), total, page, limit);
 }
 
+export async function listPublicDoctors(slug: string) {
+  const organization = await Organization.findOne({ slug: slug.toLowerCase(), status: 'active' });
+  if (!organization) {
+    throw new ApiError(404, 'Établissement introuvable', 'NOT_FOUND');
+  }
+  const rows = await Personnel.find({
+    organizationId: organization._id,
+    role: 'doctor',
+    status: 'active',
+    archivedAt: null,
+  }).sort({ lastName: 1, firstName: 1 });
+  return rows.map((row) => ({
+    id: row.id,
+    firstName: row.firstName,
+    lastName: row.lastName,
+    department: row.department,
+    speciality: row.speciality || undefined,
+  }));
+}
+
 export async function listDoctors(organizationId: string, actorRole?: string) {
   const rows = await Personnel.find({
     organizationId,
@@ -152,6 +174,33 @@ export async function createPersonnel(
     speciality: input.speciality?.trim(),
     status: input.status ?? 'active',
   });
+  const accountRole = {
+    doctor: ROLES.DOCTOR,
+    nurse: ROLES.NURSE,
+    receptionist: ROLES.RECEPTIONIST,
+    admin: ROLES.HOSPITAL_ADMIN,
+  }[input.role as 'doctor' | 'nurse' | 'receptionist' | 'admin'];
+  let welcomeEmailSent = false;
+  if (accountRole && !person.userId) {
+    const organization = await Organization.findById(organizationId);
+    try {
+      const account = await issueTemporaryLogin({
+        organizationId,
+        organizationName: organization?.name || 'MediCare',
+        firstName: person.firstName,
+        lastName: person.lastName,
+        email: person.email,
+        phone: person.phone,
+        role: accountRole,
+      });
+      person.userId = account._id;
+      await person.save();
+      welcomeEmailSent = true;
+    } catch (error) {
+      await Personnel.deleteOne({ _id: person._id });
+      throw error;
+    }
+  }
   await recordAudit({
     actorId: actor.id,
     actorRole: actor.role,
@@ -162,7 +211,7 @@ export async function createPersonnel(
     success: true,
     ip,
   });
-  return toPersonnelDto(person);
+  return { ...toPersonnelDto(person), welcomeEmailSent };
 }
 
 export async function updatePersonnel(

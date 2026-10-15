@@ -31,13 +31,24 @@ function temporaryPassword() {
   return value;
 }
 
-export async function issuePatientLogin(input: {
+const accountLabels: Record<AssignableRole, string> = {
+  HOSPITAL_ADMIN: 'administrateur',
+  DOCTOR: 'médecin',
+  RECEPTIONIST: 'réceptionniste',
+  NURSE: 'infirmier',
+  ACCOUNTANT: 'comptable',
+  PHARMACIST: 'pharmacien',
+  PATIENT: 'patient',
+};
+
+export async function issueTemporaryLogin(input: {
   organizationId: string;
   organizationName: string;
   firstName: string;
   lastName: string;
   email: string;
   phone?: string;
+  role: AssignableRole;
 }) {
   const email = input.email.toLowerCase().trim();
   await assertEmailAvailable(email);
@@ -45,7 +56,7 @@ export async function issuePatientLogin(input: {
   const user = await User.create({
     email,
     passwordHash: await bcrypt.hash(password, getEnv().BCRYPT_ROUNDS),
-    role: ROLES.PATIENT,
+    role: input.role,
     firstName: input.firstName.trim(),
     lastName: input.lastName.trim(),
     phone: input.phone?.trim(),
@@ -61,7 +72,7 @@ export async function issuePatientLogin(input: {
       text: [
         `Bonjour ${user.firstName} ${user.lastName},`,
         '',
-        `Un compte patient a été créé pour vous à ${input.organizationName}.`,
+        `Un compte ${accountLabels[input.role]} a été créé pour vous à ${input.organizationName}.`,
         '',
         `E-mail : ${user.email}`,
         `Mot de passe temporaire : ${password}`,
@@ -78,11 +89,15 @@ export async function issuePatientLogin(input: {
   return user;
 }
 
-function requiredPassword(password?: string) {
-  if (!password || password.length < 8) {
-    throw new ApiError(400, 'Le mot de passe doit contenir au moins 8 caractères', 'VALIDATION_ERROR');
-  }
-  return password;
+export async function issuePatientLogin(input: {
+  organizationId: string;
+  organizationName: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+}) {
+  return issueTemporaryLogin({ ...input, role: ROLES.PATIENT });
 }
 
 async function assertEmailAvailable(email: string) {
@@ -108,29 +123,15 @@ export async function createStaffUser(
   }
 
   const email = input.email.toLowerCase().trim();
-  const user = input.role === ROLES.PATIENT
-    ? await issuePatientLogin({
-      organizationId: organization.id,
-      organizationName: organization.name,
-      firstName: input.firstName,
-      lastName: input.lastName,
-      email,
-      phone: input.phone,
-    })
-    : await (async () => {
-      await assertEmailAvailable(email);
-      return User.create({
-        email,
-        passwordHash: await bcrypt.hash(requiredPassword(input.password), getEnv().BCRYPT_ROUNDS),
-        role: input.role,
-        firstName: input.firstName.trim(),
-        lastName: input.lastName.trim(),
-        phone: input.phone?.trim(),
-        isActive: true,
-        mustChangePassword: false,
-        organizationId: organization._id,
-      });
-    })();
+  const user = await issueTemporaryLogin({
+    organizationId: organization.id,
+    organizationName: organization.name,
+    firstName: input.firstName,
+    lastName: input.lastName,
+    email,
+    phone: input.phone,
+    role: input.role,
+  });
 
   if (input.role === ROLES.PATIENT) {
     const existingPatient = await Patient.findOne({ organizationId: organization._id, email, archivedAt: null });

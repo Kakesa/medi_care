@@ -11,7 +11,7 @@ import { userAdminService } from "@/services/userAdminService";
 import type { ApiError } from "@/types";
 
 const emptyHospital = { name: "", slug: "", address: "", phone: "", email: "" };
-const emptyAdmin = { firstName: "", lastName: "", email: "", password: "" };
+const emptyAdmin = { firstName: "", lastName: "", email: "" };
 
 export default function Hospitals() {
   const { toast } = useToast();
@@ -75,7 +75,10 @@ export default function Hospitals() {
       });
       setAdminFor(null);
       setAdminForm(emptyAdmin);
-      toast({ title: "Administrateur créé" });
+      toast({
+        title: "Administrateur créé",
+        description: "Un mot de passe temporaire a été envoyé par e-mail. Il devra le changer à la première connexion.",
+      });
       await load();
     } catch (reason) {
       toast({ variant: "destructive", title: "Création impossible", description: (reason as ApiError).message });
@@ -142,7 +145,7 @@ export default function Hospitals() {
               <div className="space-y-2"><Label>Nom</Label><Input value={adminForm.lastName} onChange={(e) => setAdminForm({ ...adminForm, lastName: e.target.value })} /></div>
             </div>
             <div className="space-y-2"><Label>Email</Label><Input type="email" value={adminForm.email} onChange={(e) => setAdminForm({ ...adminForm, email: e.target.value })} /></div>
-            <div className="space-y-2"><Label>Mot de passe temporaire</Label><Input type="password" value={adminForm.password} onChange={(e) => setAdminForm({ ...adminForm, password: e.target.value })} /></div>
+            <p className="text-sm text-muted-foreground">Un mot de passe temporaire sera envoyé à cet e-mail. L'administrateur devra le changer à sa première connexion.</p>
             <Button className="w-full" onClick={() => void createAdmin()}>Créer le compte</Button>
           </div>
         </DialogContent>

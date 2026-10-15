@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import * as organizationService from '../services/organization.service.js';
+import * as personnelService from '../services/personnel.service.js';
 import * as userService from '../services/user.service.js';
 
 export const create = asyncHandler(async (req: Request, res: Response) => {
@@ -26,4 +27,12 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
 export const createUser = asyncHandler(async (req: Request, res: Response) => {
   const user = await userService.createStaffUser(req.params.id, req.body, req.auth!, req.ip);
   res.status(201).json(user);
+});
+
+export const publicOrganizations = asyncHandler(async (_req: Request, res: Response) => {
+  res.json(await organizationService.listPublicOrganizations());
+});
+
+export const publicDoctors = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await personnelService.listPublicDoctors(req.params.slug));
 });

@@ -37,6 +37,11 @@ function toOrganizationDto(
   };
 }
 
+export async function listPublicOrganizations() {
+  const rows = await Organization.find({ status: 'active' }).sort({ name: 1 });
+  return rows.map((row) => ({ name: row.name, slug: row.slug }));
+}
+
 export async function createOrganization(
   input: { name: string; slug: string; address: string; phone: string; email: string },
   actorId: string,

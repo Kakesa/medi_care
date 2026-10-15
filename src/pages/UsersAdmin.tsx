@@ -27,7 +27,6 @@ const emptyForm = {
   lastName: "",
   email: "",
   phone: "",
-  password: "",
   role: "DOCTOR" as AssignableRole,
 };
 
@@ -59,15 +58,18 @@ export default function UsersAdmin() {
 
   const createUser = async () => {
     try {
-      const payload = form.role === "PATIENT"
-        ? { firstName: form.firstName, lastName: form.lastName, email: form.email, phone: form.phone, role: form.role }
-        : form;
-      await userAdminService.create(payload);
+      await userAdminService.create({
+        firstName: form.firstName,
+        lastName: form.lastName,
+        email: form.email,
+        phone: form.phone,
+        role: form.role,
+      });
       setIsOpen(false);
       setForm(emptyForm);
       toast({
         title: "Utilisateur créé",
-        description: form.role === "PATIENT" ? "Un mot de passe temporaire a été envoyé par e-mail." : undefined,
+        description: "Un mot de passe temporaire a été envoyé par e-mail. Il devra le changer à la première connexion.",
       });
       await load();
     } catch (reason) {
@@ -113,11 +115,7 @@ export default function UsersAdmin() {
               </div>
               <div className="space-y-2"><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
               <div className="space-y-2"><Label>Téléphone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
-              {form.role === "PATIENT" ? (
-                <p className="text-sm text-muted-foreground">Un mot de passe temporaire sera envoyé à cet e-mail. Le patient devra le changer à sa première connexion.</p>
-              ) : (
-                <div className="space-y-2"><Label>Mot de passe</Label><Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></div>
-              )}
+              <p className="text-sm text-muted-foreground">Un mot de passe temporaire sera envoyé à cet e-mail. La personne devra le changer à sa première connexion.</p>
               <div className="space-y-2">
                 <Label>Rôle</Label>
                 <Select value={form.role} onValueChange={(value) => setForm({ ...form, role: value as AssignableRole })}>

@@ -87,6 +87,7 @@ export interface Personnel {
   status: PersonnelStatus;
   hireDate: string;
   avatar?: string;
+  welcomeEmailSent?: boolean;
 }
 
 export interface CreatePersonnelData {

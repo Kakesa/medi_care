@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Calendar, Clock, User, Phone, Mail, Stethoscope, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,20 @@ import {
 } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { availableDoctors } from "@/data/mockData";
+import { httpClient } from "@/services/httpClient";
+
+interface PublicHospital {
+  name: string;
+  slug: string;
+}
+
+interface PublicDoctor {
+  id: string;
+  firstName: string;
+  lastName: string;
+  department: string;
+  speciality?: string;
+}
 
 interface FormData {
   firstName: string;
@@ -23,6 +36,7 @@ interface FormData {
   dateOfBirth: string;
   preferredDate: string;
   preferredTime: string;
+  organizationSlug: string;
   doctorId: string;
   reason: string;
   notes: string;
@@ -31,6 +45,8 @@ interface FormData {
 export function AppointmentRequestForm() {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hospitals, setHospitals] = useState<PublicHospital[]>([]);
+  const [doctors, setDoctors] = useState<PublicDoctor[]>([]);
   const [formData, setFormData] = useState<FormData>({
     firstName: "",
     lastName: "",
@@ -39,17 +55,46 @@ export function AppointmentRequestForm() {
     dateOfBirth: "",
     preferredDate: "",
     preferredTime: "",
+    organizationSlug: "",
     doctorId: "",
     reason: "",
     notes: ""
   });
 
+  useEffect(() => {
+    void httpClient.get<PublicHospital[]>("/public/organizations")
+      .then(setHospitals)
+      .catch(() => setHospitals([]));
+  }, []);
+
+  useEffect(() => {
+    if (!formData.organizationSlug) {
+      setDoctors([]);
+      return;
+    }
+    void httpClient.get<PublicDoctor[]>(`/public/organizations/${formData.organizationSlug}/doctors`)
+      .then(setDoctors)
+      .catch(() => setDoctors([]));
+  }, [formData.organizationSlug]);
+
   const handleChange = (field: keyof FormData, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData(prev => ({
+      ...prev,
+      [field]: value,
+      ...(field === "organizationSlug" ? { doctorId: "" } : {}),
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.organizationSlug || !formData.doctorId) {
+      toast({
+        variant: "destructive",
+        title: "Médecin requis",
+        description: "Choisissez un établissement et un médecin enregistré.",
+      });
+      return;
+    }
     setIsSubmitting(true);
 
     // Simulate API call
@@ -69,6 +114,7 @@ export function AppointmentRequestForm() {
       dateOfBirth: "",
       preferredDate: "",
       preferredTime: "",
+      organizationSlug: "",
       doctorId: "",
       reason: "",
       notes: ""
@@ -192,22 +238,39 @@ export function AppointmentRequestForm() {
           </div>
 
           <div className="mt-4 space-y-2">
-            <Label htmlFor="doctor" className="flex items-center gap-2">
-              <Stethoscope className="h-4 w-4 text-primary" />
-              Médecin (optionnel)
-            </Label>
-            <Select value={formData.doctorId} onValueChange={(value) => handleChange("doctorId", value)}>
+            <Label>Établissement *</Label>
+            <Select value={formData.organizationSlug} onValueChange={(value) => handleChange("organizationSlug", value)}>
               <SelectTrigger>
-                <SelectValue placeholder="Choisir un médecin ou laisser vide" />
+                <SelectValue placeholder="Choisir l'établissement" />
               </SelectTrigger>
               <SelectContent>
-                {availableDoctors.map(doctor => (
+                {hospitals.map((hospital) => (
+                  <SelectItem key={hospital.slug} value={hospital.slug}>{hospital.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="mt-4 space-y-2">
+            <Label htmlFor="doctor" className="flex items-center gap-2">
+              <Stethoscope className="h-4 w-4 text-primary" />
+              Médecin
+            </Label>
+            <Select value={formData.doctorId} onValueChange={(value) => handleChange("doctorId", value)} disabled={!formData.organizationSlug || doctors.length === 0}>
+              <SelectTrigger>
+                <SelectValue placeholder={formData.organizationSlug ? "Choisir un médecin" : "Choisissez d'abord l'établissement"} />
+              </SelectTrigger>
+              <SelectContent>
+                {doctors.map(doctor => (
                   <SelectItem key={doctor.id} value={doctor.id}>
                     Dr. {doctor.firstName} {doctor.lastName} - {doctor.department}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {formData.organizationSlug && doctors.length === 0 && (
+              <p className="text-sm text-muted-foreground">Aucun médecin enregistré dans cet établissement.</p>
+            )}
           </div>
         </div>
 

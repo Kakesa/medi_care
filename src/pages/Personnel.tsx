@@ -165,10 +165,12 @@ export default function Personnel() {
           description: `${formData.firstName} ${formData.lastName} a été mis à jour`,
         });
       } else {
-        await personnelService.create(payload);
+        const created = await personnelService.create(payload);
         toast({
           title: "Personnel ajouté",
-          description: `${formData.firstName} ${formData.lastName} a été ajouté`,
+          description: created.welcomeEmailSent
+            ? "Un mot de passe temporaire a été envoyé par e-mail. Il devra le changer à la première connexion."
+            : `${formData.firstName} ${formData.lastName} a été ajouté`,
         });
       }
       setIsDialogOpen(false);

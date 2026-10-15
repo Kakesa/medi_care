@@ -395,6 +395,9 @@ export default function PatientDashboard() {
                   ))}
                 </SelectContent>
               </Select>
+              {doctors.length === 0 && (
+                <p className="text-sm text-muted-foreground">Aucun médecin enregistré dans votre établissement.</p>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">

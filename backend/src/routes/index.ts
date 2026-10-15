@@ -13,6 +13,7 @@ import billingRoutes from './billing.routes.js';
 import wardRoutes from './ward.routes.js';
 import bedRoutes from './bed.routes.js';
 import notificationRoutes from './notification.routes.js';
+import publicRoutes from './public.routes.js';
 
 const router = Router();
 
@@ -20,6 +21,7 @@ router.get('/health', (_req, res) => {
   res.json({ success: true, service: 'medicare-api' });
 });
 
+router.use('/public', publicRoutes);
 router.use('/auth', authRoutes);
 router.use('/organizations', organizationRoutes);
 router.use('/users', userRoutes);

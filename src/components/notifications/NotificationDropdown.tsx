@@ -1,4 +1,6 @@
-import { Bell, Check, Trash2, Calendar, UserPlus, FlaskConical, Pill } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Bell, Trash2, Calendar, UserPlus, FlaskConical, Pill } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -32,6 +34,8 @@ const typeColors = {
 
 export function NotificationDropdown() {
   const { notifications, unreadCount, markAsRead, markAllAsRead, clearNotification } = useNotifications();
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <DropdownMenu>
@@ -75,7 +79,12 @@ export function NotificationDropdown() {
                     "flex items-start gap-3 p-3 cursor-pointer",
                     !notification.read && "bg-secondary/50"
                   )}
-                  onClick={() => markAsRead(notification.id)}
+                  onClick={() => {
+                    markAsRead(notification.id);
+                    if (notification.type === 'appointment') {
+                      navigate(user?.role === 'PATIENT' ? '/dashboard' : '/dashboard/appointments');
+                    }
+                  }}
                 >
                   <div className={cn("mt-0.5", typeColors[notification.type])}>
                     <Icon className="h-4 w-4" />

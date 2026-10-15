@@ -105,6 +105,7 @@ export const appointmentStatusSchema = envelope(
   paramsId
 );
 export const appointmentParamsSchema = envelope(empty, empty, paramsId);
+export const appointmentResponseSchema = envelope(z.object({}).strict(), empty, paramsId);
 export const appointmentByDateSchema = envelope(empty, empty, paramsDate);
 export const appointmentByDoctorSchema = envelope(empty, empty, paramsDoctor);
 export const appointmentByPatientSchema = envelope(empty, empty, paramsPatient);

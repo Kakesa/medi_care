@@ -1,11 +1,13 @@
 import { ROLES } from '../config/permissions.js';
 import { Appointment } from '../models/Appointment.js';
+import { Personnel } from '../models/Personnel.js';
 import { ApiError } from '../utils/ApiError.js';
 import { dateOnly, timesOverlap, utcDayBounds } from '../utils/dates.js';
 import { paginated, readPagination } from '../utils/pagination.js';
 import type { AuthContext } from '../types/express.js';
 import { actorPersonnel, ownPatientId, requireOwned, requireVisiblePatient } from './access.service.js';
 import { recordAudit } from './audit.service.js';
+import { notifyUser } from './notification.service.js';
 import { resolveClinicalDoctor } from './personnel.service.js';
 
 function toAppointmentDto(row: {
@@ -165,6 +167,21 @@ export async function createAppointment(
     success: true,
     ip,
   });
+  const when = `${dateOnly(row.date)} à ${row.time}`;
+  await notifyUser({
+    organizationId,
+    userId: patient.linkedUserId,
+    title: 'Nouveau rendez-vous',
+    message: `${row.doctorName} vous propose un rendez-vous le ${when}. Vous pouvez l'accepter depuis votre espace.`,
+    relatedId: row.id,
+  });
+  await notifyUser({
+    organizationId,
+    userId: doctor.userId,
+    title: 'Nouveau rendez-vous',
+    message: `Un rendez-vous avec ${row.patientName} est prévu le ${when}.`,
+    relatedId: row.id,
+  });
   return toAppointmentDto(row);
 }
 
@@ -207,6 +224,58 @@ export async function updateAppointment(
   }
   await row.save();
   return toAppointmentDto(row);
+}
+
+async function respondAsPatient(
+  actor: AuthContext,
+  organizationId: string,
+  id: string,
+  decision: 'confirmed' | 'cancelled',
+  ip?: string
+) {
+  if (actor.role !== ROLES.PATIENT) {
+    throw new ApiError(403, 'Seul le patient peut répondre à ce rendez-vous', 'FORBIDDEN');
+  }
+  const row = await requireOwned(Appointment, id, organizationId, actor, 'appointment', ip);
+  await assertReadable(actor, organizationId, row, ip);
+  if (row.status !== 'pending') {
+    throw new ApiError(409, 'Ce rendez-vous ne peut plus être modifié par le patient', 'APPOINTMENT_NOT_PENDING');
+  }
+  row.status = decision;
+  await row.save();
+  const when = `${dateOnly(row.date)} à ${row.time}`;
+  const doctor = await Personnel.findOne({
+    _id: row.doctorId,
+    organizationId,
+  });
+  await notifyUser({
+    organizationId,
+    userId: doctor?.userId,
+    title: decision === 'confirmed' ? 'Rendez-vous accepté' : 'Rendez-vous refusé',
+    message: decision === 'confirmed'
+      ? `${row.patientName} a accepté le rendez-vous du ${when}.`
+      : `${row.patientName} a refusé le rendez-vous du ${when}.`,
+    relatedId: row.id,
+  });
+  await recordAudit({
+    actorId: actor.id,
+    actorRole: actor.role,
+    organizationId,
+    action: decision === 'confirmed' ? 'APPOINTMENT_ACCEPTED' : 'APPOINTMENT_DECLINED',
+    resourceType: 'appointment',
+    resourceId: row.id,
+    success: true,
+    ip,
+  });
+  return toAppointmentDto(row);
+}
+
+export async function acceptAppointment(actor: AuthContext, organizationId: string, id: string, ip?: string) {
+  return respondAsPatient(actor, organizationId, id, 'confirmed', ip);
+}
+
+export async function declineAppointment(actor: AuthContext, organizationId: string, id: string, ip?: string) {
+  return respondAsPatient(actor, organizationId, id, 'cancelled', ip);
 }
 
 export async function updateAppointmentStatus(

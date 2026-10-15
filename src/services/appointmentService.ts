@@ -47,6 +47,14 @@ class AppointmentService {
     return httpClient.patch<Appointment>(`${this.basePath}/${id}/status`, { status });
   }
 
+  async accept(id: string): Promise<Appointment> {
+    return httpClient.patch<Appointment>(`${this.basePath}/${id}/accept`, {});
+  }
+
+  async decline(id: string): Promise<Appointment> {
+    return httpClient.patch<Appointment>(`${this.basePath}/${id}/decline`, {});
+  }
+
   async getByDate(date: string): Promise<Appointment[]> {
     return httpClient.get<Appointment[]>(`${this.basePath}/by-date/${date}`);
   }

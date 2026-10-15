@@ -58,6 +58,12 @@ export const updateAppointment = asyncHandler(async (req: Request, res: Response
 export const updateAppointmentStatus = asyncHandler(async (req: Request, res: Response) => {
   res.json(await appointmentService.updateAppointmentStatus(auth(req), org(req), req.params.id, req.body.status, req.ip));
 });
+export const acceptAppointment = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await appointmentService.acceptAppointment(auth(req), org(req), req.params.id, req.ip));
+});
+export const declineAppointment = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await appointmentService.declineAppointment(auth(req), org(req), req.params.id, req.ip));
+});
 export const deleteAppointment = asyncHandler(async (req: Request, res: Response) => {
   await appointmentService.deleteAppointment(auth(req), org(req), req.params.id, req.ip);
   res.json({ success: true, message: 'Rendez-vous supprimé' });

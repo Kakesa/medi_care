@@ -121,7 +121,8 @@ export default function Appointments() {
       });
       setOpen(false);
       setSelectedDate(form.date);
-      toast({ title: "Rendez-vous créé" });
+      toast({ title: "Rendez-vous créé", description: "Le patient et le médecin sont notifiés s'ils ont un compte." });
+      window.dispatchEvent(new Event("notifications:refresh"));
       await load();
     } catch (error) {
       toast({ variant: "destructive", title: "Erreur", description: apiMessage(error) });

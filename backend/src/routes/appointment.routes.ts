@@ -10,6 +10,7 @@ import {
   appointmentByDoctorSchema,
   appointmentByPatientSchema,
   appointmentParamsSchema,
+  appointmentResponseSchema,
   appointmentStatusSchema,
   createAppointmentSchema,
   listAppointmentsSchema,
@@ -29,6 +30,8 @@ router.post('/', requireRoles(...write), validate(createAppointmentSchema), clin
 router.get('/:id', requireRoles(...read), validate(appointmentParamsSchema), clinical.getAppointment);
 router.put('/:id', requireRoles(...write), validate(updateAppointmentSchema), clinical.updateAppointment);
 router.patch('/:id/status', requireRoles(...write), validate(appointmentStatusSchema), clinical.updateAppointmentStatus);
+router.patch('/:id/accept', requireRoles(ROLES.PATIENT), validate(appointmentResponseSchema), clinical.acceptAppointment);
+router.patch('/:id/decline', requireRoles(ROLES.PATIENT), validate(appointmentResponseSchema), clinical.declineAppointment);
 router.delete('/:id', requireRoles(...write), validate(appointmentParamsSchema), clinical.deleteAppointment);
 
 export default router;

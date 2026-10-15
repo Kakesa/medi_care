@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Calendar, FileText, FlaskConical, Pill, User, Clock, AlertCircle } from "lucide-react";
+import { Calendar, FileText, FlaskConical, Pill, User, Clock, AlertCircle, Check, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,10 +9,14 @@ import { consultationService } from "@/services/consultationService";
 import { examService } from "@/services/examService";
 import type { Appointment, Consultation, Exam } from "@/types";
 import { Link } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
+import { apiMessage } from "@/lib/apiError";
 
 export default function PatientDashboard() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [respondingId, setRespondingId] = useState<string | null>(null);
   const [consultations, setConsultations] = useState<Consultation[]>([]);
   const [exams, setExams] = useState<Exam[]>([]);
 
@@ -29,6 +33,25 @@ export default function PatientDashboard() {
     };
     void load();
   }, []);
+
+  const respond = async (id: string, decision: "accept" | "decline") => {
+    setRespondingId(id);
+    try {
+      const updated = decision === "accept"
+        ? await appointmentService.accept(id)
+        : await appointmentService.decline(id);
+      setAppointments((current) => current.map((item) => item.id === id ? updated : item));
+      window.dispatchEvent(new Event("notifications:refresh"));
+      toast({
+        title: decision === "accept" ? "Rendez-vous accepté" : "Rendez-vous refusé",
+        description: decision === "accept" ? "Le médecin est informé." : "Le médecin est informé de votre refus.",
+      });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Réponse impossible", description: apiMessage(error) });
+    } finally {
+      setRespondingId(null);
+    }
+  };
 
   const myAppointments = appointments;
   const myConsultations = consultations;
@@ -161,7 +184,19 @@ export default function PatientDashboard() {
                       </p>
                     </div>
                   </div>
-                  {getStatusBadge(apt.status)}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {getStatusBadge(apt.status)}
+                    {apt.status === "pending" && (
+                      <>
+                        <Button size="sm" onClick={() => void respond(apt.id, "accept")} disabled={respondingId === apt.id}>
+                          <Check className="mr-1 h-4 w-4" />Accepter
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => void respond(apt.id, "decline")} disabled={respondingId === apt.id}>
+                          <X className="mr-1 h-4 w-4" />Refuser
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
               ))
             )}

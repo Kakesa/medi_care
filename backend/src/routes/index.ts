@@ -12,6 +12,7 @@ import pharmacyRoutes from './pharmacy.routes.js';
 import billingRoutes from './billing.routes.js';
 import wardRoutes from './ward.routes.js';
 import bedRoutes from './bed.routes.js';
+import notificationRoutes from './notification.routes.js';
 
 const router = Router();
 
@@ -32,5 +33,6 @@ router.use('/pharmacy', pharmacyRoutes);
 router.use('/billing', billingRoutes);
 router.use('/wards', wardRoutes);
 router.use('/beds', bedRoutes);
+router.use('/notifications', notificationRoutes);
 
 export default router;

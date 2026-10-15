@@ -360,7 +360,12 @@ export interface InvoiceItem {
   quantity: number;
   unitPrice: number;
   total: number;
-  type: 'consultation' | 'exam' | 'medication' | 'service';
+  type: string;
+  category?: string;
+  catalogItemId?: string;
+  serviceCode?: string;
+  unit?: string;
+  source?: 'manual' | 'catalog';
   referenceId?: string;
 }
 
@@ -376,6 +381,9 @@ export interface Invoice {
   tax: number;
   discount: number;
   total: number;
+  currency?: 'EUR' | 'CDF' | 'USD';
+  paidAmount?: number;
+  balance?: number;
   status: InvoiceStatus;
   paymentMethod?: PaymentMethod;
   finalizedAt?: string;
@@ -391,7 +399,7 @@ export interface CreateInvoiceData {
   patientName: string;
   patientAddress?: string;
   patientPhone?: string;
-  items: Omit<InvoiceItem, 'id'>[];
+  items: Array<Omit<InvoiceItem, 'id'> & { description?: string; catalogItemId?: string; category?: string }>;
   tax?: number;
   discount?: number;
   dueDate: string;

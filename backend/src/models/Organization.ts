@@ -17,6 +17,7 @@ const organizationSchema = new Schema(
       default: 'unconfigured',
       required: true,
     },
+    currency: { type: String, enum: ['EUR', 'CDF', 'USD'], default: 'EUR' },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true }

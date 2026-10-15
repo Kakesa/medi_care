@@ -1,5 +1,8 @@
+import { resolveCategory } from '../domain/billingCategories.js';
+import { BillableService } from '../models/BillableService.js';
 import { Invoice } from '../models/Invoice.js';
 import { Patient } from '../models/Patient.js';
+import { organizationCurrency } from './catalog.service.js';
 import { ApiError } from '../utils/ApiError.js';
 import { dateOnly, utcDayBounds } from '../utils/dates.js';
 import { paginated, readPagination } from '../utils/pagination.js';
@@ -8,10 +11,12 @@ import { requireOwned, requireVisiblePatient } from './access.service.js';
 import { recordAudit } from './audit.service.js';
 
 interface ItemInput {
-  description: string;
+  description?: string;
   quantity: number;
-  unitPrice: number;
-  type?: 'consultation' | 'exam' | 'medication' | 'service';
+  unitPrice?: number;
+  type?: string;
+  category?: string;
+  catalogItemId?: string;
   referenceId?: string;
 }
 
@@ -31,8 +36,14 @@ function toInvoiceDto(row: {
     unitPrice: number;
     total: number;
     type?: string;
+    category?: string | null;
+    catalogItemId?: { toString(): string } | null;
+    serviceCode?: string | null;
+    unit?: string | null;
+    source?: string | null;
     referenceId?: string | null;
   }>;
+  currency?: string;
   subtotal: number;
   tax: number;
   discount: number;
@@ -60,12 +71,20 @@ function toInvoiceDto(row: {
       unitPrice: item.unitPrice,
       total: item.total,
       type: item.type || 'service',
+      category: resolveCategory(item),
+      catalogItemId: item.catalogItemId?.toString(),
+      serviceCode: item.serviceCode || undefined,
+      unit: item.unit || undefined,
+      source: item.source || 'manual',
       referenceId: item.referenceId,
     })),
     subtotal: row.subtotal,
     tax: row.tax,
     discount: row.discount,
     total: row.total,
+    currency: row.currency || 'EUR',
+    paidAmount: status === 'paid' ? row.total : 0,
+    balance: status === 'paid' || status === 'cancelled' ? 0 : row.total,
     status,
     paymentMethod: row.paymentMethod || undefined,
     finalizedAt: row.finalizedAt || undefined,
@@ -77,15 +96,51 @@ function toInvoiceDto(row: {
   };
 }
 
-function priceItems(items: ItemInput[]) {
-  const priced = items.map((item) => ({
-    description: item.description.trim(),
-    quantity: item.quantity,
-    unitPrice: item.unitPrice,
-    total: item.quantity * item.unitPrice,
-    type: item.type || 'service',
-    referenceId: item.referenceId,
-  }));
+async function priceItems(organizationId: string, actor: AuthContext, items: ItemInput[], ip?: string) {
+  const priced = [];
+  for (const item of items) {
+    if (item.catalogItemId) {
+      const service = await requireOwned(BillableService, item.catalogItemId, organizationId, actor, 'billable_service', ip);
+      if (!service.active) {
+        throw new ApiError(409, `La prestation ${service.code} n'est plus active`, 'SERVICE_INACTIVE');
+      }
+      const currency = await organizationCurrency(organizationId);
+      if (service.currency !== currency) {
+        throw new ApiError(
+          409,
+          `La prestation ${service.code} est tarifée en ${service.currency}. Mettez à jour son prix dans la devise de l'établissement.`,
+          'CURRENCY_MISMATCH'
+        );
+      }
+      priced.push({
+        description: service.name,
+        quantity: item.quantity,
+        unitPrice: service.unitPrice,
+        total: item.quantity * service.unitPrice,
+        type: 'service',
+        category: service.category,
+        catalogItemId: service._id,
+        serviceCode: service.code,
+        unit: service.unit,
+        source: 'catalog',
+        referenceId: item.referenceId,
+      });
+      continue;
+    }
+    const description = item.description?.trim();
+    if (!description) throw new ApiError(400, 'Chaque ligne manuelle doit avoir une description', 'VALIDATION_ERROR');
+    const unitPrice = item.unitPrice ?? 0;
+    priced.push({
+      description,
+      quantity: item.quantity,
+      unitPrice,
+      total: item.quantity * unitPrice,
+      type: item.type || 'service',
+      category: resolveCategory(item),
+      source: 'manual',
+      referenceId: item.referenceId,
+    });
+  }
   const subtotal = priced.reduce((sum, item) => sum + item.total, 0);
   return { items: priced, subtotal, tax: 0, discount: 0, total: subtotal };
 }
@@ -153,7 +208,8 @@ export async function createInvoice(
   ip?: string
 ) {
   const patient = await requireVisiblePatient(actor, organizationId, input.patientId, ip);
-  const priced = priceItems(input.items);
+  const priced = await priceItems(organizationId, actor, input.items, ip);
+  const currency = await organizationCurrency(organizationId);
   const due = input.dueDate ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
   const row = await Invoice.create({
     organizationId,
@@ -163,6 +219,7 @@ export async function createInvoice(
     date: new Date(),
     dueDate: due,
     ...priced,
+    currency,
     status: 'draft',
     notes: input.notes?.trim(),
   });
@@ -191,7 +248,7 @@ export async function updateInvoice(
     throw new ApiError(409, 'Une facture finalisée ne peut plus être modifiée', 'INVOICE_LOCKED');
   }
   if (input.items) {
-    const priced = priceItems(input.items);
+    const priced = await priceItems(organizationId, actor, input.items, ip);
     row.items = priced.items;
     row.subtotal = priced.subtotal;
     row.tax = 0;

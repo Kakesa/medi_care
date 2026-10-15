@@ -10,20 +10,32 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { generateInvoicePDF } from "@/utils/pdfGenerator";
-import { billingService } from "@/services/billingService";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ServiceCatalogPanel } from "@/components/billing/ServiceCatalogPanel";
+import { billingService, type BillableServiceRecord } from "@/services/billingService";
 import type { Invoice, InvoiceStatus, PaymentMethod } from "@/types";
 import { apiMessage } from "@/lib/apiError";
-
-type LineType = "consultation" | "exam" | "medication" | "service";
+import { categoryLabel, DEFAULT_CATEGORIES, type BillingCategory } from "@/lib/billingCategories";
+import { formatMoney, type BillingCurrency } from "@/lib/money";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface DraftLine {
+  catalogItemId: string;
   description: string;
   quantity: number;
   unitPrice: number;
-  type: LineType;
+  category: string;
+  locked: boolean;
 }
 
-const emptyLine = (): DraftLine => ({ description: "", quantity: 1, unitPrice: 0, type: "consultation" });
+const emptyLine = (): DraftLine => ({
+  catalogItemId: "manual",
+  description: "",
+  quantity: 1,
+  unitPrice: 0,
+  category: "CONSULTATION",
+  locked: false,
+});
 
 const defaultDueDate = () => {
   const date = new Date();
@@ -31,8 +43,7 @@ const defaultDueDate = () => {
   return date.toISOString().slice(0, 10);
 };
 
-const money = (amount: number) =>
-  new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(amount);
+const money = (amount: number, currency: BillingCurrency | string = "EUR") => formatMoney(amount, currency);
 
 const paymentLabels: Record<PaymentMethod, string> = {
   cash: "Espèces",
@@ -50,7 +61,13 @@ const statusConfig: Record<InvoiceStatus, { variant: "default" | "secondary" | "
 };
 
 export default function Billing() {
+  const { user } = useAuth();
+  const canEditCatalog = user?.role === "HOSPITAL_ADMIN";
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [services, setServices] = useState<BillableServiceRecord[]>([]);
+  const [categories, setCategories] = useState<BillingCategory[]>(DEFAULT_CATEGORIES);
+  const [currency, setCurrency] = useState<BillingCurrency>("EUR");
+  const [currencies, setCurrencies] = useState<BillingCurrency[]>(["EUR", "CDF", "USD"]);
   const [patients, setPatients] = useState<Array<{ id: string; firstName: string; lastName: string }>>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -71,12 +88,18 @@ export default function Billing() {
 
   const loadBilling = async () => {
     try {
-      const [invoiceResult, patientResult] = await Promise.all([
+      const [invoiceResult, patientResult, settings, catalog] = await Promise.all([
         billingService.getInvoices({ limit: 100 }),
         billingService.getBillingPatients(),
+        billingService.getSettings(),
+        billingService.getServices(),
       ]);
       setInvoices(invoiceResult.data);
       setPatients(patientResult);
+      setCurrency(settings.currency);
+      setCurrencies(settings.currencies);
+      setCategories(settings.categories);
+      setServices(catalog);
       setSelectedInvoice((current) => current ? invoiceResult.data.find((invoice) => invoice.id === current.id) ?? current : current);
     } catch (error) {
       toast.error(apiMessage(error));
@@ -94,11 +117,13 @@ export default function Billing() {
     return matchesSearch && matchesStatus;
   });
 
+  const inCurrency = (invoice: Invoice) => (invoice.currency || "EUR") === currency;
   const stats = {
-    drafts: invoices.filter(inv => inv.status === "draft").reduce((sum, inv) => sum + inv.total, 0),
-    pending: invoices.filter(inv => inv.status === "pending" || inv.status === "overdue").reduce((sum, inv) => sum + inv.total, 0),
-    paid: invoices.filter(inv => inv.status === "paid").reduce((sum, inv) => sum + inv.total, 0),
+    drafts: invoices.filter(inv => inv.status === "draft" && inCurrency(inv)).reduce((sum, inv) => sum + inv.total, 0),
+    pending: invoices.filter(inv => (inv.status === "pending" || inv.status === "overdue") && inCurrency(inv)).reduce((sum, inv) => sum + inv.total, 0),
+    paid: invoices.filter(inv => inv.status === "paid" && inCurrency(inv)).reduce((sum, inv) => sum + inv.total, 0),
   };
+  const billableServices = services.filter((service) => service.active && service.currency === currency);
 
   const draftTotal = newInvoice.items.reduce((sum, item) => sum + item.quantity * (Number.isFinite(item.unitPrice) ? item.unitPrice : 0), 0);
 
@@ -116,18 +141,34 @@ export default function Billing() {
     setNewInvoice({ ...newInvoice, items: newInvoice.items.filter((_, current) => current !== index) });
   };
 
+  const chooseCatalog = (index: number, catalogItemId: string) => {
+    if (catalogItemId === "manual") {
+      updateLine(index, { catalogItemId, locked: false });
+      return;
+    }
+    const service = billableServices.find((item) => item.id === catalogItemId);
+    if (!service) return;
+    updateLine(index, {
+      catalogItemId,
+      description: service.name,
+      unitPrice: service.unitPrice,
+      category: service.category,
+      locked: true,
+    });
+  };
+
   const submitInvoice = async (finalize: boolean) => {
     if (savingRef.current) return;
     if (!newInvoice.patientId) {
       toast.error("Veuillez sélectionner un patient");
       return;
     }
-    const items = newInvoice.items.filter((item) => item.description.trim());
+    const items = newInvoice.items.filter((item) => item.catalogItemId !== "manual" || item.description.trim());
     if (items.length === 0) {
       toast.error("Ajoutez au moins une ligne");
       return;
     }
-    if (items.some((item) => item.quantity < 1 || item.unitPrice < 0)) {
+    if (items.some((item) => item.quantity < 1 || (item.catalogItemId === "manual" && item.unitPrice < 0))) {
       toast.error("Chaque ligne doit avoir une quantité et un prix valides");
       return;
     }
@@ -143,7 +184,9 @@ export default function Billing() {
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           total: item.quantity * item.unitPrice,
-          type: item.type,
+          category: item.category,
+          type: "service",
+          ...(item.catalogItemId !== "manual" ? { catalogItemId: item.catalogItemId } : {}),
         })),
         tax: 0,
         discount: 0,
@@ -233,74 +276,138 @@ export default function Billing() {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => { if (!savingRef.current) setIsDialogOpen(open); }}>
           <DialogTrigger asChild>
-            <Button><Plus className="mr-2 h-4 w-4" />Nouvelle facture</Button>
+            <Button variant="hero"><Plus className="mr-2 h-4 w-4" />Nouvelle facture</Button>
           </DialogTrigger>
-          <DialogContent className="flex max-h-[90dvh] max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:p-0">
+          <DialogContent
+            className="flex max-w-lg flex-col gap-0 overflow-hidden p-0 sm:p-0"
+            onEscapeKeyDown={(event) => { if (saving) event.preventDefault(); }}
+            onPointerDownOutside={(event) => { if (saving) event.preventDefault(); }}
+          >
             <DialogHeader className="shrink-0 border-b px-5 py-4">
-              <DialogTitle>Nouvelle facture</DialogTitle>
-              <DialogDescription>Vérifiez le patient, les lignes et le total, puis finalisez.</DialogDescription>
+              <div className="flex items-center gap-3 pr-6">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <Receipt className="h-5 w-5" />
+                </div>
+                <div>
+                  <DialogTitle>Nouvelle facture</DialogTitle>
+                  <DialogDescription className="mt-1">Le brouillon reste modifiable. La finalisation fige le montant.</DialogDescription>
+                </div>
+              </div>
             </DialogHeader>
-            <fieldset disabled={saving} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
-              <div>
-                <Label>Patient</Label>
-                <Select value={newInvoice.patientId} onValueChange={(patientId) => setNewInvoice({ ...newInvoice, patientId })} disabled={saving}>
-                  <SelectTrigger><SelectValue placeholder="Sélectionner un patient" /></SelectTrigger>
-                  <SelectContent>
-                    {patients.map(patient => (
-                      <SelectItem key={patient.id} value={patient.id}>{patient.firstName} {patient.lastName}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="dueDate">Échéance</Label>
-                <Input id="dueDate" type="date" value={newInvoice.dueDate} onChange={(event) => setNewInvoice({ ...newInvoice, dueDate: event.target.value })} />
-              </div>
-              {newInvoice.items.map((item, index) => (
-                <div key={index} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <Input className="sm:col-span-2" placeholder="Description" value={item.description} onChange={(event) => updateLine(index, { description: event.target.value })} />
-                  <Input type="number" min={1} placeholder="Qté" value={item.quantity} onChange={(event) => updateLine(index, { quantity: parseInt(event.target.value, 10) || 1 })} />
-                  <Input type="number" min={0} step="0.01" placeholder="Prix" value={item.unitPrice} onChange={(event) => updateLine(index, { unitPrice: parseFloat(event.target.value) || 0 })} />
-                  <Select value={item.type} onValueChange={(value) => updateLine(index, { type: value as LineType })} disabled={saving}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+            <fieldset disabled={saving} className="min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Patient</Label>
+                  <Select value={newInvoice.patientId} onValueChange={(patientId) => setNewInvoice({ ...newInvoice, patientId })} disabled={saving}>
+                    <SelectTrigger><SelectValue placeholder="Sélectionner un patient" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="consultation">Consultation</SelectItem>
-                      <SelectItem value="exam">Examen</SelectItem>
-                      <SelectItem value="medication">Médicament</SelectItem>
-                      <SelectItem value="service">Autre prestation</SelectItem>
+                      {patients.map(patient => (
+                        <SelectItem key={patient.id} value={patient.id}>{patient.firstName} {patient.lastName}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
-                  <p className="self-center text-right text-sm font-medium">{money(item.quantity * item.unitPrice)}</p>
+                  {patients.length === 0 && <p className="text-xs text-muted-foreground">Aucun patient enregistré.</p>}
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="dueDate">Date limite de paiement</Label>
+                  <Input id="dueDate" type="date" value={newInvoice.dueDate} onChange={(event) => setNewInvoice({ ...newInvoice, dueDate: event.target.value })} />
+                </div>
+              </div>
+              {newInvoice.items.map((item, index) => (
+                <div key={index} className="space-y-3 rounded-xl border bg-card p-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium">Ligne {index + 1}</p>
+                    {newInvoice.items.length > 1 && (
+                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeLine(index)} aria-label="Retirer la ligne">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Catalogue</Label>
+                    <Select value={item.catalogItemId} onValueChange={(value) => chooseCatalog(index, value)} disabled={saving}>
+                      <SelectTrigger><SelectValue placeholder="Choisir une prestation" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="manual">Saisie manuelle</SelectItem>
+                        {billableServices.map((service) => (
+                          <SelectItem key={service.id} value={service.id}>{service.code} — {service.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor={`line-description-${index}`}>Prestation</Label>
+                    <Input id={`line-description-${index}`} placeholder="Consultation générale" value={item.description} disabled={item.locked} onChange={(event) => updateLine(index, { description: event.target.value })} />
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div className="space-y-2">
+                      <Label htmlFor={`line-quantity-${index}`}>Quantité</Label>
+                      <Input id={`line-quantity-${index}`} type="number" min={1} value={item.quantity} onChange={(event) => updateLine(index, { quantity: parseInt(event.target.value, 10) || 1 })} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor={`line-price-${index}`}>Prix unitaire ({currency})</Label>
+                      <Input id={`line-price-${index}`} type="number" min={0} step="0.01" value={item.unitPrice} disabled={item.locked} onChange={(event) => updateLine(index, { unitPrice: parseFloat(event.target.value) || 0 })} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Catégorie</Label>
+                      <Select value={item.category} onValueChange={(category) => updateLine(index, { category })} disabled={saving || item.locked}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {categories.map((category) => (
+                            <SelectItem key={category.code} value={category.code}>{category.label}</SelectItem>
+                          ))}
+                          {!categories.some((category) => category.code === item.category) && (
+                            <SelectItem value={item.category}>{item.category}</SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between border-t pt-2 text-sm">
+                    <span className="text-muted-foreground">Montant</span>
+                    <span className="font-semibold">{money(item.quantity * item.unitPrice, currency)}</span>
+                  </div>
                 </div>
               ))}
-              <Button type="button" variant="outline" size="sm" onClick={() => setNewInvoice({ ...newInvoice, items: [...newInvoice.items, emptyLine()] })}>
-                <Plus className="mr-2 h-4 w-4" />Ajouter ligne
+              <Button type="button" variant="outline" className="w-full" onClick={() => setNewInvoice({ ...newInvoice, items: [...newInvoice.items, emptyLine()] })}>
+                <Plus className="mr-2 h-4 w-4" />Ajouter une ligne
               </Button>
-              <Textarea placeholder="Notes" value={newInvoice.notes} onChange={(event) => setNewInvoice({ ...newInvoice, notes: event.target.value })} />
-              <div className="flex items-center justify-between rounded-lg bg-muted px-4 py-3">
-                <span className="text-sm text-muted-foreground">Total à finaliser</span>
-                <span className="text-lg font-bold">{money(draftTotal)}</span>
+              <div className="space-y-2">
+                <Label htmlFor="invoice-notes">Notes</Label>
+                <Textarea id="invoice-notes" placeholder="Précision imprimée sur la facture" value={newInvoice.notes} onChange={(event) => setNewInvoice({ ...newInvoice, notes: event.target.value })} />
               </div>
             </fieldset>
-            <div className="grid shrink-0 gap-2 border-t px-5 py-4 sm:grid-cols-2">
-              <Button type="button" variant="outline" disabled={saving} onClick={() => void submitInvoice(false)}>
-                {saving ? "Enregistrement..." : "Enregistrer le brouillon"}
-              </Button>
-              <Button type="button" disabled={saving} onClick={() => void submitInvoice(true)}>
-                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                {saving ? "Finalisation..." : "Finaliser la facture"}
-              </Button>
+            <div className="shrink-0 space-y-3 border-t bg-background px-5 py-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Total</span>
+                <span className="text-xl font-bold">{money(draftTotal, currency)}</span>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Button type="button" variant="outline" className="disabled:opacity-100" disabled={saving} onClick={() => submitInvoice(false)}>
+                  {saving ? "Enregistrement..." : "Brouillon"}
+                </Button>
+                <Button type="button" variant="hero" className="disabled:opacity-100" disabled={saving} onClick={() => submitInvoice(true)}>
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Receipt className="h-4 w-4" />}
+                  {saving ? "Finalisation..." : "Finaliser"}
+                </Button>
+              </div>
             </div>
           </DialogContent>
         </Dialog>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Brouillons</p><p className="text-2xl font-bold">{money(stats.drafts)}</p></CardContent></Card>
-        <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">À encaisser</p><p className="text-2xl font-bold text-warning">{money(stats.pending)}</p></CardContent></Card>
-        <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Encaissé</p><p className="text-2xl font-bold text-success">{money(stats.paid)}</p></CardContent></Card>
+        <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Brouillons</p><p className="text-2xl font-bold">{money(stats.drafts, currency)}</p></CardContent></Card>
+        <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">À encaisser</p><p className="text-2xl font-bold text-warning">{money(stats.pending, currency)}</p></CardContent></Card>
+        <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Encaissé</p><p className="text-2xl font-bold text-success">{money(stats.paid, currency)}</p></CardContent></Card>
       </div>
 
+      <Tabs defaultValue="invoices" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="invoices">Factures</TabsTrigger>
+          <TabsTrigger value="catalog">Catalogue</TabsTrigger>
+        </TabsList>
+        <TabsContent value="invoices" className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -337,7 +444,7 @@ export default function Billing() {
               </div>
               <div className="flex flex-wrap items-center gap-3 sm:justify-end">
                 <div className="text-left sm:text-right">
-                  <p className="font-bold">{money(invoice.total)}</p>
+                  <p className="font-bold">{money(invoice.total, invoice.currency || currency)}</p>
                   <p className="text-xs text-muted-foreground">Échéance {new Date(invoice.dueDate).toLocaleDateString("fr-FR")}</p>
                 </div>
                 <Badge variant={statusConfig[invoice.status].variant}>{statusConfig[invoice.status].label}</Badge>
@@ -354,30 +461,62 @@ export default function Billing() {
           </Card>
         ))}
       </div>
+        </TabsContent>
+        <TabsContent value="catalog">
+          <ServiceCatalogPanel
+            services={services}
+            categories={categories}
+            currency={currency}
+            currencies={currencies}
+            canEdit={canEditCatalog}
+            onChanged={loadBilling}
+          />
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={selectedInvoice !== null} onOpenChange={(open) => { if (!open && !actingRef.current) setSelectedInvoice(null); }}>
         <DialogContent className="flex max-h-[90dvh] max-w-lg flex-col gap-0 overflow-hidden p-0 sm:p-0">
           {selectedInvoice && (
             <>
               <DialogHeader className="shrink-0 border-b px-5 py-4">
-                <DialogTitle>{selectedInvoice.invoiceNumber}</DialogTitle>
-                <DialogDescription>
-                  {selectedInvoice.patientName} · échéance {new Date(selectedInvoice.dueDate).toLocaleDateString("fr-FR")}
-                </DialogDescription>
+                <div className="flex items-center gap-3 pr-6">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <FileText className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <DialogTitle>{selectedInvoice.invoiceNumber}</DialogTitle>
+                    <DialogDescription className="mt-1">
+                      {selectedInvoice.patientName} · échéance {new Date(selectedInvoice.dueDate).toLocaleDateString("fr-FR")}
+                    </DialogDescription>
+                  </div>
+                </div>
               </DialogHeader>
               <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4">
                 {selectedInvoice.items.map((item) => (
                   <div key={item.id} className="flex items-start justify-between gap-3 text-sm">
                     <div>
                       <p className="font-medium">{item.description}</p>
-                      <p className="text-muted-foreground">{item.quantity} × {money(item.unitPrice)}</p>
+                      <p className="text-muted-foreground">
+                        {item.quantity} × {money(item.unitPrice, selectedInvoice.currency || currency)}
+                        {item.category ? ` · ${categoryLabel(categories, item.category)}` : ""}
+                      </p>
                     </div>
-                    <p className="font-medium">{money(item.total)}</p>
+                    <p className="font-medium">{money(item.total, selectedInvoice.currency || currency)}</p>
                   </div>
                 ))}
-                <div className="flex items-center justify-between border-t pt-3">
-                  <span className="text-sm text-muted-foreground">Total</span>
-                  <span className="text-lg font-bold">{money(selectedInvoice.total)}</span>
+                <div className="space-y-1 border-t pt-3 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Total</span>
+                    <span className="text-lg font-bold">{money(selectedInvoice.total, selectedInvoice.currency || currency)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Réglé</span>
+                    <span>{money(selectedInvoice.paidAmount ?? (selectedInvoice.status === "paid" ? selectedInvoice.total : 0), selectedInvoice.currency || currency)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Solde</span>
+                    <span className="font-medium">{money(selectedInvoice.balance ?? (selectedInvoice.status === "paid" || selectedInvoice.status === "cancelled" ? 0 : selectedInvoice.total), selectedInvoice.currency || currency)}</span>
+                  </div>
                 </div>
                 {selectedInvoice.notes && <p className="text-sm text-muted-foreground">{selectedInvoice.notes}</p>}
                 {selectedInvoice.status === "paid" && (
@@ -389,29 +528,32 @@ export default function Billing() {
               </div>
               <div className="shrink-0 space-y-2 border-t px-5 py-4">
                 {selectedInvoice.status === "draft" && (
-                  <Button className="w-full" disabled={acting} onClick={() => void finalizeSelected(selectedInvoice)}>
+                  <Button className="w-full" disabled={acting} onClick={() => finalizeSelected(selectedInvoice)}>
                     {acting ? "Finalisation..." : "Finaliser la facture"}
                   </Button>
                 )}
                 {payable && (
-                  <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-                    <Select value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as PaymentMethod)} disabled={acting}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="cash">Espèces</SelectItem>
-                        <SelectItem value="card">Carte</SelectItem>
-                        <SelectItem value="transfer">Virement</SelectItem>
-                        <SelectItem value="insurance">Assurance</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button disabled={acting} onClick={() => void paySelected(selectedInvoice)}>
-                      <CreditCard className="mr-2 h-4 w-4" />
-                      {acting ? "Encaissement..." : "Encaisser"}
-                    </Button>
+                  <div className="space-y-2">
+                    <Label>Règlement</Label>
+                    <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                      <Select value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as PaymentMethod)} disabled={acting}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="cash">Espèces</SelectItem>
+                          <SelectItem value="card">Carte</SelectItem>
+                          <SelectItem value="transfer">Virement</SelectItem>
+                          <SelectItem value="insurance">Assurance</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button variant="hero" className="disabled:opacity-100" disabled={acting} onClick={() => paySelected(selectedInvoice)}>
+                        <CreditCard className="h-4 w-4" />
+                        {acting ? "Encaissement..." : "Encaisser"}
+                      </Button>
+                    </div>
                   </div>
                 )}
                 {cancellable && (
-                  <Button type="button" variant="outline" className="w-full" disabled={acting} onClick={() => void cancelSelected(selectedInvoice)}>
+                  <Button type="button" variant="outline" className="w-full" disabled={acting} onClick={() => cancelSelected(selectedInvoice)}>
                     Annuler la facture
                   </Button>
                 )}

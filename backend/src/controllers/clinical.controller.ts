@@ -7,6 +7,7 @@ import * as receptionService from '../services/reception.service.js';
 import * as examService from '../services/exam.service.js';
 import * as pharmacyService from '../services/pharmacy.service.js';
 import * as billingService from '../services/billing.service.js';
+import * as catalogService from '../services/catalog.service.js';
 
 const org = (req: Request) => req.organizationId!;
 const auth = (req: Request) => req.auth!;
@@ -230,6 +231,21 @@ export const payInvoice = asyncHandler(async (req: Request, res: Response) => {
 });
 export const cancelInvoice = asyncHandler(async (req: Request, res: Response) => {
   res.json(await billingService.cancelInvoice(auth(req), org(req), req.params.id, req.ip));
+});
+export const billingSettings = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await catalogService.billingSettings(org(req)));
+});
+export const updateBillingSettings = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await catalogService.updateBillingSettings(auth(req), org(req), req.body.currency, req.ip));
+});
+export const listServices = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await catalogService.listServices(org(req), req.query.active === 'true'));
+});
+export const createService = asyncHandler(async (req: Request, res: Response) => {
+  res.status(201).json(await catalogService.createService(auth(req), org(req), req.body, req.ip));
+});
+export const updateService = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await catalogService.updateService(auth(req), org(req), req.params.id, req.body, req.ip));
 });
 export const deleteInvoice = asyncHandler(async (req: Request, res: Response) => {
   await billingService.deleteInvoice(auth(req), org(req), req.params.id, req.ip);

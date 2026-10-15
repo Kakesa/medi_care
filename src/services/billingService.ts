@@ -12,9 +12,68 @@ import type {
   ApiResponse,
   PaymentMethod
 } from '@/types';
+import type { BillingCategory } from '@/lib/billingCategories';
+import type { BillingCurrency } from '@/lib/money';
+
+export interface BillableServiceRecord {
+  id: string;
+  code: string;
+  name: string;
+  description?: string;
+  category: string;
+  unitPrice: number;
+  currency: BillingCurrency;
+  unit: string;
+  department?: string;
+  active: boolean;
+  effectiveFrom: string;
+  billingRule?: string;
+}
+
+export interface BillingSettings {
+  currency: BillingCurrency;
+  currencies: BillingCurrency[];
+  categories: BillingCategory[];
+}
 
 class BillingService {
   private readonly basePath = '/billing';
+
+  async getSettings(): Promise<BillingSettings> {
+    return httpClient.get<BillingSettings>(`${this.basePath}/settings`);
+  }
+
+  async updateSettings(currency: BillingCurrency): Promise<BillingSettings> {
+    return httpClient.patch<BillingSettings>(`${this.basePath}/settings`, { currency });
+  }
+
+  async getServices(): Promise<BillableServiceRecord[]> {
+    return httpClient.get<BillableServiceRecord[]>(`${this.basePath}/services`);
+  }
+
+  async createService(data: {
+    code: string;
+    name: string;
+    category: string;
+    unitPrice: number;
+    unit?: string;
+    department?: string;
+    description?: string;
+  }): Promise<BillableServiceRecord> {
+    return httpClient.post<BillableServiceRecord>(`${this.basePath}/services`, data);
+  }
+
+  async updateService(id: string, data: Partial<{
+    name: string;
+    description: string;
+    category: string;
+    unitPrice: number;
+    unit: string;
+    department: string;
+    active: boolean;
+  }>): Promise<BillableServiceRecord> {
+    return httpClient.patch<BillableServiceRecord>(`${this.basePath}/services/${id}`, data);
+  }
 
   async getBillingPatients(): Promise<Array<{ id: string; firstName: string; lastName: string }>> {
     return httpClient.get(`${this.basePath}/patients`);

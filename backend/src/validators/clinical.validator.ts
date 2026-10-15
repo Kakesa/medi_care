@@ -280,14 +280,23 @@ export const orderStatusSchema = envelope(
 );
 export const orderParamsSchema = envelope(empty, empty, paramsId);
 
+const categoryCode = z.string().regex(/^[A-Z0-9_]{2,40}$/, 'Catégorie invalide');
+const billingUnit = z.enum(['acte', 'unite', 'boite', 'jour', 'nuit', 'heure', 'seance', 'autre']);
+
 const invoiceItem = z.object({
   id: z.string().optional(),
-  description: z.string().min(1).max(300),
+  description: z.string().max(300).optional(),
   quantity: z.coerce.number().int().min(1),
-  unitPrice: z.coerce.number().min(0),
+  unitPrice: z.coerce.number().min(0).optional(),
   total: z.coerce.number().min(0).optional(),
-  type: z.enum(['consultation', 'exam', 'medication', 'service']).optional(),
+  type: z.string().max(40).optional(),
+  category: categoryCode.optional(),
+  catalogItemId: objectIdSchema.optional(),
   referenceId: z.string().max(80).optional(),
+}).superRefine((item, context) => {
+  if (!item.catalogItemId && !item.description?.trim()) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: 'Description requise pour une ligne manuelle', path: ['description'] });
+  }
 });
 
 export const listInvoicesSchema = envelope(
@@ -329,3 +338,36 @@ export const payInvoiceSchema = envelope(
 );
 export const invoiceParamsSchema = envelope(empty, empty, paramsId);
 export const invoiceByPatientSchema = envelope(empty, empty, paramsPatient);
+
+const catalogBody = {
+  code: z.string().regex(/^[A-Za-z0-9_-]{2,40}$/, 'Code invalide'),
+  name: z.string().min(1).max(160),
+  description: z.string().max(500).optional(),
+  category: categoryCode,
+  unitPrice: z.coerce.number().min(0),
+  unit: billingUnit.optional(),
+  department: z.string().max(80).optional(),
+  active: z.boolean().optional(),
+  effectiveFrom: z.coerce.date().optional(),
+  billingRule: z.string().max(300).optional(),
+};
+
+export const createServiceSchema = envelope(z.object(catalogBody));
+export const updateServiceSchema = envelope(
+  z.object({
+    name: catalogBody.name.optional(),
+    description: catalogBody.description,
+    category: catalogBody.category.optional(),
+    unitPrice: catalogBody.unitPrice.optional(),
+    unit: billingUnit.optional(),
+    department: catalogBody.department,
+    active: z.boolean().optional(),
+    effectiveFrom: z.coerce.date().optional(),
+    billingRule: catalogBody.billingRule,
+  }),
+  empty,
+  paramsId
+);
+export const billingSettingsSchema = envelope(z.object({
+  currency: z.enum(['EUR', 'CDF', 'USD']),
+}));

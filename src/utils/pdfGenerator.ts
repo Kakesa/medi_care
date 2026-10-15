@@ -5,6 +5,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { Invoice, Consultation, Exam } from '@/types';
+import { formatMoney } from '@/lib/money';
 
 // Configuration du centre médical
 const CLINIC_CONFIG = {
@@ -96,11 +97,12 @@ export const generateInvoicePDF = (invoice: Invoice): void => {
   }
 
   // Items table
+  const currency = invoice.currency || 'EUR';
   const tableData = invoice.items.map(item => [
     item.description,
     item.quantity.toString(),
-    `${item.unitPrice.toFixed(2)} €`,
-    `${item.total.toFixed(2)} €`,
+    formatMoney(item.unitPrice, currency),
+    formatMoney(item.total, currency),
   ]);
 
   autoTable(doc, {
@@ -129,16 +131,16 @@ export const generateInvoicePDF = (invoice: Invoice): void => {
   const totalsX = pageWidth - 70;
 
   doc.text('Sous-total:', totalsX, finalY);
-  doc.text(`${invoice.subtotal.toFixed(2)} €`, pageWidth - 20, finalY, { align: 'right' });
+  doc.text(formatMoney(invoice.subtotal, currency), pageWidth - 20, finalY, { align: 'right' });
 
   if (invoice.tax > 0) {
     doc.text('TVA:', totalsX, finalY + 7);
-    doc.text(`${invoice.tax.toFixed(2)} €`, pageWidth - 20, finalY + 7, { align: 'right' });
+    doc.text(formatMoney(invoice.tax, currency), pageWidth - 20, finalY + 7, { align: 'right' });
   }
 
   if (invoice.discount > 0) {
     doc.text('Remise:', totalsX, finalY + 14);
-    doc.text(`-${invoice.discount.toFixed(2)} €`, pageWidth - 20, finalY + 14, { align: 'right' });
+    doc.text(`-${formatMoney(invoice.discount, currency)}`, pageWidth - 20, finalY + 14, { align: 'right' });
   }
 
   // Total line
@@ -150,7 +152,7 @@ export const generateInvoicePDF = (invoice: Invoice): void => {
   doc.setFont('helvetica', 'bold');
   doc.text('TOTAL:', totalsX, finalY + 30);
   doc.setTextColor(...COLORS.primary);
-  doc.text(`${invoice.total.toFixed(2)} €`, pageWidth - 20, finalY + 30, { align: 'right' });
+  doc.text(formatMoney(invoice.total, currency), pageWidth - 20, finalY + 30, { align: 'right' });
 
   // Payment info
   if (invoice.status === 'paid' && invoice.paymentMethod) {

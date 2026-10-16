@@ -33,7 +33,7 @@ export type ExamType = 'laboratory' | 'imaging' | 'biopsy' | 'other';
 export type ExamStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
 export type NotificationType = 'appointment' | 'patient_arrival' | 'exam_result' | 'pharmacy' | 'general' | 'billing';
 export type ProductStatus = 'in_stock' | 'low_stock' | 'out_of_stock';
-export type OrderStatus = 'pending' | 'confirmed' | 'delivered' | 'cancelled';
+export type OrderStatus = 'pending' | 'confirmed' | 'partial' | 'delivered' | 'cancelled';
 export type InvoiceStatus = 'draft' | 'pending' | 'paid' | 'cancelled' | 'overdue';
 export type PaymentMethod = 'cash' | 'card' | 'transfer' | 'insurance';
 
@@ -309,6 +309,8 @@ export interface PharmacyProduct {
   minStock: number;
   unit: string;
   price: number;
+  currency?: string;
+  purchasePrice?: number;
   supplier: string;
   expiryDate?: string;
   status: ProductStatus;
@@ -340,6 +342,7 @@ export interface PharmacyOrder {
   expectedDelivery?: string;
   status: OrderStatus;
   totalCost: number;
+  receivedQuantity?: number;
   notes?: string;
 }
 

@@ -78,6 +78,48 @@ class PharmacyService {
   async getPendingOrders(): Promise<PharmacyOrder[]> {
     return httpClient.get<PharmacyOrder[]>(`${this.basePath}/orders/pending`);
   }
+
+  async getAccess(): Promise<{ permissions: string[]; currency: string }> {
+    return httpClient.get(`${this.basePath}/access`);
+  }
+
+  async getMovements(): Promise<Array<{ id: string; type: string; quantity: number; status: string; reason: string; quantityBefore: number; quantityAfter: number }>> {
+    return httpClient.get(`${this.basePath}/movements`);
+  }
+
+  async createRequest(lines: Array<{ productId: string; quantity: number; reason?: string }>): Promise<{ id: string; status: string; number: string }> {
+    return httpClient.post(`${this.basePath}/requests`, { lines });
+  }
+
+  async getRequests(): Promise<Array<{ id: string; number: string; status: string; requestedBy: string; lines: Array<{ productName: string; quantity: number }> }>> {
+    return httpClient.get(`${this.basePath}/requests`);
+  }
+
+  async decideRequest(id: string, decision: 'approve' | 'reject' | 'return'): Promise<{ status: string }> {
+    return httpClient.patch(`${this.basePath}/requests/${id}`, { decision });
+  }
+
+  async receiveOrder(id: string, data: { quantity: number; lotNumber: string; expiresAt?: string; purchasePrice?: number; idempotencyKey: string }): Promise<PharmacyOrder> {
+    return httpClient.post(`${this.basePath}/orders/${id}/receive`, data);
+  }
+
+  async createSale(data: {
+    kind: 'counter' | 'dispense' | 'ward';
+    settlement: 'paid' | 'invoiced' | 'internal';
+    paymentMethod?: string;
+    idempotencyKey: string;
+    lines: Array<{ productId: string; quantity: number }>;
+  }): Promise<{ id: string; number: string; total: number }> {
+    return httpClient.post(`${this.basePath}/sales`, data);
+  }
+
+  async getFinance(): Promise<{ stockValue: number; engaged: number; paid: number; unpaidInvoices: number; salesTotal: number; budgetAmount: number; remaining: number; alert: string }> {
+    return httpClient.get(`${this.basePath}/finance`);
+  }
+
+  async getOperations(): Promise<{ expiring: Array<{ id: string; lotNumber: string; expiresAt?: string; quantityRemaining: number }> }> {
+    return httpClient.get(`${this.basePath}/operations`);
+  }
 }
 
 export const pharmacyService = new PharmacyService();

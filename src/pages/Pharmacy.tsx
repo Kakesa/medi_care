@@ -48,9 +48,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { pharmacyCategories } from "@/data/mockData";
+import { PharmacyDesk } from "@/components/pharmacy/PharmacyDesk";
 import { pharmacyService } from "@/services/pharmacyService";
 import type { PharmacyOrder, PharmacyProduct } from "@/types";
 import { apiMessage } from "@/lib/apiError";
+import { formatMoney } from "@/lib/money";
 import { toast } from "sonner";
 
 export default function Pharmacy() {
@@ -62,6 +64,10 @@ export default function Pharmacy() {
   const [isProductDialogOpen, setIsProductDialogOpen] = useState(false);
   const [isOrderDialogOpen, setIsOrderDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<PharmacyProduct | null>(null);
+  const [permissions, setPermissions] = useState<string[]>([]);
+  const [currency, setCurrency] = useState("EUR");
+  const canManageProducts = permissions.includes("pharmacy.products.manage");
+  const canApprovePurchase = permissions.includes("pharmacy.purchase.approve");
 
   const [productFormData, setProductFormData] = useState({
     name: "",
@@ -83,12 +89,15 @@ export default function Pharmacy() {
 
   const loadPharmacy = async () => {
     try {
-      const [productResult, orderResult] = await Promise.all([
+      const [productResult, orderResult, access] = await Promise.all([
         pharmacyService.getProducts({ limit: 100 }),
         pharmacyService.getOrders({ limit: 100 }),
+        pharmacyService.getAccess(),
       ]);
       setProducts(productResult.data);
       setOrders(orderResult.data);
+      setPermissions(access.permissions);
+      setCurrency(access.currency);
     } catch (error) {
       toast.error(apiMessage(error));
     }
@@ -135,7 +144,7 @@ export default function Pharmacy() {
     const payload = {
       name: productFormData.name,
       category: productFormData.category,
-      quantity: productFormData.quantity,
+      quantity: editingProduct ? editingProduct.quantity : productFormData.quantity,
       minStock: productFormData.minStock,
       unit: productFormData.unit,
       price: productFormData.price,
@@ -144,7 +153,15 @@ export default function Pharmacy() {
     };
     try {
       if (editingProduct) {
-        await pharmacyService.updateProduct(editingProduct.id, payload);
+            await pharmacyService.updateProduct(editingProduct.id, {
+          name: payload.name,
+          category: payload.category,
+          minStock: payload.minStock,
+          unit: payload.unit,
+          price: payload.price,
+          supplier: payload.supplier,
+          expiryDate: payload.expiryDate,
+        });
         toast.success("Produit modifié avec succès");
       } else {
         await pharmacyService.createProduct(payload);
@@ -164,14 +181,23 @@ export default function Pharmacy() {
       return;
     }
     try {
-      await pharmacyService.createOrder({
-        productId: orderFormData.productId,
-        productName: "",
-        quantity: orderFormData.quantity,
-        supplier: orderFormData.supplier,
-        notes: orderFormData.notes || undefined,
-      });
-      toast.success("Commande créée avec succès");
+      if (canApprovePurchase) {
+        await pharmacyService.createOrder({
+          productId: orderFormData.productId,
+          productName: "",
+          quantity: orderFormData.quantity,
+          supplier: orderFormData.supplier,
+          notes: orderFormData.notes || undefined,
+        });
+        toast.success("Commande créée avec succès");
+      } else {
+        await pharmacyService.createRequest([{
+          productId: orderFormData.productId,
+          quantity: orderFormData.quantity,
+          reason: orderFormData.notes || "Demande d'approvisionnement",
+        }]);
+        toast.success("Demande envoyée pour approbation");
+      }
       setIsOrderDialogOpen(false);
       setOrderFormData({ productId: "", quantity: 0, supplier: "", notes: "" });
       await loadPharmacy();
@@ -253,8 +279,8 @@ export default function Pharmacy() {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Nouvelle commande</DialogTitle>
-                <DialogDescription>Créer une commande d'approvisionnement</DialogDescription>
+                <DialogTitle>{canApprovePurchase ? "Nouvelle commande" : "Demande d'approvisionnement"}</DialogTitle>
+                <DialogDescription>{canApprovePurchase ? "La commande n'entre en stock qu'à la réception." : "Un administrateur doit approuver cette demande."}</DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -304,7 +330,7 @@ export default function Pharmacy() {
             </DialogContent>
           </Dialog>
 
-          <Dialog open={isProductDialogOpen} onOpenChange={(open) => { setIsProductDialogOpen(open); if (!open) resetProductForm(); }}>
+          {canManageProducts && <Dialog open={isProductDialogOpen} onOpenChange={(open) => { setIsProductDialogOpen(open); if (!open) resetProductForm(); }}>
             <DialogTrigger asChild>
               <Button className="gap-2">
                 <Plus className="h-4 w-4" />
@@ -342,8 +368,8 @@ export default function Pharmacy() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Quantité actuelle</Label>
-                    <Input type="number" value={productFormData.quantity} onChange={(e) => setProductFormData({...productFormData, quantity: parseInt(e.target.value) || 0})} />
+                    <Label>{editingProduct ? "Quantité (issue des mouvements)" : "Quantité d'ouverture"}</Label>
+                    <Input type="number" value={productFormData.quantity} disabled={Boolean(editingProduct)} onChange={(e) => setProductFormData({...productFormData, quantity: parseInt(e.target.value) || 0})} />
                   </div>
                   <div className="space-y-2">
                     <Label>Stock minimum</Label>
@@ -352,7 +378,7 @@ export default function Pharmacy() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Prix unitaire (€)</Label>
+                    <Label>Prix de vente ({currency})</Label>
                     <Input type="number" step="0.01" value={productFormData.price} onChange={(e) => setProductFormData({...productFormData, price: parseFloat(e.target.value) || 0})} />
                   </div>
                   <div className="space-y-2">
@@ -370,7 +396,7 @@ export default function Pharmacy() {
                 <Button onClick={handleProductSubmit}>{editingProduct ? 'Modifier' : 'Ajouter'}</Button>
               </DialogFooter>
             </DialogContent>
-          </Dialog>
+          </Dialog>}
         </div>
       </div>
 
@@ -477,6 +503,7 @@ export default function Pharmacy() {
             <ShoppingCart className="h-4 w-4 mr-1" />
             Commandes ({orders.length})
           </TabsTrigger>
+          <TabsTrigger value="desk">Opérations</TabsTrigger>
         </TabsList>
 
         <TabsContent value="products" className="space-y-4">
@@ -500,7 +527,7 @@ export default function Pharmacy() {
                     <Progress value={getStockPercentage(product)} className="h-2" />
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Min: {product.minStock}</span>
-                      <span className="font-medium">{product.price.toFixed(2)} €/{product.unit.slice(0, -1) || product.unit}</span>
+                      <span className="font-medium">{formatMoney(product.price, product.currency || currency)}/{product.unit}</span>
                     </div>
                     <div className="text-xs text-muted-foreground">
                       <p>Fournisseur: {product.supplier}</p>
@@ -509,10 +536,10 @@ export default function Pharmacy() {
                   </div>
 
                   <div className="flex gap-2 mt-4 pt-4 border-t">
-                    <Button variant="outline" size="sm" className="flex-1" onClick={() => handleEditProduct(product)}>
+                    {canManageProducts && <Button variant="outline" size="sm" className="flex-1" onClick={() => handleEditProduct(product)}>
                       <Edit className="h-4 w-4 mr-1" />
                       Modifier
-                    </Button>
+                    </Button>}
                     <Button 
                       variant="outline" 
                       size="sm" 
@@ -523,9 +550,9 @@ export default function Pharmacy() {
                       }}
                     >
                       <ShoppingCart className="h-4 w-4 mr-1" />
-                      Commander
+                      {canApprovePurchase ? "Commander" : "Demander"}
                     </Button>
-                    <AlertDialog>
+                    {canManageProducts && <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button variant="ghost" size="sm" className="text-destructive">
                           <Trash2 className="h-4 w-4" />
@@ -541,7 +568,7 @@ export default function Pharmacy() {
                           <AlertDialogAction onClick={() => handleDeleteProduct(product.id)}>Supprimer</AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
-                    </AlertDialog>
+                    </AlertDialog>}
                   </div>
                 </CardContent>
               </Card>
@@ -572,7 +599,8 @@ export default function Pharmacy() {
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="text-right">
-                        <p className="font-semibold">{order.totalCost.toFixed(2)} €</p>
+                        <p className="font-semibold">{formatMoney(order.totalCost, currency)}</p>
+                        {typeof order.receivedQuantity === "number" && <p className="text-xs text-muted-foreground">Reçu {order.receivedQuantity}/{order.quantity}</p>}
                         {getStatusBadge(order.status)}
                       </div>
                       {order.status !== 'delivered' && order.status !== 'cancelled' && (
@@ -586,6 +614,7 @@ export default function Pharmacy() {
                           <SelectContent>
                             <SelectItem value="pending">En attente</SelectItem>
                             <SelectItem value="confirmed">Confirmée</SelectItem>
+                            <SelectItem value="partial">Réception partielle</SelectItem>
                             <SelectItem value="delivered">Livrée</SelectItem>
                             <SelectItem value="cancelled">Annulée</SelectItem>
                           </SelectContent>
@@ -600,6 +629,9 @@ export default function Pharmacy() {
               </Card>
             ))}
           </div>
+        </TabsContent>
+        <TabsContent value="desk">
+          <PharmacyDesk products={products} currency={currency} permissions={permissions} onChanged={loadPharmacy} />
         </TabsContent>
       </Tabs>
     </div>

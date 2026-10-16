@@ -6,6 +6,9 @@ import { paginated, readPagination } from '../utils/pagination.js';
 import type { AuthContext } from '../types/express.js';
 import { requireOwned } from './access.service.js';
 import { recordAudit } from './audit.service.js';
+import { organizationCurrency } from './catalog.service.js';
+import { isExpired, postStock } from './stock.service.js';
+import { receiveOrderQuantity } from './procurement.service.js';
 
 function stockStatus(quantity: number, minStock: number) {
   if (quantity <= 0) return 'out_of_stock' as const;
@@ -40,6 +43,14 @@ function toProductDto(row: {
     minStock: row.minStock,
     unit: row.unit,
     price: row.price,
+    purchasePrice: 'purchasePrice' in row ? Number(row.purchasePrice || 0) : 0,
+    currency: 'currency' in row && row.currency ? String(row.currency) : 'EUR',
+    genericName: 'genericName' in row ? String(row.genericName || '') : '',
+    sku: 'sku' in row ? String(row.sku || '') : '',
+    kind: 'kind' in row ? String(row.kind || 'medication') : 'medication',
+    dosage: 'dosage' in row ? String(row.dosage || '') : '',
+    prescriptionRequired: 'prescriptionRequired' in row ? Boolean(row.prescriptionRequired) : false,
+    available: Math.max(0, row.quantity - ('reservedQuantity' in row ? Number(row.reservedQuantity || 0) : 0)),
     supplier: row.supplier || '',
     expiryDate: dateOnly(row.expiryDate),
     status: row.status,
@@ -70,6 +81,7 @@ function toOrderDto(row: {
     expectedDelivery: dateOnly(row.expectedDelivery),
     status: row.status,
     totalCost: row.totalCost,
+    receivedQuantity: 'receivedQuantity' in row ? Number(row.receivedQuantity || 0) : 0,
     notes: row.notes || undefined,
   };
 }
@@ -102,22 +114,54 @@ export async function createProduct(
     price: number;
     supplier?: string;
     expiryDate?: Date | '';
+    purchasePrice?: number;
+    genericName?: string;
+    sku?: string;
+    kind?: 'medication' | 'consumable' | 'device';
+    dosage?: string;
+    form?: string;
+    prescriptionRequired?: boolean;
   },
   ip?: string
 ) {
+  if (input.quantity > 0 && input.expiryDate instanceof Date && isExpired(input.expiryDate)) {
+    throw new ApiError(409, 'Un lot périmé ne peut pas entrer dans le stock disponible', 'LOT_EXPIRED');
+  }
   const row = await PharmacyProduct.create({
     organizationId,
     name: input.name.trim(),
     category: input.category.trim(),
-    quantity: input.quantity,
+    quantity: 0,
     minStock: input.minStock,
     unit: input.unit.trim(),
     price: input.price,
+    purchasePrice: input.purchasePrice ?? 0,
+    averageCost: input.purchasePrice ?? 0,
+    currency: await organizationCurrency(organizationId),
+    genericName: input.genericName?.trim() || '',
+    sku: input.sku?.trim().toUpperCase() || '',
+    kind: input.kind || 'medication',
+    dosage: input.dosage?.trim() || '',
+    form: input.form?.trim() || '',
+    prescriptionRequired: input.prescriptionRequired ?? false,
     supplier: input.supplier?.trim() || '',
     expiryDate: cleanDate(input.expiryDate),
-    status: stockStatus(input.quantity, input.minStock),
-    lastRestocked: input.quantity > 0 ? new Date() : undefined,
+    status: 'out_of_stock',
   });
+  if (input.quantity > 0) {
+    await postStock(actor, organizationId, {
+      productId: row.id,
+      quantity: input.quantity,
+      direction: 'in',
+      type: 'inventory_adjustment',
+      lotNumber: 'OUVERTURE',
+      expiresAt: cleanDate(input.expiryDate) || null,
+      purchasePrice: input.purchasePrice ?? 0,
+      reason: 'Stock d\'ouverture',
+      idempotencyKey: `opening:${row.id}`,
+      supplierName: input.supplier,
+    }, ip);
+  }
   await recordAudit({
     actorId: actor.id,
     actorRole: actor.role,
@@ -128,7 +172,8 @@ export async function createProduct(
     success: true,
     ip,
   });
-  return toProductDto(row);
+  const saved = await PharmacyProduct.findById(row._id);
+  return toProductDto(saved || row);
 }
 
 export async function updateProduct(
@@ -151,10 +196,22 @@ export async function updateProduct(
   if (row.archivedAt) throw new ApiError(404, 'Ressource introuvable', 'NOT_FOUND');
   if (input.name !== undefined) row.name = input.name.trim();
   if (input.category !== undefined) row.category = input.category.trim();
-  if (input.quantity !== undefined) row.quantity = input.quantity;
   if (input.minStock !== undefined) row.minStock = input.minStock;
   if (input.unit !== undefined) row.unit = input.unit.trim();
-  if (input.price !== undefined) row.price = input.price;
+  if (input.price !== undefined && input.price !== row.price) {
+    await recordAudit({
+      actorId: actor.id,
+      actorRole: actor.role,
+      organizationId,
+      action: 'PRODUCT_PRICE_UPDATED',
+      resourceType: 'pharmacy_product',
+      resourceId: id,
+      success: true,
+      ip,
+      metadata: { previous: row.price, next: input.price },
+    });
+    row.price = input.price;
+  }
   if (input.supplier !== undefined) row.supplier = input.supplier.trim();
   if (input.expiryDate !== undefined) row.expiryDate = cleanDate(input.expiryDate);
   row.status = stockStatus(row.quantity, row.minStock);
@@ -163,8 +220,21 @@ export async function updateProduct(
 }
 
 export async function updateStock(actor: AuthContext, organizationId: string, id: string, quantity: number, ip?: string) {
-  const row = await updateProduct(actor, organizationId, id, { quantity }, ip);
-  return row;
+  const row = await requireOwned(PharmacyProduct, id, organizationId, actor, 'pharmacy_product', ip);
+  const delta = quantity - row.quantity;
+  if (delta === 0) return toProductDto(row);
+  const pending = actor.role !== 'HOSPITAL_ADMIN';
+  await postStock(actor, organizationId, {
+    productId: id,
+    quantity: Math.abs(delta),
+    direction: delta > 0 ? 'in' : 'out',
+    type: 'inventory_adjustment',
+    reason: 'Ajustement demandé',
+    idempotencyKey: `adjust:${id}:${quantity}:${pending ? 'pending' : 'now'}:${actor.id}`,
+    pending,
+  }, ip);
+  const saved = await PharmacyProduct.findById(id);
+  return toProductDto(saved || row);
 }
 
 export async function archiveProduct(actor: AuthContext, organizationId: string, id: string, ip?: string) {
@@ -224,7 +294,8 @@ export async function createOrder(
     orderDate: new Date(),
     expectedDelivery: cleanDate(input.expectedDelivery),
     status: 'pending',
-    totalCost: product.price * input.quantity,
+    purchasePrice: product.purchasePrice || 0,
+    totalCost: (product.purchasePrice || product.price) * input.quantity,
     notes: input.notes?.trim(),
   });
   await recordAudit({
@@ -251,16 +322,15 @@ export async function updateOrderStatus(
   if (row.stockApplied && status !== 'delivered') {
     throw new ApiError(409, 'Une commande livrée ne peut plus changer de statut', 'ORDER_LOCKED');
   }
-  if (status === 'delivered' && !row.stockApplied) {
-    const product = await PharmacyProduct.findOne({ _id: row.productId, organizationId, archivedAt: null });
-    if (!product) {
-      throw new ApiError(404, 'Produit introuvable', 'NOT_FOUND');
-    }
-    product.quantity += row.quantity;
-    product.status = stockStatus(product.quantity, product.minStock);
-    product.lastRestocked = new Date();
-    await product.save();
-    row.stockApplied = true;
+  if (status === 'delivered') {
+    const received = await receiveOrderQuantity(actor, organizationId, row, row.quantity - (row.receivedQuantity || 0), {
+      lotNumber: `CMD-${row.id}`,
+      idempotencyKey: `order-deliver:${row.id}`,
+    }, ip);
+    return received;
+  }
+  if (status === 'cancelled' && (row.receivedQuantity || 0) > 0) {
+    throw new ApiError(409, 'Une commande déjà réceptionnée ne peut pas être annulée', 'ORDER_LOCKED');
   }
   row.status = status;
   await row.save();

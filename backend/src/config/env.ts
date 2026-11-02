@@ -14,6 +14,15 @@ export function getEnv() {
   }
 
   const rounds = Number(process.env.BCRYPT_ROUNDS ?? 12);
+  const configuredOrigins = (process.env.CORS_ORIGIN ?? 'http://localhost:8080')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  const mirroredOrigins = configuredOrigins.flatMap((origin) => {
+    if (origin.includes('://localhost')) return [origin.replace('://localhost', '://127.0.0.1')];
+    if (origin.includes('://127.0.0.1')) return [origin.replace('://127.0.0.1', '://localhost')];
+    return [];
+  });
 
   return {
     NODE_ENV: process.env.NODE_ENV ?? 'development',
@@ -21,7 +30,7 @@ export function getEnv() {
     MONGODB_URI,
     JWT_SECRET,
     JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN ?? '8h',
-    CORS_ORIGIN: process.env.CORS_ORIGIN ?? 'http://localhost:8080',
+    CORS_ORIGIN: [...new Set([...configuredOrigins, ...mirroredOrigins])],
     BCRYPT_ROUNDS: Number.isFinite(rounds) && rounds >= 4 ? rounds : 12,
     LOGIN_RATE_LIMIT_MAX: Number(process.env.LOGIN_RATE_LIMIT_MAX ?? 10),
     SMTP_HOST: process.env.SMTP_HOST ?? '',

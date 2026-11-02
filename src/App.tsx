@@ -50,7 +50,7 @@ const App = () => (
           <TooltipProvider>
           <Toaster />
           <Sonner />
-          <BrowserRouter>
+          <BrowserRouter future={{ v7_relativeSplatPath: true }}>
             <SessionGuard />
             <Routes>
               <Route path="/" element={<Index />} />

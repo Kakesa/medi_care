@@ -1,259 +1,369 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { 
-  Activity, 
-  Users, 
-  UserCircle, 
-  Calendar, 
-  Stethoscope, 
+import { AppointmentRequestForm } from "@/components/forms/AppointmentRequestForm";
+import {
+  Activity,
+  Users,
+  UserCircle,
+  Calendar,
+  Stethoscope,
   FlaskConical,
   Shield,
   ArrowRight,
-  CheckCircle
+  ArrowLeft,
+  CheckCircle,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const features = [
   {
     icon: Users,
     title: "Gestion du Personnel",
-    description: "Inscription, autorisation et planning du personnel médical"
+    description: "Inscription, autorisation et planning du personnel médical",
+    image: "/images/home/team.jpg",
   },
   {
     icon: UserCircle,
     title: "Dossiers Patients",
-    description: "Dossiers médicaux complets avec historique et traçabilité"
+    description: "Dossiers médicaux complets avec historique et traçabilité",
+    image: "/images/home/consult.jpg",
   },
   {
     icon: Calendar,
     title: "Rendez-vous",
-    description: "Planification en ligne avec rappels automatiques"
+    description: "Planification en ligne avec rappels automatiques",
+    image: "/images/home/hero-2.jpg",
   },
   {
     icon: Stethoscope,
     title: "Consultations",
-    description: "Suivi des consultations et diagnostics"
+    description: "Suivi des consultations et diagnostics",
+    image: "/images/home/care.jpg",
   },
   {
     icon: FlaskConical,
     title: "Examens & Labo",
-    description: "Planification et résultats intégrés"
+    description: "Planification et résultats intégrés",
+    image: "/images/home/lab.jpg",
   },
   {
     icon: Shield,
     title: "Sécurité RGPD",
-    description: "Conformité aux normes de protection des données"
-  }
+    description: "Conformité aux normes de protection des données",
+    image: "/images/home/ward.jpg",
+  },
 ];
 
 const benefits = [
   "Interface intuitive adaptée à chaque rôle",
   "Données médicales sécurisées et traçables",
   "Coordination optimisée entre services",
-  "Rapports et statistiques en temps réel"
+  "Rapports et statistiques en temps réel",
 ];
 
-import { AppointmentRequestForm } from "@/components/forms/AppointmentRequestForm";
+const slides = [
+  {
+    image: "/images/home/hero-1.jpg",
+    kicker: "Conforme RGPD & HL7",
+    title: "Système d'Information Hospitalier Moderne",
+    text: "Centralisez la gestion de votre établissement de santé : personnel, patients, rendez-vous et consultations dans une interface unifiée.",
+    action: "Demander un RDV",
+    href: "#rdv-form",
+  },
+  {
+    image: "/images/home/hero-2.jpg",
+    kicker: "Établissement",
+    title: "Une solution intégrée pour toutes vos équipes",
+    text: "Une solution intégrée pour tous les besoins de votre établissement.",
+    action: "Voir les fonctionnalités",
+    href: "#services",
+  },
+  {
+    image: "/images/home/hero-3.jpg",
+    kicker: "Coordination",
+    title: "Pourquoi choisir MediCare SIH ?",
+    text: "Notre système a été conçu avec une approche méthodique Agile pour répondre aux besoins spécifiques des établissements de santé modernes.",
+    action: "Se connecter",
+    href: "/login",
+  },
+];
 
 export default function Index() {
+  const [active, setActive] = useState(0);
+  const slide = slides[active];
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setActive((current) => (current + 1) % slides.length);
+    }, 7000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const go = (direction: number) => {
+    setActive((current) => (current + direction + slides.length) % slides.length);
+  };
+
   return (
-    <div className="min-h-screen bg-background overflow-x-hidden">
-      {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border animate-slide-down">
-        <div className="container mx-auto flex h-16 items-center justify-between gap-3 px-4 sm:px-6">
-          <div className="flex min-w-0 items-center gap-3 group">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary transition-all duration-300 group-hover:scale-110 group-hover:shadow-glow">
-              <Activity className="h-6 w-6 text-primary-foreground transition-transform group-hover:rotate-12" />
-            </div>
-            <span className="truncate text-lg font-bold sm:text-xl">MediCare</span>
-          </div>
+    <div className="min-h-screen overflow-x-hidden bg-background text-foreground">
+      <div className="bg-foreground text-background">
+        <div className="container flex h-10 items-center justify-between gap-3 px-4 text-xs sm:text-sm">
+          <span className="truncate">Système d'information hospitalier</span>
+          <span className="hidden text-background/80 sm:inline">Conforme RGPD & HL7</span>
+          <Link to="/login" className="shrink-0 font-medium hover:text-background">
+            Espace professionnel
+          </Link>
+        </div>
+      </div>
+
+      <header className="sticky top-0 z-50 border-b border-border/80 bg-background/95 backdrop-blur">
+        <div className="container flex h-16 items-center justify-between gap-3 px-4 sm:h-20">
+          <Link to="/" className="flex min-w-0 items-center gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-sm">
+              <Activity className="h-5 w-5" />
+            </span>
+            <span className="truncate text-lg font-semibold tracking-tight sm:text-xl">MediCare</span>
+          </Link>
+          <nav className="hidden items-center gap-8 text-sm font-medium text-muted-foreground lg:flex">
+            <a href="#services" className="transition-colors hover:text-primary">Fonctionnalités</a>
+            <a href="#pourquoi" className="transition-colors hover:text-primary">Pourquoi MediCare</a>
+            <a href="#galerie" className="transition-colors hover:text-primary">Établissement</a>
+            <a href="#rdv-form" className="transition-colors hover:text-primary">Rendez-vous</a>
+          </nav>
           <div className="flex shrink-0 items-center gap-2">
             <Link to="/dashboard" className="hidden sm:block">
-              <Button variant="ghost" className="hover-scale">Tableau de bord</Button>
+              <Button variant="ghost">Tableau de bord</Button>
             </Link>
             <Link to="/login">
-              <Button variant="hero" size="sm" className="group sm:h-10 sm:px-4">
-                Connexion
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </Button>
+              <Button variant="hero" size="sm" className="sm:h-11 sm:px-5">Connexion</Button>
             </Link>
           </div>
         </div>
-      </nav>
+      </header>
 
-      {/* Hero Section */}
-      <section className="relative px-4 pb-16 pt-28 sm:px-6 sm:pb-20 sm:pt-32">
-        {/* Background decoration */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl animate-float" />
-          <div className="absolute top-60 -left-40 w-60 h-60 bg-accent/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '1s' }} />
-        </div>
-        
-        <div className="container mx-auto text-center relative">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-8 animate-bounce-in">
-            <Shield className="h-4 w-4" />
-            Conforme RGPD & HL7
-          </div>
-          
-          <h1 className="mb-6 text-3xl font-bold text-foreground animate-slide-up opacity-0 sm:text-4xl md:text-6xl" style={{ animationDelay: '100ms' }}>
-            Système d'Information
-            <br />
-            <span className="text-gradient">Hospitalier Moderne</span>
-          </h1>
-          
-          <p className="mx-auto mb-10 max-w-2xl text-base text-muted-foreground animate-slide-up opacity-0 sm:text-xl" style={{ animationDelay: "200ms" }}>
-            Centralisez la gestion de votre établissement de santé : personnel, patients, 
-            rendez-vous et consultations dans une interface unifiée.
-          </p>
-          
-          <div className="flex flex-col justify-center gap-4 animate-slide-up opacity-0 sm:flex-row" style={{ animationDelay: "300ms" }}>
-            <a href="#rdv-form" className="sm:w-auto">
-              <Button variant="hero" size="xl" className="group btn-glow w-full sm:w-auto">
-                Demander un RDV
-                <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
-              </Button>
-            </a>
-            <Link to="/login" className="sm:w-auto">
-              <Button variant="outline" size="xl" className="hover-scale w-full sm:w-auto">
-                Se connecter
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Appointment Request Form Section */}
-      <section id="rdv-form" className="bg-primary/5 px-4 py-16 sm:px-6 sm:py-20">
-        <div className="container mx-auto max-w-2xl">
-          <div className="text-center mb-10">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Demander un Rendez-vous</h2>
-            <p className="text-muted-foreground text-lg">
-              Remplissez le formulaire ci-dessous pour demander un rendez-vous
-            </p>
-          </div>
-          <AppointmentRequestForm />
-        </div>
-      </section>
-
-      {/* Features Grid */}
-      <section className="relative overflow-hidden bg-secondary/30 px-4 py-16 sm:px-6 sm:py-20">
-        {/* Background pattern */}
-        <div className="absolute inset-0 opacity-30">
-          <div className="absolute top-0 left-0 w-full h-full" 
-            style={{ 
-              backgroundImage: 'radial-gradient(circle at 1px 1px, hsl(var(--primary) / 0.15) 1px, transparent 0)',
-              backgroundSize: '40px 40px'
-            }} 
+      <section className="relative min-h-[78vh] overflow-hidden bg-foreground">
+        {slides.map((item, index) => (
+          <img
+            key={item.image}
+            src={item.image}
+            alt={index === active ? item.title : ""}
+            className={cn(
+              "absolute inset-0 h-full w-full object-cover transition-opacity duration-700",
+              index === active ? "opacity-100" : "opacity-0",
+            )}
           />
+        ))}
+        <div className="absolute inset-0 bg-gradient-to-r from-foreground/85 via-foreground/55 to-foreground/20" />
+        <div className="relative flex min-h-[78vh] items-center px-4 py-16">
+          <div className="container">
+            <div className="max-w-2xl text-background">
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-background/80">{slide.kicker}</p>
+              <h1 className="mt-4 text-4xl font-semibold leading-tight tracking-tight sm:text-5xl lg:text-6xl">
+                {slide.title}
+              </h1>
+              <p className="mt-6 max-w-xl text-base leading-relaxed text-background/85 sm:text-lg">{slide.text}</p>
+              <div className="mt-8">
+                {slide.href.startsWith("/") ? (
+                  <Link to={slide.href}>
+                    <Button variant="hero" size="lg">
+                      {slide.action}
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                ) : (
+                  <a href={slide.href}>
+                    <Button variant="hero" size="lg">
+                      {slide.action}
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
-        
-        <div className="container mx-auto relative">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 animate-slide-up opacity-0">Fonctionnalités Complètes</h2>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto animate-slide-up opacity-0" style={{ animationDelay: '100ms' }}>
+        <div className="absolute inset-x-0 bottom-6 flex items-center justify-center gap-3">
+          <button type="button" onClick={() => go(-1)} className="flex h-10 w-10 items-center justify-center rounded-full bg-background/90 text-foreground shadow-sm" aria-label="Visuel précédent">
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          {slides.map((item, index) => (
+            <button
+              key={item.image}
+              type="button"
+              aria-label={`Visuel ${index + 1}`}
+              onClick={() => setActive(index)}
+              className={cn("h-2.5 rounded-full bg-background transition-all", index === active ? "w-8" : "w-2.5 bg-background/60")}
+            />
+          ))}
+          <button type="button" onClick={() => go(1)} className="flex h-10 w-10 items-center justify-center rounded-full bg-background/90 text-foreground shadow-sm" aria-label="Visuel suivant">
+            <ArrowRight className="h-4 w-4" />
+          </button>
+        </div>
+      </section>
+
+      <section id="services" className="px-4 py-16 sm:py-24">
+        <div className="container">
+          <div className="mx-auto mb-12 max-w-2xl text-center">
+            <p className="section-kicker">Établissement</p>
+            <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Fonctionnalités Complètes</h2>
+            <p className="mt-4 text-muted-foreground sm:text-lg">
               Une solution intégrée pour tous les besoins de votre établissement
             </p>
           </div>
-          
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {features.map((feature, index) => (
-              <div 
-                key={feature.title}
-                className="group p-6 rounded-2xl bg-card border border-border hover:border-primary/30 hover:shadow-xl transition-all duration-500 animate-slide-up opacity-0 hover:-translate-y-2"
-                style={{ animationDelay: `${200 + index * 100}ms` }}
-              >
-                <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4 transition-all duration-300 group-hover:bg-primary/20 group-hover:scale-110 group-hover:rotate-3">
-                  <feature.icon className="h-6 w-6 text-primary transition-transform duration-300 group-hover:scale-110" />
+          <div className="grid gap-6 md:grid-cols-3">
+            {features.slice(0, 3).map((feature) => (
+              <article key={feature.title} className="overflow-hidden rounded-[1.75rem] border border-border/70 bg-card shadow-sm">
+                <img src={feature.image} alt="" className="h-52 w-full object-cover" />
+                <div className="p-6">
+                  <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <feature.icon className="h-5 w-5" />
+                  </span>
+                  <h3 className="text-xl font-semibold">{feature.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{feature.description}</p>
                 </div>
-                <h3 className="text-xl font-semibold mb-2 transition-colors group-hover:text-primary">{feature.title}</h3>
-                <p className="text-muted-foreground">{feature.description}</p>
-              </div>
+              </article>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Benefits Section */}
-      <section className="px-4 py-16 sm:px-6 sm:py-20">
-        <div className="container mx-auto">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div>
-              <h2 className="text-3xl md:text-4xl font-bold mb-6 animate-slide-up opacity-0">
-                Pourquoi choisir
-                <br />
-                <span className="text-gradient">MediCare SIH ?</span>
-              </h2>
-              <p className="text-muted-foreground text-lg mb-8 animate-slide-up opacity-0" style={{ animationDelay: '100ms' }}>
-                Notre système a été conçu avec une approche méthodique Agile pour répondre 
-                aux besoins spécifiques des établissements de santé modernes.
-              </p>
-              <ul className="space-y-4">
-                {benefits.map((benefit, index) => (
-                  <li 
-                    key={benefit}
-                    className="flex items-center gap-3 animate-slide-up opacity-0 group"
-                    style={{ animationDelay: `${200 + index * 100}ms` }}
-                  >
-                    <div className="h-6 w-6 rounded-full bg-success/10 flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:bg-success/20">
-                      <CheckCircle className="h-4 w-4 text-success" />
-                    </div>
-                    <span className="text-foreground transition-colors group-hover:text-primary">{benefit}</span>
-                  </li>
-                ))}
-              </ul>
+      <section id="pourquoi" className="bg-muted/70 px-4 py-16 sm:py-24">
+        <div className="container grid items-center gap-12 lg:grid-cols-2">
+          <div className="relative">
+            <img
+              src="/images/home/care.jpg"
+              alt="Professionnel de santé en consultation"
+              className="h-[460px] w-full rounded-[2rem] object-cover shadow-lg"
+            />
+            <div className="absolute bottom-6 left-6 right-6 rounded-2xl bg-background/95 p-4 shadow-md sm:right-auto sm:max-w-xs">
+              <p className="text-sm text-primary">Tableau de bord</p>
+              <p className="font-semibold">Vue d'ensemble de l'activité hospitalière</p>
             </div>
-            
-            <div className="relative animate-slide-up opacity-0" style={{ animationDelay: '300ms' }}>
-              <div className="aspect-square rounded-3xl bg-gradient-to-br from-primary/20 via-primary/10 to-transparent p-8 animate-float">
-                <div className="h-full w-full rounded-2xl bg-card border border-border shadow-xl flex items-center justify-center transition-all duration-500 hover:shadow-2xl hover:border-primary/30">
-                  <div className="text-center p-8">
-                    <div className="h-20 w-20 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6 transition-all duration-300 hover:scale-110 hover:bg-primary/20 animate-glow-pulse">
-                      <Activity className="h-10 w-10 text-primary" />
-                    </div>
-                    <h3 className="text-2xl font-bold mb-2">Tableau de bord</h3>
-                    <p className="text-muted-foreground">
-                      Vue d'ensemble complète de votre activité hospitalière
-                    </p>
-                  </div>
+          </div>
+          <div>
+            <p className="section-kicker">Coordination</p>
+            <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Pourquoi choisir MediCare SIH ?</h2>
+            <p className="mt-5 text-muted-foreground sm:text-lg">
+              Notre système a été conçu avec une approche méthodique Agile pour répondre
+              aux besoins spécifiques des établissements de santé modernes.
+            </p>
+            <ul className="mt-8 space-y-4">
+              {benefits.map((benefit) => (
+                <li key={benefit} className="flex items-start gap-3">
+                  <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                    <CheckCircle className="h-4 w-4" />
+                  </span>
+                  <span>{benefit}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-8 grid gap-4 sm:grid-cols-2">
+              {features.slice(3, 5).map((feature) => (
+                <div key={feature.title} className="rounded-2xl border border-border/70 bg-card p-4">
+                  <feature.icon className="mb-3 h-5 w-5 text-primary" />
+                  <p className="font-semibold">{feature.title}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{feature.description}</p>
                 </div>
-              </div>
+              ))}
             </div>
           </div>
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="relative overflow-hidden bg-gradient-to-r from-primary/10 via-primary/5 to-transparent px-4 py-16 sm:px-6 sm:py-20">
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -bottom-20 -right-20 w-60 h-60 bg-primary/20 rounded-full blur-3xl animate-float" />
+      <section id="galerie" className="px-4 py-16 sm:py-24">
+        <div className="container">
+          <div className="mx-auto mb-12 max-w-2xl text-center">
+            <p className="section-kicker">Services</p>
+            <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Le parcours de votre établissement</h2>
+            <p className="mt-4 text-muted-foreground sm:text-lg">
+              Personnel, patients, rendez-vous, consultations, examens et sécurité des données.
+            </p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {features.map((feature) => (
+              <article key={feature.title} className="group relative h-72 overflow-hidden rounded-[1.75rem]">
+                <img src={feature.image} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                <div className="absolute inset-0 bg-gradient-to-t from-foreground/85 via-foreground/20 to-transparent" />
+                <div className="absolute inset-x-0 bottom-0 p-5 text-background">
+                  <feature.icon className="mb-2 h-5 w-5" />
+                  <h3 className="text-lg font-semibold">{feature.title}</h3>
+                  <p className="mt-1 text-sm text-background/80">{feature.description}</p>
+                </div>
+              </article>
+            ))}
+          </div>
         </div>
-        
-        <div className="container mx-auto text-center relative">
-          <h2 className="text-3xl md:text-4xl font-bold mb-6 animate-slide-up opacity-0">
-            Prêt à moderniser votre gestion hospitalière ?
-          </h2>
-          <p className="text-muted-foreground text-lg max-w-2xl mx-auto mb-10 animate-slide-up opacity-0" style={{ animationDelay: '100ms' }}>
-            Découvrez comment MediCare SIH peut transformer la coordination 
-            entre vos équipes administratives et médicales.
-          </p>
-          <Link to="/dashboard" className="inline-block w-full sm:w-auto">
-            <Button variant="hero" size="xl" className="group btn-glow w-full animate-slide-up opacity-0 sm:w-auto" style={{ animationDelay: '200ms' }}>
+      </section>
+
+      <section className="relative overflow-hidden px-4 py-20">
+        <img src="/images/home/hero-1.jpg" alt="" className="absolute inset-0 h-full w-full object-cover" />
+        <div className="absolute inset-0 bg-primary/85" />
+        <div className="relative container flex flex-col items-start justify-between gap-8 lg:flex-row lg:items-center">
+          <div className="max-w-2xl text-primary-foreground">
+            <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+              Prêt à moderniser votre gestion hospitalière ?
+            </h2>
+            <p className="mt-4 text-primary-foreground/90 sm:text-lg">
+              Découvrez comment MediCare SIH peut transformer la coordination
+              entre vos équipes administratives et médicales.
+            </p>
+          </div>
+          <Link to="/dashboard">
+            <Button size="lg" className="rounded-full bg-background text-primary hover:bg-background/90">
               Commencer maintenant
-              <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+              <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-border px-4 py-12 sm:px-6">
-        <div className="container mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3 group">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary transition-transform group-hover:scale-110">
-              <Activity className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <span className="font-semibold">MediCare SIH</span>
+      <section id="rdv-form" className="px-4 py-16 sm:py-24">
+        <div className="container grid items-start gap-10 lg:grid-cols-2">
+          <div>
+            <img
+              src="/images/home/consult.jpg"
+              alt="Accueil d'un patient"
+              className="mb-8 h-72 w-full rounded-[2rem] object-cover shadow-md"
+            />
+            <p className="section-kicker">Prise en charge</p>
+            <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Demander un Rendez-vous</h2>
+            <p className="mt-4 text-muted-foreground sm:text-lg">
+              Remplissez le formulaire ci-dessous pour demander un rendez-vous
+            </p>
+            <ul className="mt-6 space-y-3">
+              {benefits.slice(0, 3).map((benefit) => (
+                <li key={benefit} className="flex items-center gap-3 text-sm">
+                  <CheckCircle className="h-4 w-4 text-primary" />
+                  {benefit}
+                </li>
+              ))}
+            </ul>
           </div>
-          <p className="text-sm text-muted-foreground">
+          <AppointmentRequestForm />
+        </div>
+      </section>
+
+      <footer className="border-t border-border bg-foreground px-4 py-12 text-background">
+        <div className="container grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+          <div>
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+                <Activity className="h-5 w-5" />
+              </span>
+              <p className="text-lg font-semibold">MediCare SIH</p>
+            </div>
+            <p className="mt-4 max-w-xs text-sm text-background/75">
+              Centralisez la gestion de votre établissement de santé dans une interface unifiée.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2 text-sm text-background/80">
+            <p className="mb-1 font-semibold text-background">Navigation</p>
+            <a href="#services" className="hover:text-background">Fonctionnalités</a>
+            <a href="#galerie" className="hover:text-background">Établissement</a>
+            <a href="#rdv-form" className="hover:text-background">Demander un rendez-vous</a>
+            <Link to="/login" className="hover:text-background">Connexion</Link>
+          </div>
+          <p className="text-sm text-background/75">
             © 2024 MediCare SIH. Système conforme RGPD et normes HL7.
           </p>
         </div>

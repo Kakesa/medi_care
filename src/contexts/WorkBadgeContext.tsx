@@ -48,10 +48,21 @@ export function useWorkBadges() {
   return useContext(WorkBadgeContext);
 }
 
-export function useAckExamResults(ids: string[]) {
+function useAckResources(ids: string[], resource: "exam" | "invoice") {
   const key = ids.filter(Boolean).slice().sort().join(",");
   useEffect(() => {
     if (!key) return;
-    void badgeService.seen(key.split(",")).catch(() => undefined);
-  }, [key]);
+    const all = key.split(",");
+    const chunks: string[][] = [];
+    for (let index = 0; index < all.length; index += 100) chunks.push(all.slice(index, index + 100));
+    void Promise.all(chunks.map((chunk) => badgeService.seen(chunk, resource))).catch(() => undefined);
+  }, [key, resource]);
+}
+
+export function useAckExamResults(ids: string[]) {
+  useAckResources(ids, "exam");
+}
+
+export function useAckInvoices(ids: string[]) {
+  useAckResources(ids, "invoice");
 }

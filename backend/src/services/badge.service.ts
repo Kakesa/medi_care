@@ -18,6 +18,11 @@ function examMarker(row: { labStatus?: string | null; status?: string | null; up
   return `${row.labStatus || ''}|${row.status || ''}|${at}`;
 }
 
+function invoiceMarker(row: { status?: string | null; updatedAt?: Date | null }) {
+  const at = row.updatedAt ? new Date(row.updatedAt).getTime() : 0;
+  return `${row.status || ''}|${at}`;
+}
+
 async function examScope(actor: AuthContext, organizationId: string) {
   if (actor.role === ROLES.PATIENT) {
     const patientId = await ownPatientId(actor, organizationId);
@@ -65,6 +70,54 @@ export async function markExamsSeen(actor: AuthContext, organizationId: string, 
     },
   })));
   return { success: true };
+}
+
+async function invoiceScope(actor: AuthContext, organizationId: string) {
+  if (actor.role === ROLES.PATIENT) {
+    const patientId = await ownPatientId(actor, organizationId);
+    return patientId ? { organizationId, patientId } : null;
+  }
+  if (actor.role === ROLES.HOSPITAL_ADMIN || actor.role === ROLES.RECEPTIONIST || actor.role === ROLES.ACCOUNTANT) {
+    return { organizationId };
+  }
+  return null;
+}
+
+async function countUnseenInvoices(actor: AuthContext, organizationId: string, filter: Record<string, unknown>) {
+  const rows = await Invoice.find(filter).select('status updatedAt').limit(500);
+  if (!rows.length) return 0;
+  const seen = await BadgeSeen.find({
+    organizationId,
+    userId: actor.id,
+    resourceType: 'invoice',
+    resourceId: { $in: rows.map((row) => row._id) },
+  }).select('resourceId marker');
+  const known = new Map(seen.map((row) => [String(row.resourceId), row.marker]));
+  return rows.filter((row) => known.get(String(row._id)) !== invoiceMarker(row)).length;
+}
+
+export async function markInvoicesSeen(actor: AuthContext, organizationId: string, ids: string[]) {
+  const scope = await invoiceScope(actor, organizationId);
+  if (!scope) return { success: true };
+  const rows = await Invoice.find({
+    ...scope,
+    _id: { $in: ids },
+    status: { $in: ['pending', 'overdue'] },
+  }).select('status updatedAt');
+  if (!rows.length) return { success: true };
+  await BadgeSeen.bulkWrite(rows.map((row) => ({
+    updateOne: {
+      filter: { organizationId, userId: actor.id, resourceType: 'invoice', resourceId: row._id },
+      update: { $set: { marker: invoiceMarker(row) } },
+      upsert: true,
+    },
+  })));
+  return { success: true };
+}
+
+export async function markSeen(actor: AuthContext, organizationId: string, ids: string[], resource: 'exam' | 'invoice' = 'exam') {
+  if (resource === 'invoice') return markInvoicesSeen(actor, organizationId, ids);
+  return markExamsSeen(actor, organizationId, ids);
 }
 
 export async function workBadges(actor: AuthContext, organizationId: string) {
@@ -160,8 +213,16 @@ export async function workBadges(actor: AuthContext, organizationId: string) {
   }
 
   if (role === ROLES.HOSPITAL_ADMIN || role === ROLES.RECEPTIONIST || role === ROLES.ACCOUNTANT) {
-    put('/dashboard/billing', Invoice.countDocuments({ ...base, status: { $in: ['pending', 'overdue'] } }));
-    put('/dashboard/accounting', Invoice.countDocuments({ ...base, status: { $in: ['pending', 'overdue'] } }));
+    tasks.push((async () => {
+      const total = await countUnseenInvoices(actor, organizationId, {
+        ...base,
+        status: { $in: ['pending', 'overdue'] },
+      });
+      if (total > 0) {
+        counts['/dashboard/billing'] = total;
+        counts['/dashboard/accounting'] = total;
+      }
+    })());
   }
 
   if (role === ROLES.HOSPITAL_ADMIN || role === ROLES.PHARMACIST) {
@@ -212,11 +273,14 @@ export async function workBadges(actor: AuthContext, organizationId: string) {
         const total = openCount + unseen;
         if (total > 0) counts['/dashboard/examen'] = total;
       })());
-      put('/dashboard/facture', Invoice.countDocuments({
-        ...base,
-        patientId,
-        status: { $in: ['pending', 'overdue'] },
-      }));
+      tasks.push((async () => {
+        const total = await countUnseenInvoices(actor, organizationId, {
+          ...base,
+          patientId,
+          status: { $in: ['pending', 'overdue'] },
+        });
+        if (total > 0) counts['/dashboard/facture'] = total;
+      })());
     }
   }
 

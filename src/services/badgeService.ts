@@ -9,8 +9,8 @@ class BadgeService {
     return httpClient.get<WorkBadges>('/badges');
   }
 
-  seen(ids: string[]) {
-    return httpClient.post<{ success: boolean }>('/badges/seen', { ids });
+  seen(ids: string[], resource: 'exam' | 'invoice' = 'exam') {
+    return httpClient.post<{ success: boolean }>('/badges/seen', { ids, resource });
   }
 }
 

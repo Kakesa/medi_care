@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,8 @@ import {
   ResponsiveContainer, Legend
 } from "recharts";
 import { mockFinancialMovements, movementCategories } from "@/data/mockData";
+import { useAckInvoices } from "@/contexts/WorkBadgeContext";
+import { billingService } from "@/services/billingService";
 
 const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   pending: { label: "En attente", variant: "outline" },
@@ -45,6 +47,23 @@ const COLORS_EXPENSE = ["#ef4444", "#dc2626", "#b91c1c", "#991b1b", "#7f1d1d", "
 
 export default function Accounting() {
   const [movements, setMovements] = useState(mockFinancialMovements);
+  const [openInvoiceIds, setOpenInvoiceIds] = useState<string[]>([]);
+  useAckInvoices(openInvoiceIds);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const [pending, overdue] = await Promise.all([
+        billingService.getInvoices({ status: "pending", limit: 100 }),
+        billingService.getInvoices({ status: "overdue", limit: 100 }),
+      ]);
+      if (cancelled) return;
+      setOpenInvoiceIds([...pending.data, ...overdue.data].map((invoice) => invoice.id));
+    })().catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");

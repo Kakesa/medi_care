@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiMessage } from "@/lib/apiError";
 import { formatMoney } from "@/lib/money";
+import { useAckInvoices } from "@/contexts/WorkBadgeContext";
 import { billingService } from "@/services/billingService";
 import type { Invoice } from "@/types";
 
@@ -87,6 +88,7 @@ export default function PatientInvoices() {
     () => invoices.filter((invoice) => invoice.status === "pending" || invoice.status === "overdue"),
     [invoices],
   );
+  useAckInvoices(payable.map((invoice) => invoice.id));
   const paid = useMemo(
     () => invoices.filter((invoice) => invoice.status === "paid"),
     [invoices],

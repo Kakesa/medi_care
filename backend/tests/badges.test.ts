@@ -4,6 +4,7 @@ import request from 'supertest';
 import type { Express } from 'express';
 import { createApp } from '../src/app.js';
 import { Exam } from '../src/models/Exam.js';
+import { Invoice } from '../src/models/Invoice.js';
 import { bearer, createOrganization, createUser } from './helpers.js';
 
 let app: Express;
@@ -135,5 +136,62 @@ describe('Badges de travail', () => {
     expect(opened.status).toBe(200);
     const cleared = await request(app).get('/api/badges').set(bearer(admin.token));
     expect(cleared.body.counts['/dashboard/supervision-lab']).toBeUndefined();
+  });
+
+  it('retire les badges facturation et comptabilité une fois les factures vues', async () => {
+    const org = await createOrganization();
+    const other = await createOrganization();
+    const receptionist = await createUser({ role: 'RECEPTIONIST', organizationId: org.id });
+    const outsider = await createUser({ role: 'RECEPTIONIST', organizationId: other.id });
+    const patientId = new mongoose.Types.ObjectId();
+    const open = await Invoice.create({
+      organizationId: org.id,
+      invoiceNumber: `FAC-${new mongoose.Types.ObjectId().toString().slice(-6)}`,
+      patientId,
+      patientName: 'Lina Mbeki',
+      date: new Date(),
+      dueDate: new Date(),
+      items: [{ description: 'Consultation', quantity: 1, unitPrice: 20, total: 20 }],
+      subtotal: 20,
+      tax: 0,
+      discount: 0,
+      total: 20,
+      status: 'pending',
+    });
+    await Invoice.create({
+      organizationId: org.id,
+      invoiceNumber: `FAC-${new mongoose.Types.ObjectId().toString().slice(-6)}`,
+      patientId,
+      patientName: 'Lina Mbeki',
+      date: new Date(),
+      dueDate: new Date(),
+      items: [{ description: 'Brouillon', quantity: 1, unitPrice: 10, total: 10 }],
+      subtotal: 10,
+      tax: 0,
+      discount: 0,
+      total: 10,
+      status: 'draft',
+    });
+
+    const before = await request(app).get('/api/badges').set(bearer(receptionist.token));
+    expect(before.body.counts['/dashboard/billing']).toBe(1);
+    expect(before.body.counts['/dashboard/accounting']).toBe(1);
+
+    const ignored = await request(app).post('/api/badges/seen').set(bearer(outsider.token)).send({ ids: [open.id], resource: 'invoice' });
+    expect(ignored.status).toBe(200);
+    const still = await request(app).get('/api/badges').set(bearer(receptionist.token));
+    expect(still.body.counts['/dashboard/billing']).toBe(1);
+
+    const seen = await request(app).post('/api/badges/seen').set(bearer(receptionist.token)).send({ ids: [open.id], resource: 'invoice' });
+    expect(seen.status).toBe(200);
+    const after = await request(app).get('/api/badges').set(bearer(receptionist.token));
+    expect(after.body.counts['/dashboard/billing']).toBeUndefined();
+    expect(after.body.counts['/dashboard/accounting']).toBeUndefined();
+
+    open.status = 'overdue';
+    await open.save();
+    const changed = await request(app).get('/api/badges').set(bearer(receptionist.token));
+    expect(changed.body.counts['/dashboard/billing']).toBe(1);
+    expect(changed.body.counts['/dashboard/accounting']).toBe(1);
   });
 });

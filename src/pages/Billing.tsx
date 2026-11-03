@@ -20,6 +20,7 @@ import { apiMessage } from "@/lib/apiError";
 import { categoryLabel, DEFAULT_CATEGORIES, type BillingCategory } from "@/lib/billingCategories";
 import { formatMoney, type BillingCurrency } from "@/lib/money";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAckInvoices } from "@/contexts/WorkBadgeContext";
 
 interface DraftLine {
   catalogItemId: string;
@@ -66,6 +67,9 @@ export default function Billing() {
   const { user } = useAuth();
   const canEditCatalog = user?.role === "HOSPITAL_ADMIN";
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  useAckInvoices(invoices.flatMap((invoice) => (
+    invoice.status === "pending" || invoice.status === "overdue" ? [invoice.id] : []
+  )));
   const [charges, setCharges] = useState<PatientChargeRecord[]>([]);
   const [services, setServices] = useState<BillableServiceRecord[]>([]);
   const [surgeryActs, setSurgeryActs] = useState<SurgicalAct[]>([]);

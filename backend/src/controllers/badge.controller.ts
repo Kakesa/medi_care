@@ -7,5 +7,5 @@ export const workBadges = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const markSeen = asyncHandler(async (req: Request, res: Response) => {
-  res.json(await badgeService.markExamsSeen(req.auth!, req.organizationId!, req.body.ids));
+  res.json(await badgeService.markSeen(req.auth!, req.organizationId!, req.body.ids, req.body.resource));
 });

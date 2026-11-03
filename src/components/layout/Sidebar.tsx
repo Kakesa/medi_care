@@ -27,6 +27,8 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "next-themes";
 import type { UserRole } from "@/types";
+import { useWorkBadges } from "@/contexts/WorkBadgeContext";
+import { NavCount } from "./NavCount";
 
 export const allNavigation: { name: string; href: string; icon: typeof LayoutDashboard; roles: UserRole[] }[] = [
   { name: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard, roles: ['SUPERADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'RECEPTIONIST', 'NURSE', 'LABORANTIN', 'ACCOUNTANT', 'PHARMACIST', 'PATIENT'] },
@@ -66,6 +68,7 @@ export function Sidebar({ variant = "fixed", onNavigate }: SidebarProps) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { theme, setTheme } = useTheme();
+  const badges = useWorkBadges();
 
   const navigation = allNavigation.filter(item =>
     user ? item.roles.includes(user.role) : false
@@ -108,6 +111,7 @@ export function Sidebar({ variant = "fixed", onNavigate }: SidebarProps) {
         <ul className="space-y-1">
           {navigation.map((item, index) => {
             const isActive = location.pathname === item.href;
+            const count = badges[item.href] || 0;
             return (
               <li 
                 key={item.name}
@@ -122,17 +126,25 @@ export function Sidebar({ variant = "fixed", onNavigate }: SidebarProps) {
                     isActive && "nav-link-active"
                   )}
                 >
-                  <item.icon className={cn(
-                    "h-5 w-5 shrink-0 transition-transform duration-200",
-                    "group-hover:scale-110",
-                    isActive && "text-primary"
-                  )} />
+                  <span className="relative shrink-0">
+                    <item.icon className={cn(
+                      "h-5 w-5 transition-transform duration-200",
+                      "group-hover:scale-110",
+                      isActive && "text-primary"
+                    )} />
+                    {compact && count > 0 && (
+                      <span className="absolute -right-2 -top-2">
+                        <NavCount count={count} tone="light" />
+                      </span>
+                    )}
+                  </span>
                   <span className={cn(
-                    "transition-all duration-300 whitespace-nowrap",
+                    "min-w-0 flex-1 transition-all duration-300 whitespace-nowrap",
                     compact ? "w-0 opacity-0 hidden" : "w-auto opacity-100"
                   )}>
                     {item.name}
                   </span>
+                  {!compact && <NavCount count={count} tone={isActive ? "solid" : "light"} />}
                 </Link>
               </li>
             );

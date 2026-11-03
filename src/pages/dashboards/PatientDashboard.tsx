@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAckExamResults } from "@/contexts/WorkBadgeContext";
 import { formatMoney } from "@/lib/money";
 import { appointmentService } from "@/services/appointmentService";
 import { chargeService, type PatientChargeRecord } from "@/services/chargeService";
@@ -34,6 +35,7 @@ export default function PatientDashboard() {
   const [respondingId, setRespondingId] = useState<string | null>(null);
   const [consultations, setConsultations] = useState<Consultation[]>([]);
   const [exams, setExams] = useState<Exam[]>([]);
+  useAckExamResults(exams.flatMap((exam) => (exam.results ? [exam.id] : [])));
   const [recommendations, setRecommendations] = useState<PatientChargeRecord[]>([]);
   const [doctors, setDoctors] = useState<Personnel[]>([]);
   const [requestOpen, setRequestOpen] = useState(false);

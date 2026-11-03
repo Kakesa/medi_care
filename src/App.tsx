@@ -36,6 +36,7 @@ import ReceptionLab from "./pages/laboratory/ReceptionLab";
 import ClinicalPrescriptions from "./pages/laboratory/ClinicalPrescriptions";
 import PharmacyDesk from "./pages/laboratory/PharmacyDesk";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
+import { WorkBadgeProvider } from "./contexts/WorkBadgeContext";
 import { RequireRole } from "./components/auth/RequireRole";
 
 const queryClient = new QueryClient();
@@ -62,6 +63,7 @@ const App = () => (
           <Sonner />
           <BrowserRouter future={{ v7_relativeSplatPath: true }}>
             <SessionGuard />
+            <WorkBadgeProvider>
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/login" element={<Login />} />
@@ -94,6 +96,7 @@ const App = () => (
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </WorkBadgeProvider>
           </BrowserRouter>
           </TooltipProvider>
         </NotificationProvider>

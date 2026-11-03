@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { apiMessage } from "@/lib/apiError";
+import { useAckExamResults } from "@/contexts/WorkBadgeContext";
 import { examService } from "@/services/examService";
 import type { Exam, ExamStatus, ExamType } from "@/types";
 
@@ -25,6 +26,7 @@ export default function PatientExams() {
   const { toast } = useToast();
   const [exams, setExams] = useState<Exam[]>([]);
   const [loading, setLoading] = useState(true);
+  useAckExamResults(exams.flatMap((exam) => (exam.results ? [exam.id] : [])));
 
   useEffect(() => {
     const load = async () => {

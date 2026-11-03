@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useAckExamResults } from "@/contexts/WorkBadgeContext";
 import { useToast } from "@/hooks/use-toast";
 import { apiMessage } from "@/lib/apiError";
 import { formatMoney } from "@/lib/money";
@@ -31,6 +32,7 @@ export default function ReceptionLab() {
   const [doctors, setDoctors] = useState<Personnel[]>([]);
   const [catalog, setCatalog] = useState<ExamCatalogItem[]>([]);
   const [rows, setRows] = useState<LabExam[]>([]);
+  useAckExamResults(rows.flatMap((row) => (row.official ? [row.id] : [])));
   const [patientId, setPatientId] = useState("");
   const [doctorId, setDoctorId] = useState("");
   const [instructions, setInstructions] = useState("");

@@ -17,6 +17,7 @@ import bedRoutes from './bed.routes.js';
 import notificationRoutes from './notification.routes.js';
 import labRoutes from './lab.routes.js';
 import prescriptionRoutes from './prescription.routes.js';
+import badgeRoutes from './badge.routes.js';
 import publicRoutes from './public.routes.js';
 
 const router = Router();
@@ -44,5 +45,6 @@ router.use('/beds', bedRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/lab', labRoutes);
 router.use('/prescriptions', prescriptionRoutes);
+router.use('/badges', badgeRoutes);
 
 export default router;

@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { allNavigation } from "./Sidebar";
+import { useWorkBadges } from "@/contexts/WorkBadgeContext";
+import { NavCount } from "./NavCount";
 
 const shortLabels: Record<string, string> = {
   "/dashboard": "Accueil",
@@ -64,6 +66,7 @@ export function MobileTabBar() {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
+  const badges = useWorkBadges();
 
   const available = allNavigation.filter((item) => (user ? item.roles.includes(user.role) : false));
   const ordered = primaryOrder
@@ -72,6 +75,7 @@ export function MobileTabBar() {
   const tabs = ordered.slice(0, 4);
   const more = ordered.slice(4);
   const moreActive = more.some((item) => location.pathname === item.href);
+  const moreCount = more.reduce((sum, item) => sum + (badges[item.href] || 0), 0);
 
   const handleLogout = () => {
     setMenuOpen(false);
@@ -98,7 +102,12 @@ export function MobileTabBar() {
                   active ? "text-primary" : "text-muted-foreground",
                 )}
               >
-                <item.icon className="h-5 w-5 shrink-0" />
+                <span className="relative">
+                  <item.icon className="h-5 w-5 shrink-0" />
+                  <span className="absolute -right-2.5 -top-2">
+                    <NavCount count={badges[item.href]} tone="alert" />
+                  </span>
+                </span>
                 <span className="max-w-full truncate">{shortLabels[item.href] || item.name}</span>
               </Link>
             );
@@ -112,7 +121,12 @@ export function MobileTabBar() {
             onClick={() => setMenuOpen(true)}
             aria-label="Ouvrir le menu"
           >
-            <LayoutGrid className="h-5 w-5 shrink-0" />
+            <span className="relative">
+              <LayoutGrid className="h-5 w-5 shrink-0" />
+              <span className="absolute -right-2.5 -top-2">
+                <NavCount count={moreCount} tone="alert" />
+              </span>
+            </span>
             <span>Menu</span>
           </button>
         </div>
@@ -137,7 +151,12 @@ export function MobileTabBar() {
                       active ? "border-primary bg-primary/10 text-primary" : "text-foreground",
                     )}
                   >
-                    <item.icon className="h-5 w-5" />
+                    <span className="relative">
+                      <item.icon className="h-5 w-5" />
+                      <span className="absolute -right-3 -top-2">
+                        <NavCount count={badges[item.href]} tone="solid" />
+                      </span>
+                    </span>
                     <span>{item.name}</span>
                   </Link>
                 );

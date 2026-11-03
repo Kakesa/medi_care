@@ -47,6 +47,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { examCategories } from "@/data/mockData";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAckExamResults } from "@/contexts/WorkBadgeContext";
 import { chargeService, type CatalogOption, type PatientChargeRecord } from "@/services/chargeService";
 import { examService, type ExamCatalogItem } from "@/services/examService";
 import { billingService } from "@/services/billingService";
@@ -143,6 +144,7 @@ export default function Examinations() {
   const canPlan = user?.role === "HOSPITAL_ADMIN" || user?.role === "DOCTOR" || user?.role === "NURSE";
   const currencies: BillingCurrency[] = ["EUR", "CDF", "USD"];
   const [exams, setExams] = useState<Exam[]>([]);
+  useAckExamResults(exams.flatMap((exam) => (exam.results ? [exam.id] : [])));
   const [patients, setPatients] = useState<Patient[]>([]);
   const [doctors, setDoctors] = useState<Personnel[]>([]);
   const [tariffs, setTariffs] = useState<CatalogOption[]>([]);

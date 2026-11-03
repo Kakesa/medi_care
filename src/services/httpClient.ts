@@ -54,6 +54,11 @@ class HttpClient {
         throw error;
       }
 
+      const method = (options.method || "GET").toUpperCase();
+      if (method !== "GET" && !endpoint.startsWith("/auth/")) {
+        window.dispatchEvent(new Event("badges:refresh"));
+      }
+
       // Handle empty responses
       const contentType = response.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {

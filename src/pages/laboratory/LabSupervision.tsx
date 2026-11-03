@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useAckExamResults } from "@/contexts/WorkBadgeContext";
 import { useToast } from "@/hooks/use-toast";
 import { apiMessage } from "@/lib/apiError";
 import { labService, labStatusLabels, type LabExam, type LabStatus } from "@/services/labService";
@@ -16,6 +17,11 @@ export default function LabSupervision() {
   const { toast } = useToast();
   const [rows, setRows] = useState<LabExam[]>([]);
   const [selected, setSelected] = useState<LabExam | null>(null);
+  useAckExamResults(
+    selected && (selected.results || selected.draftResults || selected.official || selected.versions.length > 0)
+      ? [selected.id]
+      : [],
+  );
   const [comment, setComment] = useState("");
   const [account, setAccount] = useState({ firstName: "", lastName: "", email: "" });
 

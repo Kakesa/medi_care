@@ -17,7 +17,7 @@ const shortLabels: Record<string, string> = {
   "/dashboard/appointments": "RDV",
   "/dashboard/consultations": "Consult.",
   "/dashboard/examinations": "Examens",
-  "/dashboard/surgery": "Chirurgie",
+  "/dashboard/surgery": "Actes",
   "/dashboard/billing": "Factures",
   "/dashboard/accounting": "Compta",
   "/dashboard/beds": "Lits",

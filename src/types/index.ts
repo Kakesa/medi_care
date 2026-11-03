@@ -207,6 +207,7 @@ export interface CreateConsultationData {
   prescription?: string;
   notes?: string;
   followUpDate?: string;
+  billableServiceId?: string;
 }
 
 export interface UpdateConsultationData extends Partial<CreateConsultationData> {
@@ -270,6 +271,7 @@ export interface CreateExamData {
   name: string;
   date: string;
   notes?: string;
+  billableServiceId?: string;
 }
 
 export interface UpdateExamData extends Partial<CreateExamData> {
@@ -368,10 +370,15 @@ export interface InvoiceItem {
   catalogItemId?: string;
   serviceCode?: string;
   unit?: string;
-  source?: 'manual' | 'catalog' | 'surgery';
+  source?: 'manual' | 'catalog' | 'surgery' | 'pharmacy';
   surgicalActId?: string;
   detail?: string;
   referenceId?: string;
+  chargeId?: string;
+  prescriberName?: string;
+  prescribedAt?: string;
+  realizationStatus?: 'recommended' | 'pending' | 'performed' | 'cancelled';
+  originModule?: string;
 }
 
 export interface Invoice {

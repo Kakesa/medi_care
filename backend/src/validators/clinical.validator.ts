@@ -127,7 +127,10 @@ const consultationWrite = {
 };
 
 export const listConsultationsSchema = envelope(empty, paginationSchema);
-export const createConsultationSchema = envelope(z.object(consultationWrite));
+export const createConsultationSchema = envelope(z.object({
+  ...consultationWrite,
+  billableServiceId: objectIdSchema.optional(),
+}));
 export const updateConsultationSchema = envelope(
   z.object({
     ...consultationWrite,
@@ -198,6 +201,7 @@ export const createExamSchema = envelope(
     notes: optionalText,
     results: optionalText,
     status: z.enum(['pending', 'in_progress', 'completed', 'cancelled']).optional(),
+    billableServiceId: objectIdSchema.optional(),
   })
 );
 export const updateExamSchema = envelope(

@@ -46,6 +46,11 @@ function toInvoiceDto(row: {
     surgicalActId?: { toString(): string } | null;
     detail?: string | null;
     referenceId?: string | null;
+    chargeId?: { toString(): string } | null;
+    prescriberName?: string | null;
+    prescribedAt?: Date | null;
+    realizationStatus?: string | null;
+    originModule?: string | null;
   }>;
   currency?: string;
   subtotal: number;
@@ -83,6 +88,11 @@ function toInvoiceDto(row: {
       surgicalActId: item.surgicalActId?.toString(),
       detail: item.detail || undefined,
       referenceId: item.referenceId,
+      chargeId: item.chargeId?.toString(),
+      prescriberName: item.prescriberName || undefined,
+      prescribedAt: item.prescribedAt || undefined,
+      realizationStatus: item.realizationStatus || undefined,
+      originModule: item.originModule || undefined,
     })),
     subtotal: row.subtotal,
     tax: row.tax,

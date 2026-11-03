@@ -5,7 +5,7 @@ import type { AuthContext } from '../types/express.js';
 import { requireVisiblePatient } from './access.service.js';
 import { recordAudit } from './audit.service.js';
 import { organizationCurrency } from './catalog.service.js';
-import { createInvoice, finalizeInvoice } from './billing.service.js';
+import { recordCharge } from './charge.service.js';
 import { postStock } from './stock.service.js';
 
 async function nextSaleNumber(organizationId: string) {
@@ -140,20 +140,27 @@ export async function createSale(
     sale.patientName = `${patient.firstName} ${patient.lastName}`;
   }
   if (input.settlement === 'invoiced' && input.patientId) {
-    const invoice = await createInvoice(actor, organizationId, {
-      patientId: input.patientId,
-      items: lines.map((line) => ({
-        description: line.productName,
+    let invoiceId: string | undefined;
+    for (const [index, line] of lines.entries()) {
+      const recorded = await recordCharge(actor, organizationId, {
+        patientId: input.patientId,
+        originModule: 'pharmacy',
+        originId: `${sale.id}:${index}`,
         quantity: line.quantity,
-        unitPrice: line.unitPrice,
-        category: 'MEDICAMENT',
-        referenceId: sale.id,
-      })),
-      notes: `Pharmacie ${sale.number}`,
-    }, ip);
-    const finalized = await finalizeInvoice(actor, organizationId, invoice.id, ip);
-    sale.invoiceId = finalized.id;
-    await sale.save();
+        catalogKind: 'pharmacy',
+        pharmacyLine: {
+          label: line.productName,
+          unitPrice: line.unitPrice,
+          category: 'MEDICAMENT',
+          productId: String(line.productId),
+        },
+      }, ip);
+      invoiceId = recorded.charge.invoiceId;
+    }
+    if (invoiceId) {
+      sale.set('invoiceId', invoiceId);
+      await sale.save();
+    }
   }
   await recordAudit({
     actorId: actor.id, actorRole: actor.role, organizationId, action: 'PHARMACY_SALE',

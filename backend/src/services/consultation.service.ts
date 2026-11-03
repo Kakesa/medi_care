@@ -6,6 +6,7 @@ import { paginated, readPagination } from '../utils/pagination.js';
 import type { AuthContext } from '../types/express.js';
 import { actorPersonnel, ownPatientId, requireOwned, requireVisiblePatient } from './access.service.js';
 import { recordAudit } from './audit.service.js';
+import { recordCharge, syncOriginStatus } from './charge.service.js';
 import { resolveClinicalDoctor } from './personnel.service.js';
 
 function cleanDate(value?: Date | '' | null) {
@@ -114,6 +115,7 @@ export async function createConsultation(
     followUpDate?: Date | '';
     date?: Date;
     status?: 'in_progress' | 'completed';
+    billableServiceId?: string;
   },
   ip?: string
 ) {
@@ -135,6 +137,22 @@ export async function createConsultation(
     followUpDate: cleanDate(input.followUpDate),
     status: input.status ?? 'in_progress',
   });
+  if (input.billableServiceId) {
+    try {
+      await recordCharge(actor, organizationId, {
+        patientId: patient.id,
+        originModule: 'consultation',
+        originId: row.id,
+        catalogKind: 'service',
+        catalogItemId: input.billableServiceId,
+        quantity: 1,
+        prescriberName: `Dr. ${doctor.firstName} ${doctor.lastName}`,
+      }, ip);
+    } catch (error) {
+      await row.deleteOne();
+      throw error;
+    }
+  }
   await recordAudit({
     actorId: actor.id,
     actorRole: actor.role,
@@ -192,6 +210,9 @@ export async function updateConsultation(
   if (input.followUpDate !== undefined) row.followUpDate = cleanDate(input.followUpDate);
   if (input.status) row.status = input.status;
   await row.save();
+  if (row.status === 'completed') {
+    await syncOriginStatus(actor, organizationId, 'consultation', row.id, 'performed', 'Consultation terminée', ip);
+  }
   return toConsultationDto(row);
 }
 
@@ -202,6 +223,7 @@ export async function completeConsultation(actor: AuthContext, organizationId: s
 export async function deleteConsultation(actor: AuthContext, organizationId: string, id: string, ip?: string) {
   const row = await requireOwned(Consultation, id, organizationId, actor, 'consultation', ip);
   await assertReadable(actor, organizationId, row, ip);
+  await syncOriginStatus(actor, organizationId, 'consultation', row.id, 'cancelled', 'Consultation supprimée', ip);
   await row.deleteOne();
   await recordAudit({
     actorId: actor.id,

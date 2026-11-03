@@ -6,6 +6,7 @@ import { paginated, readPagination } from '../utils/pagination.js';
 import type { AuthContext } from '../types/express.js';
 import { actorPersonnel, ownPatientId, requireOwned, requireVisiblePatient } from './access.service.js';
 import { recordAudit } from './audit.service.js';
+import { recordCharge, syncOriginStatus } from './charge.service.js';
 import { resolveClinicalDoctor } from './personnel.service.js';
 
 function toExamDto(row: {
@@ -113,6 +114,7 @@ export async function createExam(
     notes?: string;
     results?: string;
     status?: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+    billableServiceId?: string;
   },
   ip?: string
 ) {
@@ -132,6 +134,26 @@ export async function createExam(
     results: input.results?.trim(),
     status: input.status ?? 'pending',
   });
+  if (input.billableServiceId) {
+    try {
+      await recordCharge(actor, organizationId, {
+        patientId: patient.id,
+        originModule: 'exam',
+        originId: row.id,
+        catalogKind: 'service',
+        catalogItemId: input.billableServiceId,
+        quantity: 1,
+        prescriberName: `Dr. ${doctor.firstName} ${doctor.lastName}`,
+      }, ip);
+      const initial = row.status === 'completed' ? 'performed' : row.status === 'in_progress' ? 'pending' : row.status === 'cancelled' ? 'cancelled' : 'recommended';
+      if (initial !== 'recommended') {
+        await syncOriginStatus(actor, organizationId, 'exam', row.id, initial, 'Statut initial de l\'examen', ip);
+      }
+    } catch (error) {
+      await row.deleteOne();
+      throw error;
+    }
+  }
   await recordAudit({
     actorId: actor.id,
     actorRole: actor.role,
@@ -184,6 +206,16 @@ export async function updateExam(
   if (input.files) row.files = input.files;
   if (input.status) row.status = input.status;
   await row.save();
+  if (input.status) {
+    const realization = input.status === 'completed'
+      ? 'performed'
+      : input.status === 'in_progress'
+        ? 'pending'
+        : input.status === 'cancelled'
+          ? 'cancelled'
+          : 'recommended';
+    await syncOriginStatus(actor, organizationId, 'exam', row.id, realization, 'Statut de l\'examen mis à jour', ip);
+  }
   return toExamDto(row);
 }
 
@@ -211,6 +243,7 @@ export async function addExamResults(
 export async function deleteExam(actor: AuthContext, organizationId: string, id: string, ip?: string) {
   const row = await requireOwned(Exam, id, organizationId, actor, 'exam', ip);
   await assertReadable(actor, organizationId, row, ip);
+  await syncOriginStatus(actor, organizationId, 'exam', row.id, 'cancelled', 'Examen supprimé', ip);
   await row.deleteOne();
 }
 

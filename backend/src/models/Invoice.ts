@@ -11,10 +11,15 @@ const invoiceItemSchema = new Schema(
     catalogItemId: { type: Schema.Types.ObjectId, ref: 'BillableService' },
     serviceCode: { type: String, trim: true, maxlength: 40 },
     unit: { type: String, trim: true, maxlength: 20 },
-    source: { type: String, enum: ['manual', 'catalog', 'surgery'], default: 'manual' },
+    source: { type: String, enum: ['manual', 'catalog', 'surgery', 'pharmacy'], default: 'manual' },
     surgicalActId: { type: Schema.Types.ObjectId, ref: 'SurgicalAct' },
     detail: { type: String, trim: true, maxlength: 2000 },
     referenceId: { type: String },
+    chargeId: { type: Schema.Types.ObjectId, ref: 'PatientCharge' },
+    prescriberName: { type: String, trim: true, maxlength: 160 },
+    prescribedAt: { type: Date },
+    realizationStatus: { type: String, enum: ['recommended', 'pending', 'performed', 'cancelled'] },
+    originModule: { type: String, trim: true, maxlength: 40 },
   },
   { _id: true }
 );

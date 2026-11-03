@@ -46,6 +46,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { examCategories } from "@/data/mockData";
+import { chargeService, type CatalogOption } from "@/services/chargeService";
 import { examService } from "@/services/examService";
 import { patientService } from "@/services/patientService";
 import { personnelService } from "@/services/personnelService";
@@ -57,6 +58,7 @@ export default function Examinations() {
   const [exams, setExams] = useState<Exam[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [doctors, setDoctors] = useState<Personnel[]>([]);
+  const [tariffs, setTariffs] = useState<CatalogOption[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -72,7 +74,8 @@ export default function Examinations() {
     name: "",
     date: "",
     notes: "",
-    results: ""
+    results: "",
+    billableServiceId: ""
   });
 
   const loadExams = async () => {
@@ -92,7 +95,16 @@ export default function Examinations() {
 
   useEffect(() => {
     void loadExams();
+    void chargeService.catalog().then((result) => setTariffs(result.items)).catch(() => setTariffs([]));
   }, []);
+
+  const examTariffs = tariffs.filter((item) => {
+    if (item.kind !== "service") return false;
+    if (formData.type === "laboratory") return item.category === "LABORATOIRE";
+    if (formData.type === "imaging") return item.category === "IMAGERIE";
+    if (formData.type === "biopsy") return item.category === "ACTE_MEDICAL";
+    return ["SOINS_INFIRMIERS", "AUTRE", "REEDUCATION", "ACTE_MEDICAL"].includes(item.category);
+  });
 
   const filteredExams = exams.filter(exam => {
     const matchesSearch = 
@@ -116,7 +128,8 @@ export default function Examinations() {
       name: "",
       date: "",
       notes: "",
-      results: ""
+      results: "",
+      billableServiceId: ""
     });
     setEditingExam(null);
   };
@@ -152,8 +165,9 @@ export default function Examinations() {
           name: formData.name,
           date: formData.date,
           notes: formData.notes || undefined,
+          billableServiceId: formData.billableServiceId || undefined,
         });
-        toast.success("Examen planifié avec succès");
+        toast.success(formData.billableServiceId ? "Examen transmis à la facturation" : "Examen planifié avec succès");
       }
       setIsDialogOpen(false);
       resetForm();
@@ -173,6 +187,7 @@ export default function Examinations() {
       name: exam.name,
       date: exam.date,
       notes: exam.notes || "",
+      billableServiceId: "",
       results: exam.results || ""
     });
     setIsDialogOpen(true);
@@ -356,7 +371,7 @@ export default function Examinations() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Type</Label>
-                  <Select value={formData.type} onValueChange={(v) => setFormData({...formData, type: v as Exam['type'], category: ""})}>
+                  <Select value={formData.type} onValueChange={(v) => setFormData({...formData, type: v as Exam['type'], category: "", billableServiceId: ""})}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="laboratory">Laboratoire</SelectItem>
@@ -381,6 +396,30 @@ export default function Examinations() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Tarif du catalogue</Label>
+                <Select
+                  value={formData.billableServiceId || "none"}
+                  onValueChange={(value) => {
+                    const billableServiceId = value === "none" ? "" : value;
+                    const tariff = examTariffs.find((item) => item.id === billableServiceId);
+                    setFormData({
+                      ...formData,
+                      billableServiceId,
+                      name: formData.name || tariff?.name || "",
+                    });
+                  }}
+                >
+                  <SelectTrigger><SelectValue placeholder="Choisir un tarif" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Ne pas facturer</SelectItem>
+                    {examTariffs.map((tariff) => (
+                      <SelectItem key={tariff.id} value={tariff.id}>{tariff.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">Le prix vient du catalogue. L'examen transmis reste recommandé tant qu'il n'est pas réalisé.</p>
               </div>
               <div className="space-y-2">
                 <Label>Nom de l'examen</Label>

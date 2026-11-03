@@ -39,6 +39,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { chargeService, type CatalogOption } from "@/services/chargeService";
 import { consultationService } from "@/services/consultationService";
 import { patientService } from "@/services/patientService";
 import { personnelService } from "@/services/personnelService";
@@ -55,6 +56,7 @@ export default function Consultations() {
   const [consultations, setConsultations] = useState<Consultation[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [doctors, setDoctors] = useState<Personnel[]>([]);
+  const [tariffs, setTariffs] = useState<CatalogOption[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedConsultation, setSelectedConsultation] = useState<Consultation | null>(null);
@@ -67,7 +69,8 @@ export default function Consultations() {
     treatment: "",
     prescription: "",
     notes: "",
-    followUpDate: ""
+    followUpDate: "",
+    billableServiceId: ""
   });
 
   const loadConsultations = async () => {
@@ -87,6 +90,9 @@ export default function Consultations() {
 
   useEffect(() => {
     void loadConsultations();
+    void chargeService.catalog()
+      .then((result) => setTariffs(result.items.filter((item) => item.kind === "service" && item.category === "CONSULTATION")))
+      .catch(() => setTariffs([]));
   }, []);
 
   const handleChange = (field: string, value: string) => {
@@ -115,6 +121,7 @@ export default function Consultations() {
         prescription: formData.prescription || undefined,
         notes: formData.notes || undefined,
         followUpDate: formData.followUpDate || undefined,
+        billableServiceId: formData.billableServiceId || undefined,
       });
       setIsDialogOpen(false);
       setFormData({
@@ -125,11 +132,14 @@ export default function Consultations() {
         treatment: "",
         prescription: "",
         notes: "",
-        followUpDate: ""
+        followUpDate: "",
+        billableServiceId: ""
       });
       toast({
         title: "Consultation créée",
-        description: "La consultation a été enregistrée avec succès",
+        description: formData.billableServiceId
+          ? "La consultation est transmise à la facture du patient, au statut recommandé."
+          : "La consultation a été enregistrée avec succès",
       });
       await loadConsultations();
     } catch (error) {
@@ -211,6 +221,22 @@ export default function Consultations() {
                 </div>
               </div>
               
+              <div className="space-y-2">
+                <Label>Tarif de consultation</Label>
+                <Select value={formData.billableServiceId || "none"} onValueChange={(value) => handleChange("billableServiceId", value === "none" ? "" : value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choisir un tarif" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Ne pas facturer</SelectItem>
+                    {tariffs.map((tariff) => (
+                      <SelectItem key={tariff.id} value={tariff.id}>{tariff.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">Le prix vient du catalogue. Sans tarif, la consultation reste dans le dossier et n'est pas envoyée en facturation.</p>
+              </div>
+
               <div className="space-y-2">
                 <Label>Symptômes (séparés par virgule)</Label>
                 <Input 

@@ -13,6 +13,7 @@ import { generateInvoicePDF } from "@/utils/pdfGenerator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ServiceCatalogPanel } from "@/components/billing/ServiceCatalogPanel";
 import { billingService, type BillableServiceRecord } from "@/services/billingService";
+import { chargeService, type PatientChargeRecord } from "@/services/chargeService";
 import { surgeryService, type PatientSurgeryLine, type SurgicalAct } from "@/services/surgeryService";
 import type { Invoice, InvoiceStatus, PaymentMethod } from "@/types";
 import { apiMessage } from "@/lib/apiError";
@@ -65,6 +66,7 @@ export default function Billing() {
   const { user } = useAuth();
   const canEditCatalog = user?.role === "HOSPITAL_ADMIN";
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [charges, setCharges] = useState<PatientChargeRecord[]>([]);
   const [services, setServices] = useState<BillableServiceRecord[]>([]);
   const [surgeryActs, setSurgeryActs] = useState<SurgicalAct[]>([]);
   const [selectedActs, setSelectedActs] = useState<Array<{ id: string; name: string; description: string; unitPrice: number; quantity: number }>>([]);
@@ -94,14 +96,16 @@ export default function Billing() {
 
   const loadBilling = async () => {
     try {
-      const [invoiceResult, patientResult, settings, catalog, surgical] = await Promise.all([
+      const [invoiceResult, patientResult, settings, catalog, surgical, operations] = await Promise.all([
         billingService.getInvoices({ limit: 100 }),
         billingService.getBillingPatients(),
         billingService.getSettings(),
         billingService.getServices(),
         surgeryService.listActs({ billable: "true" }),
+        chargeService.list(),
       ]);
       setInvoices(invoiceResult.data);
+      setCharges(operations);
       setPatients(patientResult);
       setCurrency(settings.currency);
       setCurrencies(settings.currencies);
@@ -504,6 +508,7 @@ export default function Billing() {
       <Tabs defaultValue="invoices" className="space-y-4">
         <TabsList>
           <TabsTrigger value="invoices">Factures</TabsTrigger>
+          <TabsTrigger value="operations">Opérations</TabsTrigger>
           <TabsTrigger value="catalog">Catalogue</TabsTrigger>
         </TabsList>
         <TabsContent value="invoices" className="space-y-4">
@@ -561,6 +566,29 @@ export default function Billing() {
         ))}
       </div>
         </TabsContent>
+        <TabsContent value="operations" className="space-y-3">
+          <p className="text-sm text-muted-foreground">Chaque opération transmise par les actes, consultations, examens, la pharmacie ou une hospitalisation. Le statut recommandé n'est pas une réalisation.</p>
+          {charges.length === 0 && <p className="text-sm text-muted-foreground">Aucune opération transmise.</p>}
+          {charges.map((charge) => (
+            <Card key={charge.id}>
+              <CardContent className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="font-medium">{charge.label}</p>
+                  <p className="truncate text-sm text-muted-foreground">{charge.patientName} · {charge.prescriberName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(charge.prescribedAt).toLocaleString("fr-FR")}
+                    {charge.invoiceNumber ? ` · ${charge.invoiceNumber}` : ""}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-bold">{money(charge.total, charge.currency)}</p>
+                  <Badge variant="outline">{charge.realizationStatus === "recommended" ? "Recommandé" : charge.realizationStatus === "pending" ? "En attente" : charge.realizationStatus === "performed" ? "Réalisé" : "Annulé"}</Badge>
+                  <Badge variant="secondary">{charge.paymentStatus === "draft" ? "Brouillon" : charge.paymentStatus === "pending" ? "À payer" : charge.paymentStatus === "paid" ? "Payé" : charge.paymentStatus === "overdue" ? "En retard" : charge.paymentStatus === "cancelled" ? "Annulé" : "Non transmis"}</Badge>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </TabsContent>
         <TabsContent value="catalog">
           <ServiceCatalogPanel
             services={services}
@@ -596,6 +624,12 @@ export default function Billing() {
                     <div>
                       <p className="font-medium">{item.description}</p>
                       {item.detail && <p className="text-muted-foreground">{item.detail}</p>}
+                      {(item.prescriberName || item.realizationStatus) && (
+                        <p className="text-xs text-muted-foreground">
+                          {item.prescriberName ? `Prescrit par ${item.prescriberName}` : "Prescription"}
+                          {item.realizationStatus ? ` · ${item.realizationStatus === "recommended" ? "Recommandé" : item.realizationStatus === "pending" ? "En attente" : item.realizationStatus === "performed" ? "Réalisé" : "Annulé"}` : ""}
+                        </p>
+                      )}
                       <p className="text-muted-foreground">
                         {item.quantity} × {money(item.unitPrice, selectedInvoice.currency || currency)}
                         {item.category ? ` · ${categoryLabel(categories, item.category)}` : ""}

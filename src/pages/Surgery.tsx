@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiMessage } from "@/lib/apiError";
 import { formatMoney, type BillingCurrency } from "@/lib/money";
+import { ActRecommendations } from "@/components/acts/ActRecommendations";
 import { billingService } from "@/services/billingService";
 import {
   surgeryService,
@@ -50,6 +51,8 @@ function periodRange(preset: string, customStart: string, customEnd: string) {
 export default function Surgery() {
   const { user } = useAuth();
   const canChangeCurrency = user?.role === "HOSPITAL_ADMIN";
+  const canManageCatalog = user?.role === "HOSPITAL_ADMIN" || user?.role === "ACCOUNTANT";
+  const canPrescribe = user?.role === "HOSPITAL_ADMIN" || user?.role === "DOCTOR" || user?.role === "NURSE";
   const [currency, setCurrency] = useState<BillingCurrency>("EUR");
   const [currencies, setCurrencies] = useState<BillingCurrency[]>(["EUR", "CDF", "USD"]);
   const [categories, setCategories] = useState<SurgicalCategory[]>([]);
@@ -91,14 +94,16 @@ export default function Surgery() {
   };
 
   useEffect(() => {
+    if (!canManageCatalog) return;
     void loadCatalog().catch((error) => toast.error(apiMessage(error)));
     void surgeryService.priceHistory().then(setPrices).catch((error) => toast.error(apiMessage(error)));
     void surgeryService.changes().then(setChanges).catch((error) => toast.error(apiMessage(error)));
-  }, []);
+  }, [canManageCatalog]);
 
   useEffect(() => {
+    if (!canManageCatalog) return;
     void loadStats().catch((error) => toast.error(apiMessage(error)));
-  }, [preset, customStart, customEnd]);
+  }, [canManageCatalog, preset, customStart, customEnd]);
 
   const refresh = async () => {
     await Promise.all([
@@ -219,12 +224,12 @@ export default function Surgery() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Chirurgie (actes)</h1>
-          <p className="mt-1 text-muted-foreground">Catalogue des interventions. Les actes choisis sont ajoutés à la facture du patient.</p>
+          <h1 className="text-3xl font-bold">Actes</h1>
+          <p className="mt-1 text-muted-foreground">Recommandez un acte tarifé : il rejoint la facture du patient sans être marqué comme réalisé.</p>
         </div>
         <div className="flex flex-col items-start gap-3 sm:items-end">
-          <Button variant="hero" onClick={openCreate}><Plus className="mr-2 h-4 w-4" />Nouvel acte</Button>
-        <div className="space-y-2">
+          {canManageCatalog && <Button variant="hero" onClick={openCreate}><Plus className="mr-2 h-4 w-4" />Nouvel acte</Button>}
+          {canManageCatalog && <div className="space-y-2">
           <Label>Devise de l'établissement</Label>
           {canChangeCurrency ? (
             <Select value={currency} onValueChange={(value) => void changeCurrency(value as BillingCurrency)}>
@@ -237,11 +242,13 @@ export default function Surgery() {
             <p className="text-sm font-medium">{currency}</p>
           )}
           <p className="max-w-sm text-xs text-muted-foreground">Les factures déjà créées gardent leur devise. Un acte change de devise seulement quand son prix est ressaisi.</p>
-        </div>
+        </div>}
         </div>
       </div>
 
-      <Tabs defaultValue="dashboard">
+      {canPrescribe && <ActRecommendations />}
+
+      {canManageCatalog && <Tabs defaultValue="dashboard">
         <TabsList className="h-auto flex-wrap">
           <TabsTrigger value="dashboard">Tableau de bord</TabsTrigger>
           <TabsTrigger value="catalog">Catalogue</TabsTrigger>
@@ -406,7 +413,7 @@ export default function Surgery() {
             </Card>
           ))}
         </TabsContent>
-      </Tabs>
+      </Tabs>}
 
       <Dialog open={dialogOpen} onOpenChange={closeDialog}>
         <DialogContent className="max-w-lg">

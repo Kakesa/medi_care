@@ -9,6 +9,7 @@ import { paginated, readPagination } from '../utils/pagination.js';
 import type { AuthContext } from '../types/express.js';
 import { requireOwned } from './access.service.js';
 import { recordAudit } from './audit.service.js';
+import { recordStayIfTariff, syncStayQuantity } from './charge.service.js';
 
 type WardDoc = {
   id?: string;
@@ -362,7 +363,7 @@ export async function assignBed(
   bed.set('expectedDischarge', input.expectedDischarge ? asDate(input.expectedDischarge) : undefined);
   await bed.save();
 
-  await BedStay.create({
+  const stay = await BedStay.create({
     organizationId,
     bedId: bed._id,
     bedNumber: bed.number,
@@ -372,6 +373,7 @@ export async function assignBed(
     admissionDate: asDate(admission),
     status: 'active',
   });
+  await recordStayIfTariff(actor, organizationId, { patientId: patient.id, stayId: stay.id }, ip);
 
   patient.status = 'hospitalized';
   patient.room = bed.number;
@@ -401,6 +403,7 @@ export async function releaseBed(actor: AuthContext, organizationId: string, id:
   const patientId = bed.patientId?.toString();
   const number = bed.number;
   const discharge = todayStamp();
+  const activeStays = await BedStay.find({ organizationId, bedId: bed._id, status: 'active' });
 
   await Bed.updateOne(
     { _id: bed._id, organizationId },
@@ -414,6 +417,9 @@ export async function releaseBed(actor: AuthContext, organizationId: string, id:
     { organizationId, bedId: bed._id, status: 'active' },
     { status: 'completed', dischargeDate: asDate(discharge) }
   );
+  for (const stay of activeStays) {
+    await syncStayQuantity(actor, organizationId, stay.id, Math.max(1, dayCount(stay.admissionDate, asDate(discharge))), ip);
+  }
 
   if (patientId) {
     const patient = await Patient.findOne({ _id: patientId, organizationId });

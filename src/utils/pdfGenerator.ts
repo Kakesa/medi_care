@@ -99,7 +99,11 @@ export const generateInvoicePDF = (invoice: Invoice): void => {
   // Items table
   const currency = invoice.currency || 'EUR';
   const tableData = invoice.items.map(item => [
-    item.detail ? `${item.description}\n${item.detail}` : item.description,
+    [
+      item.description,
+      item.detail,
+      item.prescriberName ? `Prescrit par ${item.prescriberName}` : "",
+    ].filter(Boolean).join("\n"),
     item.quantity.toString(),
     formatMoney(item.unitPrice, currency),
     formatMoney(item.total, currency),

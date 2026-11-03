@@ -104,7 +104,7 @@ export function Sidebar({ variant = "fixed", onNavigate }: SidebarProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4 scrollbar-thin">
+      <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-4 scrollbar-thin">
         <ul className="space-y-1">
           {navigation.map((item, index) => {
             const isActive = location.pathname === item.href;
@@ -141,13 +141,12 @@ export function Sidebar({ variant = "fixed", onNavigate }: SidebarProps) {
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-sidebar-border p-3 space-y-1">
+      <div className="shrink-0 space-y-1 border-t border-sidebar-border p-3">
         {/* Theme toggle */}
         <Button
           variant="ghost"
           className={cn(
-            "w-full justify-start gap-3 text-muted-foreground",
-            "transition-all duration-200 hover:text-foreground hover:bg-secondary",
+            "w-full justify-start gap-3 text-sidebar-foreground hover:bg-white/10 hover:text-sidebar-foreground",
             "group"
           )}
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
@@ -168,8 +167,7 @@ export function Sidebar({ variant = "fixed", onNavigate }: SidebarProps) {
         <Button
           variant="ghost"
           className={cn(
-            "w-full justify-start gap-3 text-muted-foreground",
-            "transition-all duration-200 hover:text-destructive hover:bg-destructive/10",
+            "w-full justify-start gap-3 text-sidebar-foreground hover:bg-white/10 hover:text-sidebar-foreground",
             "group"
           )}
           onClick={handleLogout}

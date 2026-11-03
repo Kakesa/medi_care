@@ -119,12 +119,12 @@ export function MobileTabBar() {
       </nav>
 
       <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
-        <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto rounded-t-2xl md:hidden">
+        <SheetContent side="bottom" className="flex max-h-[85dvh] flex-col rounded-t-2xl md:hidden">
           <SheetHeader>
             <SheetTitle>Menu</SheetTitle>
           </SheetHeader>
           {more.length > 0 && (
-            <div className="mt-4 grid grid-cols-3 gap-3">
+            <div className="mt-4 grid min-h-0 flex-1 grid-cols-3 gap-3 overflow-y-auto">
               {more.map((item) => {
                 const active = location.pathname === item.href;
                 return (
@@ -144,7 +144,7 @@ export function MobileTabBar() {
               })}
             </div>
           )}
-          <div className="mt-4 space-y-2 pb-[env(safe-area-inset-bottom)]">
+          <div className="mt-4 shrink-0 space-y-2 border-t border-border pt-4 pb-[env(safe-area-inset-bottom)]">
             <Button
               variant="outline"
               className="w-full justify-start gap-3"

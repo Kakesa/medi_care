@@ -18,7 +18,7 @@ import {
 
 const router = Router();
 
-router.use(authenticate, requireTenant, requireRoles(ROLES.HOSPITAL_ADMIN, ROLES.ACCOUNTANT));
+router.use(authenticate, requireTenant, requireRoles(ROLES.HOSPITAL_ADMIN, ROLES.ACCOUNTANT, ROLES.RECEPTIONIST));
 router.get('/categories', surgery.listCategories);
 router.post('/categories', validate(createCategorySchema), surgery.createCategory);
 router.get('/acts', validate(listActsSchema), surgery.listActs);

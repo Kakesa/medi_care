@@ -51,7 +51,7 @@ function periodRange(preset: string, customStart: string, customEnd: string) {
 export default function Surgery() {
   const { user } = useAuth();
   const canChangeCurrency = user?.role === "HOSPITAL_ADMIN";
-  const canManageCatalog = user?.role === "HOSPITAL_ADMIN" || user?.role === "ACCOUNTANT";
+  const canManageCatalog = user?.role === "HOSPITAL_ADMIN" || user?.role === "ACCOUNTANT" || user?.role === "RECEPTIONIST";
   const canPrescribe = user?.role === "HOSPITAL_ADMIN" || user?.role === "DOCTOR" || user?.role === "NURSE";
   const [currency, setCurrency] = useState<BillingCurrency>("EUR");
   const [currencies, setCurrencies] = useState<BillingCurrency[]>(["EUR", "CDF", "USD"]);

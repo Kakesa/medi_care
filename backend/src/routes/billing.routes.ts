@@ -18,7 +18,7 @@ import {
 } from '../validators/clinical.validator.js';
 
 const router = Router();
-const roles = [ROLES.HOSPITAL_ADMIN, ROLES.ACCOUNTANT] as const;
+const roles = [ROLES.HOSPITAL_ADMIN, ROLES.ACCOUNTANT, ROLES.RECEPTIONIST] as const;
 
 router.use(authenticate, requireTenant);
 router.get('/my-invoices', requireRoles(ROLES.PATIENT), clinical.myInvoices);

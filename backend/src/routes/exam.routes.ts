@@ -16,14 +16,14 @@ import {
 } from '../validators/clinical.validator.js';
 
 const router = Router();
-const read = [ROLES.HOSPITAL_ADMIN, ROLES.ACCOUNTANT, ROLES.DOCTOR, ROLES.NURSE, ROLES.PATIENT] as const;
+const read = [ROLES.HOSPITAL_ADMIN, ROLES.ACCOUNTANT, ROLES.RECEPTIONIST, ROLES.DOCTOR, ROLES.NURSE, ROLES.PATIENT] as const;
 const write = [ROLES.HOSPITAL_ADMIN, ROLES.DOCTOR, ROLES.NURSE] as const;
 
 router.use(authenticate, requireTenant);
 router.get('/pending', requireRoles(...read), clinical.pendingExams);
 router.get('/by-patient/:patientId', requireRoles(...read), validate(examByPatientSchema), clinical.examsByPatient);
 router.get('/', requireRoles(...read), validate(listExamsSchema), clinical.listExams);
-router.get('/catalog', requireRoles(ROLES.HOSPITAL_ADMIN, ROLES.ACCOUNTANT, ROLES.DOCTOR, ROLES.NURSE), clinical.examCatalog);
+router.get('/catalog', requireRoles(ROLES.HOSPITAL_ADMIN, ROLES.ACCOUNTANT, ROLES.RECEPTIONIST, ROLES.DOCTOR, ROLES.NURSE), clinical.examCatalog);
 router.post('/', requireRoles(...write), validate(createExamSchema), clinical.createExam);
 router.get('/:id', requireRoles(...read), validate(examParamsSchema), clinical.getExam);
 router.put('/:id', requireRoles(...write), validate(updateExamSchema), clinical.updateExam);

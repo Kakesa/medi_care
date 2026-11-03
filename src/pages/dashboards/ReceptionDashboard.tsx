@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { UserPlus, Clock, Users, CheckCircle, AlertCircle } from "lucide-react";
+import { UserPlus, Clock, Users, CheckCircle, AlertCircle, FileText } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { billingService } from "@/services/billingService";
 import { receptionService } from "@/services/receptionService";
 import { appointmentService } from "@/services/appointmentService";
 import type { Appointment, Reception } from "@/types";
@@ -19,15 +20,18 @@ export default function ReceptionDashboard() {
   const { user } = useAuth();
   const [queue, setQueue] = useState<Reception[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [billing, setBilling] = useState({ totalRevenue: 0, pendingAmount: 0, overdueAmount: 0, invoiceCount: 0 });
 
   useEffect(() => {
     const load = async () => {
-      const [queueResult, appointmentResult] = await Promise.allSettled([
+      const [queueResult, appointmentResult, billingResult] = await Promise.allSettled([
         receptionService.getQueue({ limit: 100 }),
         appointmentService.getByDate(todayIso()),
+        billingService.getStats(),
       ]);
       if (queueResult.status === "fulfilled") setQueue(queueResult.value.data);
       if (appointmentResult.status === "fulfilled") setAppointments(appointmentResult.value);
+      if (billingResult.status === "fulfilled") setBilling(billingResult.value);
     };
     void load();
   }, []);
@@ -102,7 +106,7 @@ export default function ReceptionDashboard() {
           Accueil & Réception
         </h1>
         <p className="mt-1 text-muted-foreground">
-          Bonjour {user?.firstName}, gérez les arrivées et la file d'attente
+          Bonjour {user?.firstName}, gérez les arrivées, la file d'attente et les factures
         </p>
       </div>
 
@@ -115,6 +119,26 @@ export default function ReceptionDashboard() {
             delay={index * 50}
           />
         ))}
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Link to="/dashboard/billing" className="rounded-xl border bg-card p-4">
+          <p className="text-sm text-muted-foreground">À encaisser</p>
+          <p className="text-2xl font-bold">{billing.pendingAmount}</p>
+        </Link>
+        <Link to="/dashboard/billing" className="rounded-xl border bg-card p-4">
+          <p className="text-sm text-muted-foreground">En retard</p>
+          <p className="text-2xl font-bold">{billing.overdueAmount}</p>
+        </Link>
+        <Link to="/dashboard/accounting" className="rounded-xl border bg-card p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Factures</p>
+              <p className="text-2xl font-bold">{billing.invoiceCount}</p>
+            </div>
+            <FileText className="h-5 w-5 text-primary" />
+          </div>
+        </Link>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

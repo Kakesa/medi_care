@@ -138,7 +138,7 @@ const labCategoryNames = new Set([
 
 export default function Examinations() {
   const { user } = useAuth();
-  const seesPrices = user?.role === "HOSPITAL_ADMIN" || user?.role === "ACCOUNTANT";
+  const seesPrices = user?.role === "HOSPITAL_ADMIN" || user?.role === "ACCOUNTANT" || user?.role === "RECEPTIONIST";
   const canChangeCurrency = user?.role === "HOSPITAL_ADMIN";
   const canPlan = user?.role === "HOSPITAL_ADMIN" || user?.role === "DOCTOR" || user?.role === "NURSE";
   const currencies: BillingCurrency[] = ["EUR", "CDF", "USD"];
@@ -226,7 +226,7 @@ export default function Examinations() {
       setCatalogExams(result.items);
     }).catch((error) => toast.error(apiMessage(error)));
     if (user.role !== "DOCTOR") void loadCharges();
-    if (user.role !== "ACCOUNTANT") {
+    if (user.role !== "ACCOUNTANT" && user.role !== "RECEPTIONIST") {
       void chargeService.catalog().then((result) => setTariffs(result.items)).catch(() => setTariffs([]));
     }
   }, [user?.role]);

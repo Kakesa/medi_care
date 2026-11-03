@@ -71,11 +71,11 @@ const App = () => (
                 <Route path="appointments" element={<RequireRole roles={["HOSPITAL_ADMIN", "DOCTOR", "RECEPTIONIST"]}><Appointments /></RequireRole>} />
                 <Route path="consultations" element={<RequireRole roles={["HOSPITAL_ADMIN", "DOCTOR", "NURSE"]}><Consultations /></RequireRole>} />
                 <Route path="reception" element={<RequireRole roles={["HOSPITAL_ADMIN", "RECEPTIONIST"]}><Reception /></RequireRole>} />
-                <Route path="examinations" element={<RequireRole roles={["HOSPITAL_ADMIN", "ACCOUNTANT", "DOCTOR", "NURSE"]}><Examinations /></RequireRole>} />
+                <Route path="examinations" element={<RequireRole roles={["HOSPITAL_ADMIN", "ACCOUNTANT", "RECEPTIONIST", "DOCTOR", "NURSE"]}><Examinations /></RequireRole>} />
                 <Route path="pharmacy" element={<RequireRole roles={["HOSPITAL_ADMIN", "PHARMACIST"]}><Pharmacy /></RequireRole>} />
-                <Route path="surgery" element={<RequireRole roles={["HOSPITAL_ADMIN", "ACCOUNTANT", "DOCTOR", "NURSE"]}><Surgery /></RequireRole>} />
-                <Route path="billing" element={<RequireRole roles={["HOSPITAL_ADMIN", "ACCOUNTANT"]}><Billing /></RequireRole>} />
-                <Route path="accounting" element={<RequireRole roles={["HOSPITAL_ADMIN", "ACCOUNTANT"]}><Accounting /></RequireRole>} />
+                <Route path="surgery" element={<RequireRole roles={["HOSPITAL_ADMIN", "ACCOUNTANT", "RECEPTIONIST", "DOCTOR", "NURSE"]}><Surgery /></RequireRole>} />
+                <Route path="billing" element={<RequireRole roles={["HOSPITAL_ADMIN", "ACCOUNTANT", "RECEPTIONIST"]}><Billing /></RequireRole>} />
+                <Route path="accounting" element={<RequireRole roles={["HOSPITAL_ADMIN", "ACCOUNTANT", "RECEPTIONIST"]}><Accounting /></RequireRole>} />
                 <Route path="beds" element={<RequireRole roles={["HOSPITAL_ADMIN", "RECEPTIONIST"]}><BedManagement /></RequireRole>} />
                 <Route path="rendez-vous" element={<RequireRole roles={["PATIENT"]}><PatientAppointments /></RequireRole>} />
                 <Route path="examen" element={<RequireRole roles={["PATIENT"]}><PatientExams /></RequireRole>} />

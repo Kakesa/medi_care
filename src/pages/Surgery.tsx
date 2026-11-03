@@ -220,16 +220,15 @@ export default function Surgery() {
     }
   };
 
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Actes</h1>
-          <p className="mt-1 text-muted-foreground">Recommandez un acte tarifé : il rejoint la facture du patient sans être marqué comme réalisé.</p>
-        </div>
-        <div className="flex flex-col items-start gap-3 sm:items-end">
-          {canManageCatalog && <Button variant="hero" onClick={openCreate}><Plus className="mr-2 h-4 w-4" />Nouvel acte</Button>}
-          {canManageCatalog && <div className="space-y-2">
+  const pageHeader = (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <h1 className="text-3xl font-bold">Actes</h1>
+        <p className="mt-1 text-muted-foreground">Recommandez un acte tarifé : il rejoint la facture du patient sans être marqué comme réalisé.</p>
+      </div>
+      <div className="flex flex-col items-start gap-3 sm:items-end">
+        {canManageCatalog && <Button variant="hero" onClick={openCreate}><Plus className="mr-2 h-4 w-4" />Nouvel acte</Button>}
+        {canManageCatalog && <div className="space-y-2">
           <Label>Devise de l'établissement</Label>
           {canChangeCurrency ? (
             <Select value={currency} onValueChange={(value) => void changeCurrency(value as BillingCurrency)}>
@@ -243,10 +242,13 @@ export default function Surgery() {
           )}
           <p className="max-w-sm text-xs text-muted-foreground">Les factures déjà créées gardent leur devise. Un acte change de devise seulement quand son prix est ressaisi.</p>
         </div>}
-        </div>
       </div>
+    </div>
+  );
 
-      {canPrescribe && <ActRecommendations />}
+  return (
+    <div className="space-y-6">
+      {canPrescribe ? <ActRecommendations leading={pageHeader} /> : pageHeader}
 
       {canManageCatalog && <Tabs defaultValue="dashboard">
         <TabsList className="h-auto flex-wrap">

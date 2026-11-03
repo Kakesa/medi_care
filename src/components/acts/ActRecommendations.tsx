@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { apiMessage } from "@/lib/apiError";
@@ -7,7 +7,6 @@ import { patientService } from "@/services/patientService";
 import { chargeService, type CatalogOption, type PatientChargeRecord, type RealizationStatus } from "@/services/chargeService";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,15 +36,16 @@ const originLabel: Record<string, string> = {
   hospitalization: "Hospitalisation",
 };
 
-export function ActRecommendations() {
+type SelectedAct = { key: string; item: CatalogOption; quantity: string };
+
+export function ActRecommendations({ leading }: { leading?: ReactNode }) {
   const [patients, setPatients] = useState<Array<{ id: string; firstName: string; lastName: string }>>([]);
   const [patientId, setPatientId] = useState("");
   const [catalog, setCatalog] = useState<CatalogOption[]>([]);
   const [charges, setCharges] = useState<PatientChargeRecord[]>([]);
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [selectedId, setSelectedId] = useState("");
-  const [quantity, setQuantity] = useState("1");
+  const [picked, setPicked] = useState<SelectedAct[]>([]);
   const [saving, setSaving] = useState(false);
 
   const loadCharges = async (nextPatientId: string) => {
@@ -67,40 +67,59 @@ export function ActRecommendations() {
     void loadCharges(patientId).catch((error) => toast.error(apiMessage(error)));
   }, [patientId]);
 
-  const selected = catalog.find((item) => `${item.kind}:${item.id}` === selectedId);
   const visible = catalog.filter((item) => {
     const needle = search.trim().toLowerCase();
     if (!needle) return true;
     return `${item.name} ${item.categoryLabel} ${item.description}`.toLowerCase().includes(needle);
   });
 
+  const toggleAct = (item: CatalogOption) => {
+    const key = `${item.kind}:${item.id}`;
+    setPicked((current) => current.some((entry) => entry.key === key)
+      ? current.filter((entry) => entry.key !== key)
+      : [...current, { key, item, quantity: "1" }]);
+  };
+
   const recommend = async () => {
-    if (!patientId || !selected) {
-      toast.error("Choisissez un patient et un acte tarifé");
+    if (!patientId || picked.length === 0) {
+      toast.error("Choisissez un patient et au moins un acte tarifé");
       return;
     }
-    const parsed = Number(quantity);
-    if (!Number.isInteger(parsed) || parsed < 1) {
-      toast.error("La quantité doit être un entier positif");
+    const lines = picked.map((entry) => ({ ...entry, parsed: Number(entry.quantity) }));
+    if (lines.some((entry) => !Number.isInteger(entry.parsed) || entry.parsed < 1)) {
+      toast.error("Chaque quantité doit être un entier positif");
       return;
     }
     setSaving(true);
+    const failures: string[] = [];
+    let sent = 0;
     try {
-      await chargeService.recommend({
-        patientId,
-        catalogKind: selected.kind,
-        catalogItemId: selected.id,
-        quantity: parsed,
-        idempotencyKey: crypto.randomUUID(),
-      });
-      toast.success("Acte transmis à la facturation. Il reste au statut recommandé.");
-      setOpen(false);
-      setSelectedId("");
-      setQuantity("1");
-      setSearch("");
-      await loadCharges(patientId);
-    } catch (error) {
-      toast.error(apiMessage(error));
+      for (const entry of lines) {
+        try {
+          await chargeService.recommend({
+            patientId,
+            catalogKind: entry.item.kind,
+            catalogItemId: entry.item.id,
+            quantity: entry.parsed,
+            idempotencyKey: crypto.randomUUID(),
+          });
+          sent += 1;
+        } catch (error) {
+          failures.push(`${entry.item.name} : ${apiMessage(error)}`);
+        }
+      }
+      if (sent > 0) {
+        toast.success(sent > 1 ? `${sent} actes transmis à la facturation. Ils restent recommandés.` : "Acte transmis à la facturation. Il reste au statut recommandé.");
+        await loadCharges(patientId);
+      }
+      if (failures.length > 0) toast.error(failures.join(" · "));
+      if (failures.length === 0) {
+        setOpen(false);
+        setPicked([]);
+        setSearch("");
+      } else {
+        setPicked((current) => current.filter((entry) => failures.some((failure) => failure.startsWith(entry.item.name))));
+      }
     } finally {
       setSaving(false);
     }
@@ -117,8 +136,9 @@ export function ActRecommendations() {
   };
 
   return (
-    <Card>
-      <CardContent className="space-y-4 p-4">
+    <>
+      <div className="sticky top-16 z-20 -mx-4 space-y-4 border-b border-border bg-background/95 px-4 py-4 backdrop-blur md:-mx-6 md:px-6">
+        {leading}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div className="space-y-2">
             <Label>Patient</Label>
@@ -132,15 +152,13 @@ export function ActRecommendations() {
             </Select>
           </div>
           <Button variant="hero" onClick={() => setOpen(true)} disabled={!patientId}>
-            <Plus className="mr-2 h-4 w-4" />Recommander un acte
+            <Plus className="mr-2 h-4 w-4" />Recommander des actes
           </Button>
         </div>
-        <p className="text-sm text-muted-foreground">
-          Le tarif vient du catalogue. L'acte apparaît sur la facture du patient dès la recommandation, sans être considéré comme réalisé.
-        </p>
+      </div>
+      <div className="space-y-3 pt-4">
         {!patientId && <p className="text-sm text-muted-foreground">Sélectionnez un patient pour voir ses actes transmis.</p>}
         {patientId && charges.length === 0 && <p className="text-sm text-muted-foreground">Aucun acte transmis pour ce patient.</p>}
-        <div className="space-y-3">
           {charges.map((charge) => (
             <div key={charge.id} className="rounded-xl border p-3">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -170,27 +188,27 @@ export function ActRecommendations() {
               )}
             </div>
           ))}
-        </div>
-      </CardContent>
+      </div>
 
       <Dialog open={open} onOpenChange={(next) => { if (!saving) setOpen(next); }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Recommander un acte</DialogTitle>
-            <DialogDescription>Seuls les actes déjà tarifés dans la devise de l'établissement sont proposés. Aucun prix n'est saisi ici.</DialogDescription>
+            <DialogTitle>Recommander des actes</DialogTitle>
+            <DialogDescription>Cochez plusieurs actes déjà tarifés. Chaque ligne rejoint la facture du patient au statut recommandé.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <Input placeholder="Rechercher un acte" value={search} onChange={(event) => setSearch(event.target.value)} />
             <div className="max-h-56 space-y-2 overflow-y-auto">
               {visible.length === 0 && <p className="text-sm text-muted-foreground">Aucun acte tarifé. Enregistrez d'abord un prix dans le catalogue.</p>}
-              {visible.slice(0, 12).map((item) => {
+              {visible.slice(0, 40).map((item) => {
                 const key = `${item.kind}:${item.id}`;
+                const active = picked.some((entry) => entry.key === key);
                 return (
                   <button
                     key={key}
                     type="button"
-                    className={`w-full rounded-lg border p-2 text-left text-sm ${selectedId === key ? "border-primary bg-primary/5" : ""}`}
-                    onClick={() => setSelectedId(key)}
+                    className={`w-full rounded-lg border p-2 text-left text-sm ${active ? "border-primary bg-primary/5" : ""}`}
+                    onClick={() => toggleAct(item)}
                   >
                     <p className="font-medium">{item.name}</p>
                     <p className="text-xs text-muted-foreground">{item.categoryLabel} · {formatMoney(item.unitPrice, item.currency)}</p>
@@ -198,16 +216,12 @@ export function ActRecommendations() {
                 );
               })}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="charge-qty">Quantité</Label>
-              <Input id="charge-qty" type="number" min={1} max={99} value={quantity} onChange={(event) => setQuantity(event.target.value)} />
-            </div>
-            <Button variant="hero" className="w-full" disabled={saving || !selected} onClick={() => void recommend()}>
-              {saving ? "Transmission..." : "Transmettre à la facturation"}
+            <Button variant="hero" className="w-full" disabled={saving || picked.length === 0} onClick={() => void recommend()}>
+              {saving ? "Transmission..." : picked.length > 1 ? `Transmettre ${picked.length} actes` : "Transmettre à la facturation"}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
-    </Card>
+    </>
   );
 }

@@ -9,7 +9,8 @@ import { ROLES } from '../config/permissions.js';
 import { ApiError } from '../utils/ApiError.js';
 import { fromMinorUnits } from '../utils/money.js';
 import type { AuthContext } from '../types/express.js';
-import { requireOwned, requireVisiblePatient } from './access.service.js';
+import { ownPatientId, requireOwned, requireVisiblePatient } from './access.service.js';
+import { notifyUser } from './notification.service.js';
 import { recordAudit } from './audit.service.js';
 import { organizationCurrency } from './catalog.service.js';
 import { ensureSurgicalSeed, priceSurgicalAct } from './surgery.service.js';
@@ -332,9 +333,15 @@ export async function listCharges(
   if (actor.role === ROLES.DOCTOR && !query.patientId) {
     throw new ApiError(400, 'Indiquez le patient', 'VALIDATION_ERROR');
   }
-  if (query.patientId) await requireVisiblePatient(actor, organizationId, query.patientId, ip);
+  let patientId = query.patientId;
+  if (actor.role === ROLES.PATIENT) {
+    const ownId = await ownPatientId(actor, organizationId);
+    if (!ownId) return [];
+    patientId = String(ownId);
+  }
+  if (patientId) await requireVisiblePatient(actor, organizationId, patientId, ip);
   const filter: Record<string, unknown> = { organizationId };
-  if (query.patientId) filter.patientId = query.patientId;
+  if (patientId) filter.patientId = patientId;
   if (query.realizationStatus) filter.realizationStatus = query.realizationStatus;
   const rows = await PatientCharge.find(filter).sort({ prescribedAt: -1 }).limit(100);
   const invoiceIds = rows.map((row) => row.invoiceId).filter(Boolean);
@@ -424,6 +431,14 @@ export async function recordCharge(
     metadata: { patientId: patient.id, originModule: input.originModule, originId: input.originId },
   });
   const invoice = attached.invoiceId ? await Invoice.findById(attached.invoiceId).select('invoiceNumber status dueDate') : null;
+  await notifyUser({
+    organizationId,
+    userId: patient.linkedUserId,
+    type: 'billing',
+    title: 'Nouvelle recommandation',
+    message: `${priced.label} vous a été recommandé par ${name}.`,
+    relatedId: idOf(attached),
+  });
   return { charge: toDto(attached, invoice), created: true };
 }
 

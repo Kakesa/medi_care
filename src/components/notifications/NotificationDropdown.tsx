@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Bell, Trash2, Calendar, UserPlus, FlaskConical, Pill } from 'lucide-react';
+import { Bell, Trash2, Calendar, UserPlus, FlaskConical, Pill, FileText } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,6 +21,7 @@ const typeIcons = {
   patient_arrival: UserPlus,
   exam_result: FlaskConical,
   pharmacy: Pill,
+  billing: FileText,
   general: Bell
 };
 
@@ -29,6 +30,7 @@ const typeColors = {
   patient_arrival: 'text-info',
   exam_result: 'text-success',
   pharmacy: 'text-warning',
+  billing: 'text-primary',
   general: 'text-muted-foreground'
 };
 
@@ -83,6 +85,9 @@ export function NotificationDropdown() {
                     const pending = markAsRead(notification.id);
                     if (notification.type === 'appointment') {
                       navigate(user?.role === 'PATIENT' ? '/dashboard' : '/dashboard/appointments');
+                    }
+                    if (notification.type === 'billing') {
+                      navigate('/dashboard');
                     }
                     return pending;
                   }}

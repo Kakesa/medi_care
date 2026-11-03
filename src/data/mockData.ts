@@ -108,7 +108,7 @@ export interface Exam {
 
 export interface Notification {
   id: string;
-  type: 'appointment' | 'patient_arrival' | 'exam_result' | 'pharmacy' | 'general';
+  type: 'appointment' | 'patient_arrival' | 'exam_result' | 'pharmacy' | 'billing' | 'general';
   title: string;
   message: string;
   read: boolean;

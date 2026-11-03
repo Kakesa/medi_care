@@ -29,6 +29,7 @@ export async function notifyUser(input: {
   userId?: { toString(): string } | string | null;
   title: string;
   message: string;
+  type?: 'appointment' | 'billing';
   relatedId?: string;
 }) {
   const userId = input.userId ? String(input.userId) : '';
@@ -36,7 +37,7 @@ export async function notifyUser(input: {
   await Notification.create({
     organizationId: input.organizationId,
     userId,
-    type: 'appointment',
+    type: input.type || 'appointment',
     title: input.title,
     message: input.message,
     read: false,

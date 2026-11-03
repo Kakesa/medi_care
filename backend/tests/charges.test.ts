@@ -52,7 +52,8 @@ describe('Transmission des actes vers la facturation', () => {
     });
     expect(stranger.status).toBe(403);
 
-    await Patient.updateOne({ _id: patientId }, { primaryDoctorId: doctor.user.id });
+    const patientUser = await createUser({ role: 'PATIENT', organizationId: org.id });
+    await Patient.updateOne({ _id: patientId }, { primaryDoctorId: doctor.user.id, linkedUserId: patientUser.user.id });
     const created = await request(app).post('/api/charges').set(bearer(doctor.token)).send({
       patientId,
       catalogKind: 'surgery',
@@ -68,6 +69,17 @@ describe('Transmission des actes vers la facturation', () => {
     expect(created.body.paymentStatus).toBe('draft');
     expect(created.body.prescriberName).toBe('Ada Martin');
     expect(created.body.invoiceNumber).toMatch(/^FAC-/);
+
+    const ownCharges = await request(app).get('/api/charges').set(bearer(patientUser.token));
+    expect(ownCharges.status).toBe(200);
+    expect(ownCharges.body.some((row: { id: string }) => row.id === created.body.id)).toBe(true);
+    const outsider = await createUser({ role: 'PATIENT', organizationId: org.id });
+    const hidden = await request(app).get('/api/charges').set(bearer(outsider.token));
+    expect(hidden.status).toBe(200);
+    expect(hidden.body).toEqual([]);
+    const notices = await request(app).get('/api/notifications').set(bearer(patientUser.token));
+    expect(notices.status).toBe(200);
+    expect(notices.body.data.some((row: { title: string }) => row.title === 'Nouvelle recommandation')).toBe(true);
 
     const replay = await request(app).post('/api/charges').set(bearer(doctor.token)).send({
       patientId,

@@ -9,7 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
+import { formatMoney } from "@/lib/money";
 import { appointmentService } from "@/services/appointmentService";
+import { chargeService, type PatientChargeRecord } from "@/services/chargeService";
 import { consultationService } from "@/services/consultationService";
 import { examService } from "@/services/examService";
 import { personnelService } from "@/services/personnelService";
@@ -32,6 +34,7 @@ export default function PatientDashboard() {
   const [respondingId, setRespondingId] = useState<string | null>(null);
   const [consultations, setConsultations] = useState<Consultation[]>([]);
   const [exams, setExams] = useState<Exam[]>([]);
+  const [recommendations, setRecommendations] = useState<PatientChargeRecord[]>([]);
   const [doctors, setDoctors] = useState<Personnel[]>([]);
   const [requestOpen, setRequestOpen] = useState(false);
   const [requesting, setRequesting] = useState(false);
@@ -47,14 +50,16 @@ export default function PatientDashboard() {
 
   useEffect(() => {
     const load = async () => {
-      const [appointmentResult, consultationResult, examResult] = await Promise.allSettled([
+      const [appointmentResult, consultationResult, examResult, chargeResult] = await Promise.allSettled([
         appointmentService.getAll({ limit: 100 }),
         consultationService.getAll({ limit: 100 }),
         examService.getAll({ limit: 100 }),
+        chargeService.list(),
       ]);
       if (appointmentResult.status === "fulfilled") setAppointments(appointmentResult.value.data);
       if (consultationResult.status === "fulfilled") setConsultations(consultationResult.value.data);
       if (examResult.status === "fulfilled") setExams(examResult.value.data);
+      if (chargeResult.status === "fulfilled") setRecommendations(chargeResult.value);
     };
     void load();
   }, []);
@@ -309,6 +314,36 @@ export default function PatientDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="card-elevated">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5 text-primary" />
+            Recommandations
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {recommendations.filter((item) => item.realizationStatus !== "cancelled").length === 0 ? (
+            <p className="text-muted-foreground text-center py-4">Aucune recommandation</p>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {recommendations.filter((item) => item.realizationStatus !== "cancelled").map((item) => (
+                <div key={item.id} className="rounded-lg border bg-card p-4">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <Badge variant={item.realizationStatus === "performed" ? "default" : "secondary"}>
+                      {item.realizationStatus === "performed" ? "Réalisé" : item.realizationStatus === "pending" ? "En cours" : "Recommandé"}
+                    </Badge>
+                    <span className="text-sm text-muted-foreground">{new Date(item.prescribedAt).toLocaleDateString("fr-FR")}</span>
+                  </div>
+                  <p className="font-medium">{item.label}</p>
+                  <p className="text-sm text-muted-foreground">{item.prescriberName}</p>
+                  <p className="mt-2 text-sm font-medium">{formatMoney(item.total, item.currency)}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Exam results */}
       <Card className="card-elevated">

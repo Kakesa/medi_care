@@ -1,3 +1,5 @@
+import { LAB_EXAM_SEED } from './labExamSeed.js';
+
 export interface SurgicalSeedAct {
   name: string;
   description: string;
@@ -5,6 +7,7 @@ export interface SurgicalSeedAct {
 
 export interface SurgicalSeedCategory {
   name: string;
+  billingCategory?: string;
   acts: SurgicalSeedAct[];
 }
 
@@ -76,6 +79,7 @@ export const SURGICAL_SEED: SurgicalSeedCategory[] = [
       { name: 'Suture de plaie', description: 'Fermeture chirurgicale d’une plaie.' },
     ],
   },
+  ...LAB_EXAM_SEED,
 ];
 
 export function surgicalNameKey(value: string) {

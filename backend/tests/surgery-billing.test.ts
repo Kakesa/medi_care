@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import type { Express } from 'express';
 import { createApp } from '../src/app.js';
+import { SURGICAL_SEED } from '../src/domain/surgicalSeed.js';
 import { bearer, createOrganization, createUser } from './helpers.js';
 
 let app: Express;
@@ -36,7 +37,8 @@ describe('Chirurgie et facturation', () => {
     const catalog = await request(app).get('/api/surgery/acts').set(bearer(accountant.token));
     expect(catalog.status).toBe(200);
     expect(catalog.body.currency).toBe('EUR');
-    expect(catalog.body.total).toBe(42);
+    const seeded = SURGICAL_SEED.reduce((count, category) => count + category.acts.length, 0);
+    expect(catalog.body.total).toBe(seeded);
     expect(catalog.body.data.every((act: { unitPrice: number | null }) => act.unitPrice === null)).toBe(true);
 
     const appendectomy = catalog.body.data.find((act: { name: string }) => act.name === 'Appendicectomie');
@@ -168,7 +170,7 @@ describe('Chirurgie et facturation', () => {
 
     const stats = await request(app).get('/api/surgery/stats').set(bearer(admin.token));
     expect(stats.status).toBe(200);
-    expect(stats.body.acts.total).toBe(42);
+    expect(stats.body.acts.total).toBe(seeded);
     expect(stats.body.acts.inactive).toBe(1);
     expect(stats.body.currency).toBe('USD');
     expect(stats.body.billed.quantity).toBe(1);

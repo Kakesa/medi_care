@@ -94,6 +94,7 @@ export async function ensureSurgicalSeed(actor: AuthContext, organizationId: str
           organizationId,
           name: category.name,
           nameKey,
+          billingCategory: category.billingCategory || 'CHIRURGIE',
           active: true,
           createdBy: actor.id,
         });
@@ -240,7 +241,7 @@ export async function createAct(
   ip?: string
 ) {
   await categoryOrThrow(actor, organizationId, input.categoryId, ip);
-  const currency = await organizationCurrency(organizationId);
+  const category = await categoryOrThrow(actor, organizationId, input.categoryId, ip);
   const name = input.name.trim();
   const nameKey = surgicalNameKey(name);
   if (await SurgicalAct.exists({ organizationId, nameKey })) {

@@ -8,6 +8,7 @@ const surgicalActSchema = new Schema(
     name: { type: String, required: true, trim: true, maxlength: 160 },
     nameKey: { type: String, required: true, trim: true, maxlength: 160 },
     description: { type: String, trim: true, maxlength: 2000, default: '' },
+    billingCategory: { type: String, trim: true, uppercase: true, maxlength: 40, default: 'CHIRURGIE' },
     priceMinor: { type: Number, min: 0 },
     currency: { type: String, enum: BILLING_CURRENCIES },
     active: { type: Boolean, default: true, required: true },

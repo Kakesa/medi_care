@@ -368,6 +368,7 @@ export default function Surgery() {
                     </div>
                     <p className="text-sm text-muted-foreground">{act.categoryName}</p>
                     <p className="text-sm text-muted-foreground">{act.description}</p>
+                    {act.createdAt && <p className="text-xs text-muted-foreground">Créé le {new Date(act.createdAt).toLocaleDateString("fr-FR")}</p>}
                   </div>
                   <div className="flex flex-col items-start gap-2 sm:items-end">
                     <p className="font-semibold">{act.unitPrice == null ? "Tarif à saisir" : formatMoney(act.unitPrice, act.currency || currency)}</p>

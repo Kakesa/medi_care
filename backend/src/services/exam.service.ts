@@ -1,5 +1,11 @@
 import { ROLES } from '../config/permissions.js';
+import { BillableService } from '../models/BillableService.js';
 import { Exam } from '../models/Exam.js';
+import { SurgicalAct } from '../models/SurgicalAct.js';
+import { SurgicalCategory } from '../models/SurgicalCategory.js';
+import { organizationCurrency } from './catalog.service.js';
+import { ensureSurgicalSeed } from './surgery.service.js';
+import { fromMinorUnits } from '../utils/money.js';
 import { ApiError } from '../utils/ApiError.js';
 import { dateOnly, utcDayBounds } from '../utils/dates.js';
 import { paginated, readPagination } from '../utils/pagination.js';
@@ -251,6 +257,64 @@ export async function examsByPatient(actor: AuthContext, organizationId: string,
   await requireVisiblePatient(actor, organizationId, patientId, ip);
   const result = await listExams(actor, organizationId, { patientId, page: 1, limit: 100 });
   return result.data;
+}
+
+const labCategoryNames = new Set([
+  'Hématologie',
+  'Parasitologie',
+  'Urine complète',
+  'LCR et liquides de ponction',
+  'Biochimie',
+  'Ionogramme',
+  'Sérologie',
+  'Hormonologie',
+  'Bactériologie',
+  'Histopathologie',
+]);
+
+function catalogType(billingCategory: string | undefined, categoryName: string) {
+  if (billingCategory === 'IMAGERIE') return 'imaging' as const;
+  if (billingCategory === 'LABORATOIRE' || labCategoryNames.has(categoryName)) return 'laboratory' as const;
+  return null;
+}
+
+export async function listExamCatalog(actor: AuthContext, organizationId: string) {
+  await ensureSurgicalSeed(actor, organizationId);
+  const currency = await organizationCurrency(organizationId);
+  const [acts, categories, services] = await Promise.all([
+    SurgicalAct.find({ organizationId, active: true }).sort({ name: 1 }),
+    SurgicalCategory.find({ organizationId }),
+    BillableService.find({ organizationId, active: true, category: { $in: ['LABORATOIRE', 'IMAGERIE'] } }).sort({ name: 1 }),
+  ]);
+  const categoryNames = new Map(categories.map((category) => [category.id, category.name]));
+  const items = [
+    ...acts.flatMap((act) => {
+      const categoryName = categoryNames.get(String(act.categoryId)) || '';
+      const type = catalogType(act.billingCategory, categoryName);
+      if (!type) return [];
+      return [{
+        id: act.id,
+        name: act.name,
+        description: act.description || '',
+        categoryName,
+        type,
+        unitPrice: act.priceMinor == null ? null : fromMinorUnits(act.priceMinor),
+        currency: act.currency || null,
+        createdAt: act.createdAt,
+      }];
+    }),
+    ...services.map((service) => ({
+      id: service.id,
+      name: service.name,
+      description: service.description || '',
+      categoryName: service.category === 'IMAGERIE' ? 'Imagerie' : 'Laboratoire',
+      type: service.category === 'IMAGERIE' ? 'imaging' as const : 'laboratory' as const,
+      unitPrice: service.unitPrice,
+      currency: service.currency,
+      createdAt: service.createdAt,
+    })),
+  ].sort((left, right) => left.name.localeCompare(right.name, 'fr'));
+  return { currency, items };
 }
 
 export async function pendingExams(actor: AuthContext, organizationId: string) {

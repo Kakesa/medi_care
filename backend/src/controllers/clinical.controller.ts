@@ -128,6 +128,9 @@ export const cancelReception = asyncHandler(async (req: Request, res: Response) 
 export const listExams = asyncHandler(async (req: Request, res: Response) => {
   res.json(await examService.listExams(auth(req), org(req), req.query as never));
 });
+export const examCatalog = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await examService.listExamCatalog(auth(req), org(req)));
+});
 export const pendingExams = asyncHandler(async (req: Request, res: Response) => {
   res.json(await examService.pendingExams(auth(req), org(req)));
 });

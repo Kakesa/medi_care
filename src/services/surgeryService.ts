@@ -15,6 +15,7 @@ export interface SurgicalAct {
   unitPrice: number | null;
   currency: BillingCurrency | null;
   active: boolean;
+  billingCategory?: string;
   billable: boolean;
   createdAt?: string;
   updatedAt?: string;

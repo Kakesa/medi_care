@@ -12,6 +12,17 @@ import type {
   ApiResponse
 } from '@/types';
 
+export interface ExamCatalogItem {
+  id: string;
+  name: string;
+  description: string;
+  categoryName: string;
+  type: "laboratory" | "imaging";
+  unitPrice: number | null;
+  currency: string | null;
+  createdAt?: string;
+}
+
 class ExamService {
   private readonly basePath = '/exams';
 
@@ -57,6 +68,10 @@ class ExamService {
 
   async getPending(): Promise<Exam[]> {
     return httpClient.get<Exam[]>(`${this.basePath}/pending`);
+  }
+
+  catalog() {
+    return httpClient.get<{ currency: string; items: ExamCatalogItem[] }>(`${this.basePath}/catalog`);
   }
 }
 

@@ -23,6 +23,7 @@ interface ActRow {
   priceMinor?: number | null;
   currency?: string | null;
   active: boolean;
+  billingCategory?: string | null;
   createdBy?: { toString(): string } | null;
   updatedBy?: { toString(): string } | null;
   createdAt?: Date;
@@ -58,6 +59,7 @@ function toActDto(
     unitPrice: amountOf(row.priceMinor),
     currency: row.currency || null,
     active: row.active,
+    billingCategory: row.billingCategory || 'CHIRURGIE',
     billable: row.active && priced && row.currency === currency,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,

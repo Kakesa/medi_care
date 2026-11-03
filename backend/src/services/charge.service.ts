@@ -301,7 +301,7 @@ export async function listCatalog(actor: AuthContext, organizationId: string) {
       id: act.id,
       kind: 'surgery' as const,
       name: act.name,
-      category: 'CHIRURGIE',
+      category: act.billingCategory || 'CHIRURGIE',
       categoryLabel: names.get(String(act.categoryId)) || 'Chirurgie',
       description: act.description || '',
       unitPrice: fromMinorUnits(act.priceMinor ?? 0),

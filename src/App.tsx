@@ -64,7 +64,7 @@ const App = () => (
                 <Route path="appointments" element={<RequireRole roles={["HOSPITAL_ADMIN", "DOCTOR", "RECEPTIONIST"]}><Appointments /></RequireRole>} />
                 <Route path="consultations" element={<RequireRole roles={["HOSPITAL_ADMIN", "DOCTOR", "NURSE"]}><Consultations /></RequireRole>} />
                 <Route path="reception" element={<RequireRole roles={["HOSPITAL_ADMIN", "RECEPTIONIST"]}><Reception /></RequireRole>} />
-                <Route path="examinations" element={<RequireRole roles={["HOSPITAL_ADMIN", "DOCTOR", "NURSE"]}><Examinations /></RequireRole>} />
+                <Route path="examinations" element={<RequireRole roles={["HOSPITAL_ADMIN", "ACCOUNTANT", "DOCTOR", "NURSE"]}><Examinations /></RequireRole>} />
                 <Route path="pharmacy" element={<RequireRole roles={["HOSPITAL_ADMIN", "PHARMACIST"]}><Pharmacy /></RequireRole>} />
                 <Route path="surgery" element={<RequireRole roles={["HOSPITAL_ADMIN", "ACCOUNTANT", "DOCTOR", "NURSE"]}><Surgery /></RequireRole>} />
                 <Route path="billing" element={<RequireRole roles={["HOSPITAL_ADMIN", "ACCOUNTANT"]}><Billing /></RequireRole>} />

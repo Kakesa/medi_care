@@ -46,19 +46,111 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { examCategories } from "@/data/mockData";
-import { chargeService, type CatalogOption } from "@/services/chargeService";
-import { examService } from "@/services/examService";
+import { useAuth } from "@/contexts/AuthContext";
+import { chargeService, type CatalogOption, type PatientChargeRecord } from "@/services/chargeService";
+import { examService, type ExamCatalogItem } from "@/services/examService";
+import { formatMoney } from "@/lib/money";
 import { patientService } from "@/services/patientService";
 import { personnelService } from "@/services/personnelService";
+import { surgeryService, type SurgicalAct } from "@/services/surgeryService";
 import type { Exam, Patient, Personnel } from "@/types";
 import { apiMessage } from "@/lib/apiError";
 import { toast } from "sonner";
 
+function CatalogGrid({ items, currency, empty }: { items: ExamCatalogItem[]; currency: string; empty?: boolean }) {
+  if (items.length === 0) {
+    return empty ? <p className="text-sm text-muted-foreground">Aucun examen dans cette catégorie.</p> : null;
+  }
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      {items.map((item) => (
+        <Card key={`${item.type}-${item.id}`} className="card-elevated">
+          <CardContent className="pt-6">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="font-semibold">{item.name}</h3>
+                  <Badge variant="outline">{item.type === "imaging" ? "Imagerie" : "Laboratoire"}</Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">{item.categoryName}</p>
+                {item.description && <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>}
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-medium">{item.unitPrice == null ? "—" : formatMoney(item.unitPrice, item.currency || currency)}</p>
+                {item.createdAt && <p className="text-xs text-muted-foreground">Créé le {new Date(item.createdAt).toLocaleDateString("fr-FR")}</p>}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function ExamSums({ charges }: { charges: PatientChargeRecord[] }) {
+  const groups = new Map<string, { name: string; currency: string; total: number; lines: PatientChargeRecord[] }>();
+  for (const charge of charges) {
+    const current = groups.get(charge.patientId) || { name: charge.patientName, currency: charge.currency, total: 0, lines: [] };
+    current.total += charge.total;
+    current.lines.push(charge);
+    groups.set(charge.patientId, current);
+  }
+  if (groups.size === 0) {
+    return <p className="text-sm text-muted-foreground">Aucun examen recommandé pour le moment.</p>;
+  }
+  return (
+    <div className="space-y-4">
+      {[...groups.values()].map((group) => (
+        <Card key={group.name}>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center justify-between text-base">
+              <span>{group.name}</span>
+              <span>{formatMoney(group.total, group.currency)}</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {group.lines.map((line) => (
+              <div key={line.id} className="flex items-center justify-between gap-3 text-sm">
+                <span>{line.label}</span>
+                <span className="shrink-0">{formatMoney(line.total, line.currency)}</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+const labCategoryNames = new Set([
+  "Hématologie",
+  "Parasitologie",
+  "Urine complète",
+  "LCR et liquides de ponction",
+  "Biochimie",
+  "Ionogramme",
+  "Sérologie",
+  "Hormonologie",
+  "Bactériologie",
+  "Histopathologie",
+]);
+
 export default function Examinations() {
+  const { user } = useAuth();
+  const seesPrices = user?.role === "HOSPITAL_ADMIN" || user?.role === "ACCOUNTANT";
+  const canPlan = user?.role === "HOSPITAL_ADMIN" || user?.role === "DOCTOR" || user?.role === "NURSE";
   const [exams, setExams] = useState<Exam[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [doctors, setDoctors] = useState<Personnel[]>([]);
   const [tariffs, setTariffs] = useState<CatalogOption[]>([]);
+  const [labActs, setLabActs] = useState<SurgicalAct[]>([]);
+  const [catalogExams, setCatalogExams] = useState<ExamCatalogItem[]>([]);
+  const [orgCurrency, setOrgCurrency] = useState("EUR");
+  const [charges, setCharges] = useState<PatientChargeRecord[]>([]);
+  const [sumPatientId, setSumPatientId] = useState("");
+  const [priceDrafts, setPriceDrafts] = useState<Record<string, string>>({});
+  const [tariffSearch, setTariffSearch] = useState("");
+  const [selectedTariffIds, setSelectedTariffIds] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -80,6 +172,11 @@ export default function Examinations() {
 
   const loadExams = async () => {
     try {
+      if (user?.role === "ACCOUNTANT") {
+        const examResult = await examService.getAll({ limit: 100 });
+        setExams(examResult.data);
+        return;
+      }
       const [examResult, patientResult, doctorResult] = await Promise.all([
         examService.getAll({ limit: 100 }),
         patientService.getAll({ limit: 100 }),
@@ -93,14 +190,46 @@ export default function Examinations() {
     }
   };
 
+  const loadPrices = async () => {
+    if (!seesPrices) return;
+    try {
+      const result = await surgeryService.listActs();
+      setOrgCurrency(result.currency);
+      setLabActs(result.data.filter((act) => act.billingCategory === "LABORATOIRE" || act.billingCategory === "IMAGERIE" || labCategoryNames.has(act.categoryName)));
+    } catch (error) {
+      toast.error(apiMessage(error));
+    }
+  };
+
+  const loadCharges = async (patientId?: string) => {
+    if (user?.role === "DOCTOR" && !patientId) {
+      setCharges([]);
+      return;
+    }
+    try {
+      setCharges(await chargeService.list(patientId));
+    } catch {
+      setCharges([]);
+    }
+  };
+
   useEffect(() => {
+    if (!user) return;
     void loadExams();
-    void chargeService.catalog().then((result) => setTariffs(result.items)).catch(() => setTariffs([]));
-  }, []);
+    void loadPrices();
+    void examService.catalog().then((result) => {
+      setOrgCurrency(result.currency);
+      setCatalogExams(result.items);
+    }).catch((error) => toast.error(apiMessage(error)));
+    if (user.role !== "DOCTOR") void loadCharges();
+    if (user.role !== "ACCOUNTANT") {
+      void chargeService.catalog().then((result) => setTariffs(result.items)).catch(() => setTariffs([]));
+    }
+  }, [user?.role]);
 
   const examTariffs = tariffs.filter((item) => {
-    if (item.kind !== "service") return false;
     if (formData.type === "laboratory") return item.category === "LABORATOIRE";
+    if (item.kind !== "service") return false;
     if (formData.type === "imaging") return item.category === "IMAGERIE";
     if (formData.type === "biopsy") return item.category === "ACTE_MEDICAL";
     return ["SOINS_INFIRMIERS", "AUTRE", "REEDUCATION", "ACTE_MEDICAL"].includes(item.category);
@@ -118,6 +247,16 @@ export default function Examinations() {
 
   const laboratoryExams = filteredExams.filter(e => e.type === 'laboratory');
   const imagingExams = filteredExams.filter(e => e.type === 'imaging');
+  const catalogQuery = searchTerm.toLowerCase();
+  const visibleCatalog = catalogExams.filter((item) =>
+    item.name.toLowerCase().includes(catalogQuery) ||
+    item.categoryName.toLowerCase().includes(catalogQuery) ||
+    item.description.toLowerCase().includes(catalogQuery)
+  );
+  const laboratoryCatalog = visibleCatalog.filter((item) => item.type === "laboratory");
+  const imagingCatalog = visibleCatalog.filter((item) => item.type === "imaging");
+
+  const typeLabel = (type: string) => type === "imaging" ? "Imagerie" : type === "laboratory" ? "Laboratoire" : "Autre";
 
   const resetForm = () => {
     setFormData({
@@ -131,11 +270,38 @@ export default function Examinations() {
       results: "",
       billableServiceId: ""
     });
+    setSelectedTariffIds([]);
     setEditingExam(null);
   };
 
+  const transmitTariff = async (tariff: CatalogOption) => {
+    await examService.create({
+      patientId: formData.patientId,
+      patientName: "",
+      doctorId: formData.doctorId,
+      doctorName: "",
+      type: formData.type,
+      category: tariff.categoryLabel || formData.category || "Laboratoire",
+      name: tariff.name,
+      date: formData.date,
+      notes: formData.notes || undefined,
+      billableServiceId: tariff.kind === "service" ? tariff.id : undefined,
+    });
+    if (tariff.kind === "surgery") {
+      await chargeService.recommend({
+        patientId: formData.patientId,
+        catalogKind: "surgery",
+        catalogItemId: tariff.id,
+        quantity: 1,
+        idempotencyKey: crypto.randomUUID(),
+      });
+    }
+  };
+
   const handleSubmit = async () => {
-    if (!formData.patientId || !formData.doctorId || !formData.name || !formData.category || !formData.date) {
+    const picked = examTariffs.filter((item) => selectedTariffIds.includes(item.id));
+    const planningSeveral = !editingExam && formData.type === "laboratory" && picked.length > 0;
+    if (!formData.patientId || !formData.doctorId || !formData.date || (!planningSeveral && (!formData.name || !formData.category))) {
       toast.error("Veuillez sélectionner un patient, un médecin, une catégorie, un nom et une date");
       return;
     }
@@ -154,20 +320,36 @@ export default function Examinations() {
           notes: formData.notes || undefined,
         });
         toast.success("Examen modifié avec succès");
+      } else if (planningSeveral) {
+        for (const tariff of picked) {
+          await transmitTariff(tariff);
+        }
+        toast.success("Examens transmis à la facturation");
+        setSumPatientId(formData.patientId);
+        await loadCharges(formData.patientId);
       } else {
-        await examService.create({
-          patientId: formData.patientId,
-          patientName: "",
-          doctorId: formData.doctorId,
-          doctorName: "",
-          type: formData.type,
-          category: formData.category,
-          name: formData.name,
-          date: formData.date,
-          notes: formData.notes || undefined,
-          billableServiceId: formData.billableServiceId || undefined,
-        });
-        toast.success(formData.billableServiceId ? "Examen transmis à la facturation" : "Examen planifié avec succès");
+        const tariff = examTariffs.find((item) => item.id === formData.billableServiceId);
+        if (tariff?.kind === "surgery") {
+          await transmitTariff(tariff);
+        } else {
+          await examService.create({
+            patientId: formData.patientId,
+            patientName: "",
+            doctorId: formData.doctorId,
+            doctorName: "",
+            type: formData.type,
+            category: formData.category,
+            name: formData.name,
+            date: formData.date,
+            notes: formData.notes || undefined,
+            billableServiceId: formData.billableServiceId || undefined,
+          });
+        }
+        if (tariff) {
+          setSumPatientId(formData.patientId);
+          await loadCharges(formData.patientId);
+        }
+        toast.success(tariff ? "Examen transmis à la facturation" : "Examen planifié avec succès");
       }
       setIsDialogOpen(false);
       resetForm();
@@ -190,7 +372,26 @@ export default function Examinations() {
       billableServiceId: "",
       results: exam.results || ""
     });
+    setSelectedTariffIds([]);
     setIsDialogOpen(true);
+  };
+
+  const savePrice = async (act: SurgicalAct) => {
+    const raw = priceDrafts[act.id] ?? (act.unitPrice == null ? "" : String(act.unitPrice));
+    const unitPrice = Number(raw.replace(",", "."));
+    if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+      toast.error("Indiquez le prix de l'examen");
+      return;
+    }
+    try {
+      await surgeryService.updateAct(act.id, { unitPrice });
+      toast.success("Prix enregistré");
+      await loadPrices();
+      const result = await chargeService.catalog().catch(() => null);
+      if (result) setTariffs(result.items);
+    } catch (error) {
+      toast.error(apiMessage(error));
+    }
   };
 
   const handleDelete = async (examId: string) => {
@@ -252,7 +453,10 @@ export default function Examinations() {
               {getTypeIcon(exam.type)}
             </div>
             <div>
-              <h3 className="font-semibold">{exam.name}</h3>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="font-semibold">{exam.name}</h3>
+                <Badge variant="outline">{typeLabel(exam.type)}</Badge>
+              </div>
               <p className="text-sm text-muted-foreground">{exam.category}</p>
               <p className="text-sm font-medium mt-1">{exam.patientName}</p>
               <p className="text-xs text-muted-foreground">{exam.doctorName}</p>
@@ -276,13 +480,13 @@ export default function Examinations() {
             <Eye className="h-4 w-4 mr-1" />
             Détails
           </Button>
-          {exam.status !== 'completed' && (
+          {canPlan && exam.status !== 'completed' && (
             <Button variant="outline" size="sm" onClick={() => handleEdit(exam)}>
               <Edit className="h-4 w-4 mr-1" />
               Modifier
             </Button>
           )}
-          {!exam.results && exam.status !== 'cancelled' && (
+          {canPlan && !exam.results && exam.status !== 'cancelled' && (
             <Select onValueChange={(value) => handleStatusChange(exam.id, value as Exam['status'])}>
               <SelectTrigger className="w-32 h-8">
                 <SelectValue placeholder="Statut" />
@@ -295,7 +499,7 @@ export default function Examinations() {
               </SelectContent>
             </Select>
           )}
-          <AlertDialog>
+          {canPlan && user?.role === "HOSPITAL_ADMIN" && <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="ghost" size="sm" className="text-destructive">
                 <Trash2 className="h-4 w-4" />
@@ -315,7 +519,7 @@ export default function Examinations() {
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
-          </AlertDialog>
+          </AlertDialog>}
         </div>
       </CardContent>
     </Card>
@@ -331,14 +535,14 @@ export default function Examinations() {
             Gestion des examens de laboratoire et imagerie médicale
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
+        {canPlan && <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
           <DialogTrigger asChild>
             <Button className="gap-2">
               <Plus className="h-4 w-4" />
               Planifier un examen
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>{editingExam ? 'Modifier l\'examen' : 'Planifier un examen'}</DialogTitle>
               <DialogDescription>
@@ -397,6 +601,33 @@ export default function Examinations() {
                   </SelectContent>
                 </Select>
               </div>
+              {formData.type === "laboratory" && !editingExam ? (
+                <div className="space-y-2">
+                  <Label>Examens du catalogue</Label>
+                  <div className="max-h-52 space-y-1 overflow-y-auto rounded-md border border-border p-2">
+                    {examTariffs.length === 0 ? (
+                      <p className="px-2 py-3 text-sm text-muted-foreground">Aucun examen n'a encore de prix enregistré.</p>
+                    ) : examTariffs.map((tariff) => {
+                      const checked = selectedTariffIds.includes(tariff.id);
+                      return (
+                        <button
+                          key={tariff.id}
+                          type="button"
+                          onClick={() => setSelectedTariffIds((current) => checked ? current.filter((id) => id !== tariff.id) : [...current, tariff.id])}
+                          className={`flex w-full items-center justify-between gap-3 rounded-md px-2 py-2 text-left text-sm ${checked ? "bg-primary/10" : "hover:bg-muted"}`}
+                        >
+                          <span>
+                            <span className="block font-medium">{tariff.name}</span>
+                            <span className="text-xs text-muted-foreground">{tariff.categoryLabel}</span>
+                          </span>
+                          <span className="shrink-0 font-medium">{formatMoney(tariff.unitPrice, tariff.currency)}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Le prix affiché est celui déjà enregistré. Après validation, la somme se trouve dans l'onglet Somme.</p>
+                </div>
+              ) : (
               <div className="space-y-2">
                 <Label>Tarif du catalogue</Label>
                 <Select
@@ -415,12 +646,21 @@ export default function Examinations() {
                   <SelectContent>
                     <SelectItem value="none">Ne pas facturer</SelectItem>
                     {examTariffs.map((tariff) => (
-                      <SelectItem key={tariff.id} value={tariff.id}>{tariff.name}</SelectItem>
+                      <SelectItem key={tariff.id} value={tariff.id}>{tariff.name} · {formatMoney(tariff.unitPrice, tariff.currency)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {examTariffs.find((item) => item.id === formData.billableServiceId) && (
+                  <p className="text-sm font-medium">
+                    Prix : {formatMoney(
+                      examTariffs.find((item) => item.id === formData.billableServiceId)!.unitPrice,
+                      examTariffs.find((item) => item.id === formData.billableServiceId)!.currency
+                    )}
+                  </p>
+                )}
                 <p className="text-xs text-muted-foreground">Le prix vient du catalogue. L'examen transmis reste recommandé tant qu'il n'est pas réalisé.</p>
               </div>
+              )}
               <div className="space-y-2">
                 <Label>Nom de l'examen</Label>
                 <Input value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} placeholder="Ex: Bilan sanguin complet" />
@@ -435,7 +675,7 @@ export default function Examinations() {
               <Button onClick={handleSubmit}>{editingExam ? 'Modifier' : 'Planifier'}</Button>
             </DialogFooter>
           </DialogContent>
-        </Dialog>
+        </Dialog>}
       </div>
 
       {/* Filters */}
@@ -467,34 +707,123 @@ export default function Examinations() {
       {/* Tabs */}
       <Tabs defaultValue="all" className="space-y-6">
         <TabsList>
-          <TabsTrigger value="all">Tous ({filteredExams.length})</TabsTrigger>
+          <TabsTrigger value="all">Tous ({visibleCatalog.length + filteredExams.length})</TabsTrigger>
           <TabsTrigger value="laboratory">
             <TestTube className="h-4 w-4 mr-1" />
-            Laboratoire ({laboratoryExams.length})
+            Laboratoire ({laboratoryCatalog.length + laboratoryExams.length})
           </TabsTrigger>
           <TabsTrigger value="imaging">
             <FileImage className="h-4 w-4 mr-1" />
-            Imagerie ({imagingExams.length})
+            Imagerie ({imagingCatalog.length + imagingExams.length})
           </TabsTrigger>
+          <TabsTrigger value="somme">Somme</TabsTrigger>
+          {seesPrices && <TabsTrigger value="tarifs">Tarifs</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="all" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            {filteredExams.map(exam => <ExamCard key={exam.id} exam={exam} />)}
-          </div>
+          <CatalogGrid items={visibleCatalog} currency={orgCurrency} empty={filteredExams.length === 0} />
+          {filteredExams.length > 0 && (
+            <>
+              <h2 className="text-lg font-semibold">Examens des patients</h2>
+              <div className="grid gap-4 md:grid-cols-2">
+                {filteredExams.map(exam => <ExamCard key={exam.id} exam={exam} />)}
+              </div>
+            </>
+          )}
         </TabsContent>
 
         <TabsContent value="laboratory" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            {laboratoryExams.map(exam => <ExamCard key={exam.id} exam={exam} />)}
-          </div>
+          <CatalogGrid items={laboratoryCatalog} currency={orgCurrency} empty={laboratoryExams.length === 0} />
+          {laboratoryExams.length > 0 && (
+            <>
+              <h2 className="text-lg font-semibold">Examens des patients</h2>
+              <div className="grid gap-4 md:grid-cols-2">
+                {laboratoryExams.map(exam => <ExamCard key={exam.id} exam={exam} />)}
+              </div>
+            </>
+          )}
         </TabsContent>
 
         <TabsContent value="imaging" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            {imagingExams.map(exam => <ExamCard key={exam.id} exam={exam} />)}
-          </div>
+          <CatalogGrid items={imagingCatalog} currency={orgCurrency} empty={imagingExams.length === 0} />
+          {imagingExams.length > 0 && (
+            <>
+              <h2 className="text-lg font-semibold">Examens des patients</h2>
+              <div className="grid gap-4 md:grid-cols-2">
+                {imagingExams.map(exam => <ExamCard key={exam.id} exam={exam} />)}
+              </div>
+            </>
+          )}
         </TabsContent>
+
+        <TabsContent value="somme" className="space-y-4">
+          {patients.length > 0 && (
+            <Select
+              value={sumPatientId || "none"}
+              onValueChange={(value) => {
+                const patientId = value === "none" ? "" : value;
+                setSumPatientId(patientId);
+                void loadCharges(patientId || undefined);
+              }}
+            >
+              <SelectTrigger className="w-full sm:w-72"><SelectValue placeholder="Patient" /></SelectTrigger>
+              <SelectContent>
+                {user?.role !== "DOCTOR" && <SelectItem value="none">Tous les patients visibles</SelectItem>}
+                {patients.map((patient) => (
+                  <SelectItem key={patient.id} value={patient.id}>{patient.firstName} {patient.lastName}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          {user?.role === "DOCTOR" && !sumPatientId ? (
+            <p className="text-sm text-muted-foreground">Choisissez un patient pour voir la somme de ses examens.</p>
+          ) : (
+            <ExamSums charges={charges.filter((charge) => charge.category === "LABORATOIRE" && charge.realizationStatus !== "cancelled")} />
+          )}
+        </TabsContent>
+
+        {seesPrices && (
+          <TabsContent value="tarifs" className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Rechercher un examen"
+                value={tariffSearch}
+                onChange={(event) => setTariffSearch(event.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <div className="space-y-2">
+              {labActs
+                .filter((act) => act.name.toLowerCase().includes(tariffSearch.toLowerCase()) || act.categoryName.toLowerCase().includes(tariffSearch.toLowerCase()))
+                .map((act) => (
+                  <div key={act.id} className="flex flex-col gap-3 rounded-lg border border-border p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-medium">{act.name}</p>
+                        <Badge variant="outline">{act.billingCategory === "IMAGERIE" ? "Imagerie" : "Laboratoire"}</Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{act.categoryName}{act.description ? ` · ${act.description}` : ""}</p>
+                      {act.createdAt && <p className="text-xs text-muted-foreground">Créé le {new Date(act.createdAt).toLocaleDateString("fr-FR")}</p>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        className="w-28"
+                        inputMode="decimal"
+                        value={priceDrafts[act.id] ?? (act.unitPrice == null ? "" : String(act.unitPrice))}
+                        onChange={(event) => setPriceDrafts((current) => ({ ...current, [act.id]: event.target.value }))}
+                        placeholder="Prix"
+                      />
+                      <span className="w-28 text-sm font-medium">
+                        {act.unitPrice == null ? "—" : formatMoney(act.unitPrice, act.currency || orgCurrency)}
+                      </span>
+                      <Button type="button" variant="outline" size="sm" onClick={() => void savePrice(act)}>Enregistrer</Button>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Exam details dialog */}
@@ -545,7 +874,7 @@ export default function Examinations() {
                       Télécharger
                     </Button>
                   </div>
-                ) : (
+                ) : canPlan ? (
                   <div className="space-y-2">
                     <Label>Ajouter les résultats</Label>
                     <Textarea 
@@ -562,7 +891,7 @@ export default function Examinations() {
                       Enregistrer les résultats
                     </Button>
                   </div>
-                )}
+                ) : null}
               </div>
             </>
           )}

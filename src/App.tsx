@@ -27,6 +27,9 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import Register from "./pages/Register";
 import Hospitals from "./pages/Hospitals";
+import PatientAppointments from "./pages/patient/PatientAppointments";
+import PatientExams from "./pages/patient/PatientExams";
+import PatientInvoices from "./pages/patient/PatientInvoices";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 import { RequireRole } from "./components/auth/RequireRole";
 
@@ -74,6 +77,9 @@ const App = () => (
                 <Route path="billing" element={<RequireRole roles={["HOSPITAL_ADMIN", "ACCOUNTANT"]}><Billing /></RequireRole>} />
                 <Route path="accounting" element={<RequireRole roles={["HOSPITAL_ADMIN", "ACCOUNTANT"]}><Accounting /></RequireRole>} />
                 <Route path="beds" element={<RequireRole roles={["HOSPITAL_ADMIN", "RECEPTIONIST"]}><BedManagement /></RequireRole>} />
+                <Route path="rendez-vous" element={<RequireRole roles={["PATIENT"]}><PatientAppointments /></RequireRole>} />
+                <Route path="examen" element={<RequireRole roles={["PATIENT"]}><PatientExams /></RequireRole>} />
+                <Route path="facture" element={<RequireRole roles={["PATIENT"]}><PatientInvoices /></RequireRole>} />
                 <Route path="profile" element={<Profile />} />
               </Route>
               <Route path="*" element={<NotFound />} />

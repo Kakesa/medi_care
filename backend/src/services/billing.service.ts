@@ -7,7 +7,7 @@ import { ApiError } from '../utils/ApiError.js';
 import { dateOnly, utcDayBounds } from '../utils/dates.js';
 import { paginated, readPagination } from '../utils/pagination.js';
 import type { AuthContext } from '../types/express.js';
-import { requireOwned, requireVisiblePatient } from './access.service.js';
+import { ownPatientId, requireOwned, requireVisiblePatient } from './access.service.js';
 import { recordAudit } from './audit.service.js';
 import { priceSurgicalAct } from './surgery.service.js';
 
@@ -199,6 +199,18 @@ export async function billingPatients(organizationId: string) {
     firstName: row.firstName,
     lastName: row.lastName,
   }));
+}
+
+export async function listMyInvoices(actor: AuthContext, organizationId: string) {
+  const patientId = await ownPatientId(actor, organizationId);
+  if (!patientId) return [];
+  await markOverdue(organizationId);
+  const rows = await Invoice.find({
+    organizationId,
+    patientId,
+    status: { $in: ['pending', 'overdue', 'paid'] },
+  }).sort({ createdAt: -1 }).limit(100);
+  return rows.map((row) => toInvoiceDto(row));
 }
 
 export async function listInvoices(

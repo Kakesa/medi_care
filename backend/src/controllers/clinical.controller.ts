@@ -205,6 +205,9 @@ export const billingPatients = asyncHandler(async (req: Request, res: Response) 
 export const listInvoices = asyncHandler(async (req: Request, res: Response) => {
   res.json(await billingService.listInvoices(org(req), req.query as never));
 });
+export const myInvoices = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await billingService.listMyInvoices(auth(req), org(req)));
+});
 export const invoiceStats = asyncHandler(async (req: Request, res: Response) => {
   res.json(await billingService.invoiceStats(org(req)));
 });

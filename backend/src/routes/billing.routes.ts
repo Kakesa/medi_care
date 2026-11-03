@@ -20,7 +20,9 @@ import {
 const router = Router();
 const roles = [ROLES.HOSPITAL_ADMIN, ROLES.ACCOUNTANT] as const;
 
-router.use(authenticate, requireTenant, requireRoles(...roles));
+router.use(authenticate, requireTenant);
+router.get('/my-invoices', requireRoles(ROLES.PATIENT), clinical.myInvoices);
+router.use(requireRoles(...roles));
 router.get('/settings', clinical.billingSettings);
 router.patch('/settings', requireRoles(ROLES.HOSPITAL_ADMIN), validate(billingSettingsSchema), clinical.updateBillingSettings);
 router.get('/services', clinical.listServices);

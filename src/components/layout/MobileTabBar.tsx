@@ -10,6 +10,9 @@ import { allNavigation } from "./Sidebar";
 
 const shortLabels: Record<string, string> = {
   "/dashboard": "Accueil",
+  "/dashboard/rendez-vous": "RDV",
+  "/dashboard/examen": "Examen",
+  "/dashboard/facture": "Facture",
   "/dashboard/hospitals": "Hôpitaux",
   "/dashboard/reception": "Récept.",
   "/dashboard/personnel": "Équipe",
@@ -27,6 +30,9 @@ const shortLabels: Record<string, string> = {
 
 const primaryOrder = [
   "/dashboard",
+  "/dashboard/rendez-vous",
+  "/dashboard/examen",
+  "/dashboard/facture",
   "/dashboard/patients",
   "/dashboard/appointments",
   "/dashboard/reception",

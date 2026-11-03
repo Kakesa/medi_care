@@ -79,6 +79,10 @@ class BillingService {
     return httpClient.get(`${this.basePath}/patients`);
   }
 
+  async getMyInvoices(): Promise<Invoice[]> {
+    return httpClient.get<Invoice[]>(`${this.basePath}/my-invoices`);
+  }
+
   async getInvoices(params?: InvoiceQueryParams): Promise<PaginatedResponse<Invoice>> {
     const queryParams: Record<string, string> = {};
     if (params?.page) queryParams.page = String(params.page);

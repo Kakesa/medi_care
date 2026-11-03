@@ -9,6 +9,7 @@ import { paginated, readPagination } from '../utils/pagination.js';
 import type { AuthContext } from '../types/express.js';
 import { requireOwned, requireVisiblePatient } from './access.service.js';
 import { recordAudit } from './audit.service.js';
+import { priceSurgicalAct } from './surgery.service.js';
 
 interface ItemInput {
   description?: string;
@@ -17,6 +18,7 @@ interface ItemInput {
   type?: string;
   category?: string;
   catalogItemId?: string;
+  surgicalActId?: string;
   referenceId?: string;
 }
 
@@ -41,6 +43,8 @@ function toInvoiceDto(row: {
     serviceCode?: string | null;
     unit?: string | null;
     source?: string | null;
+    surgicalActId?: { toString(): string } | null;
+    detail?: string | null;
     referenceId?: string | null;
   }>;
   currency?: string;
@@ -76,6 +80,8 @@ function toInvoiceDto(row: {
       serviceCode: item.serviceCode || undefined,
       unit: item.unit || undefined,
       source: item.source || 'manual',
+      surgicalActId: item.surgicalActId?.toString(),
+      detail: item.detail || undefined,
       referenceId: item.referenceId,
     })),
     subtotal: row.subtotal,
@@ -98,7 +104,19 @@ function toInvoiceDto(row: {
 
 async function priceItems(organizationId: string, actor: AuthContext, items: ItemInput[], ip?: string) {
   const priced = [];
+  const seenActs = new Set<string>();
   for (const item of items) {
+    if (item.surgicalActId && item.catalogItemId) {
+      throw new ApiError(400, 'Une ligne ne peut pas être à la fois un acte chirurgical et une prestation du catalogue', 'VALIDATION_ERROR');
+    }
+    if (item.surgicalActId) {
+      if (seenActs.has(item.surgicalActId)) {
+        throw new ApiError(409, 'Cet acte chirurgical est déjà présent sur la facture', 'DUPLICATE_ACT');
+      }
+      seenActs.add(item.surgicalActId);
+      priced.push(await priceSurgicalAct(actor, organizationId, item.surgicalActId, item.quantity, ip));
+      continue;
+    }
     if (item.catalogItemId) {
       const service = await requireOwned(BillableService, item.catalogItemId, organizationId, actor, 'billable_service', ip);
       if (!service.active) {
@@ -222,6 +240,7 @@ export async function createInvoice(
     currency,
     status: 'draft',
     notes: input.notes?.trim(),
+    createdBy: actor.id,
   });
   await recordAudit({
     actorId: actor.id,

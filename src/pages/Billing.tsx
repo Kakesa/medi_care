@@ -13,6 +13,7 @@ import { generateInvoicePDF } from "@/utils/pdfGenerator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ServiceCatalogPanel } from "@/components/billing/ServiceCatalogPanel";
 import { billingService, type BillableServiceRecord } from "@/services/billingService";
+import { surgeryService, type PatientSurgeryLine, type SurgicalAct } from "@/services/surgeryService";
 import type { Invoice, InvoiceStatus, PaymentMethod } from "@/types";
 import { apiMessage } from "@/lib/apiError";
 import { categoryLabel, DEFAULT_CATEGORIES, type BillingCategory } from "@/lib/billingCategories";
@@ -65,6 +66,11 @@ export default function Billing() {
   const canEditCatalog = user?.role === "HOSPITAL_ADMIN";
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [services, setServices] = useState<BillableServiceRecord[]>([]);
+  const [surgeryActs, setSurgeryActs] = useState<SurgicalAct[]>([]);
+  const [selectedActs, setSelectedActs] = useState<Array<{ id: string; name: string; description: string; unitPrice: number; quantity: number }>>([]);
+  const [actSearch, setActSearch] = useState("");
+  const [actCategory, setActCategory] = useState("all");
+  const [patientActs, setPatientActs] = useState<PatientSurgeryLine[]>([]);
   const [categories, setCategories] = useState<BillingCategory[]>(DEFAULT_CATEGORIES);
   const [currency, setCurrency] = useState<BillingCurrency>("EUR");
   const [currencies, setCurrencies] = useState<BillingCurrency[]>(["EUR", "CDF", "USD"]);
@@ -88,11 +94,12 @@ export default function Billing() {
 
   const loadBilling = async () => {
     try {
-      const [invoiceResult, patientResult, settings, catalog] = await Promise.all([
+      const [invoiceResult, patientResult, settings, catalog, surgical] = await Promise.all([
         billingService.getInvoices({ limit: 100 }),
         billingService.getBillingPatients(),
         billingService.getSettings(),
         billingService.getServices(),
+        surgeryService.listActs({ billable: "true" }),
       ]);
       setInvoices(invoiceResult.data);
       setPatients(patientResult);
@@ -100,6 +107,7 @@ export default function Billing() {
       setCurrencies(settings.currencies);
       setCategories(settings.categories);
       setServices(catalog);
+      setSurgeryActs(surgical.data);
       setSelectedInvoice((current) => current ? invoiceResult.data.find((invoice) => invoice.id === current.id) ?? current : current);
     } catch (error) {
       toast.error(apiMessage(error));
@@ -109,6 +117,14 @@ export default function Billing() {
   useEffect(() => {
     void loadBilling();
   }, []);
+
+  useEffect(() => {
+    if (!newInvoice.patientId) {
+      setPatientActs([]);
+      return;
+    }
+    void surgeryService.patientHistory(newInvoice.patientId).then(setPatientActs).catch(() => setPatientActs([]));
+  }, [newInvoice.patientId]);
 
   const filteredInvoices = invoices.filter(inv => {
     const matchesSearch = inv.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -124,11 +140,21 @@ export default function Billing() {
     paid: invoices.filter(inv => inv.status === "paid" && inCurrency(inv)).reduce((sum, inv) => sum + inv.total, 0),
   };
   const billableServices = services.filter((service) => service.active && service.currency === currency);
+  const actCategories = [...new Map(surgeryActs.map((act) => [act.categoryId, act.categoryName])).entries()];
+  const matchingActs = surgeryActs.filter((act) => {
+    const needle = actSearch.trim().toLocaleLowerCase("fr");
+    const matchesSearch = !needle || act.name.toLocaleLowerCase("fr").includes(needle) || act.description.toLocaleLowerCase("fr").includes(needle);
+    return matchesSearch && (actCategory === "all" || act.categoryId === actCategory);
+  });
 
-  const draftTotal = newInvoice.items.reduce((sum, item) => sum + item.quantity * (Number.isFinite(item.unitPrice) ? item.unitPrice : 0), 0);
+  const surgeryTotal = selectedActs.reduce((sum, act) => sum + act.quantity * act.unitPrice, 0);
+  const draftTotal = surgeryTotal + newInvoice.items.reduce((sum, item) => sum + item.quantity * (Number.isFinite(item.unitPrice) ? item.unitPrice : 0), 0);
 
   const resetForm = () => {
     setNewInvoice({ patientId: "", dueDate: defaultDueDate(), items: [emptyLine()], notes: "" });
+    setSelectedActs([]);
+    setActSearch("");
+    setActCategory("all");
   };
 
   const updateLine = (index: number, patch: Partial<DraftLine>) => {
@@ -164,7 +190,7 @@ export default function Billing() {
       return;
     }
     const items = newInvoice.items.filter((item) => item.catalogItemId !== "manual" || item.description.trim());
-    if (items.length === 0) {
+    if (items.length + selectedActs.length === 0) {
       toast.error("Ajoutez au moins une ligne");
       return;
     }
@@ -179,15 +205,26 @@ export default function Billing() {
       const created = await billingService.createInvoice({
         patientId: newInvoice.patientId,
         patientName: "",
-        items: items.map((item) => ({
-          description: item.description.trim(),
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          total: item.quantity * item.unitPrice,
-          category: item.category,
-          type: "service",
-          ...(item.catalogItemId !== "manual" ? { catalogItemId: item.catalogItemId } : {}),
-        })),
+        items: [
+          ...selectedActs.map((act) => ({
+            description: act.name,
+            quantity: act.quantity,
+            unitPrice: act.unitPrice,
+            total: act.quantity * act.unitPrice,
+            category: "CHIRURGIE",
+            type: "service",
+            surgicalActId: act.id,
+          })),
+          ...items.map((item) => ({
+            description: item.description.trim(),
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            total: item.quantity * item.unitPrice,
+            category: item.category,
+            type: "service",
+            ...(item.catalogItemId !== "manual" ? { catalogItemId: item.catalogItemId } : {}),
+          })),
+        ],
         tax: 0,
         discount: 0,
         dueDate: newInvoice.dueDate,
@@ -307,11 +344,73 @@ export default function Billing() {
                     </SelectContent>
                   </Select>
                   {patients.length === 0 && <p className="text-xs text-muted-foreground">Aucun patient enregistré.</p>}
+                  {patientActs.length > 0 && (
+                    <div className="space-y-1 rounded-lg bg-secondary/50 p-2 text-xs text-muted-foreground">
+                      <p className="font-medium text-foreground">Actes déjà facturés</p>
+                      {patientActs.slice(0, 5).map((line, index) => (
+                        <p key={`${line.invoiceId}-${line.actId}-${index}`}>{line.name} · {line.invoiceNumber} · {money(line.unitPrice, line.currency)} · {line.status}</p>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2 sm:col-span-2">
                   <Label htmlFor="dueDate">Date limite de paiement</Label>
                   <Input id="dueDate" type="date" value={newInvoice.dueDate} onChange={(event) => setNewInvoice({ ...newInvoice, dueDate: event.target.value })} />
                 </div>
+              </div>
+              <div className="space-y-3 rounded-xl border bg-secondary/40 p-3">
+                <div>
+                  <p className="text-sm font-medium">Actes chirurgicaux</p>
+                  <p className="text-xs text-muted-foreground">Seuls les actes actifs, déjà tarifés en {currency}, peuvent être ajoutés. Le serveur recalcule le prix.</p>
+                </div>
+                <Input placeholder="Rechercher un acte" value={actSearch} onChange={(event) => setActSearch(event.target.value)} />
+                <Select value={actCategory} onValueChange={setActCategory}>
+                  <SelectTrigger><SelectValue placeholder="Catégorie" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Toutes les catégories</SelectItem>
+                    {actCategories.map(([id, name]) => <SelectItem key={id} value={id}>{name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <div className="max-h-40 space-y-2 overflow-y-auto">
+                  {matchingActs.length === 0 && <p className="text-xs text-muted-foreground">Aucun acte facturable. Saisissez d'abord un tarif dans Chirurgie (actes).</p>}
+                  {matchingActs.slice(0, 8).map((act) => (
+                    <div key={act.id} className="flex items-start justify-between gap-2 text-sm">
+                      <div className="min-w-0">
+                        <p className="font-medium">{act.name}</p>
+                        <p className="text-xs text-muted-foreground">{act.description}</p>
+                        <p className="text-xs">{money(act.unitPrice || 0, currency)}</p>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={selectedActs.some((selected) => selected.id === act.id)}
+                        onClick={() => setSelectedActs((current) => [...current, { id: act.id, name: act.name, description: act.description, unitPrice: act.unitPrice || 0, quantity: 1 }])}
+                      >
+                        Ajouter
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                {selectedActs.map((act) => (
+                  <div key={act.id} className="flex items-center justify-between gap-2 rounded-lg bg-background p-2 text-sm">
+                    <div className="min-w-0">
+                      <p className="font-medium">{act.name}</p>
+                      <p className="text-xs text-muted-foreground">{money(act.quantity * act.unitPrice, currency)}</p>
+                    </div>
+                    <Input
+                      className="h-9 w-16"
+                      type="number"
+                      min={1}
+                      value={act.quantity}
+                      onChange={(event) => setSelectedActs((current) => current.map((item) => item.id === act.id ? { ...item, quantity: Math.max(1, parseInt(event.target.value, 10) || 1) } : item))}
+                      aria-label={`Quantité ${act.name}`}
+                    />
+                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSelectedActs((current) => current.filter((item) => item.id !== act.id))} aria-label={`Retirer ${act.name}`}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
               </div>
               {newInvoice.items.map((item, index) => (
                 <div key={index} className="space-y-3 rounded-xl border bg-card p-3">
@@ -496,6 +595,7 @@ export default function Billing() {
                   <div key={item.id} className="flex items-start justify-between gap-3 text-sm">
                     <div>
                       <p className="font-medium">{item.description}</p>
+                      {item.detail && <p className="text-muted-foreground">{item.detail}</p>}
                       <p className="text-muted-foreground">
                         {item.quantity} × {money(item.unitPrice, selectedInvoice.currency || currency)}
                         {item.category ? ` · ${categoryLabel(categories, item.category)}` : ""}

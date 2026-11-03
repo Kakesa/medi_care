@@ -292,9 +292,10 @@ const invoiceItem = z.object({
   type: z.string().max(40).optional(),
   category: categoryCode.optional(),
   catalogItemId: objectIdSchema.optional(),
+  surgicalActId: objectIdSchema.optional(),
   referenceId: z.string().max(80).optional(),
 }).superRefine((item, context) => {
-  if (!item.catalogItemId && !item.description?.trim()) {
+  if (!item.catalogItemId && !item.surgicalActId && !item.description?.trim()) {
     context.addIssue({ code: z.ZodIssueCode.custom, message: 'Description requise pour une ligne manuelle', path: ['description'] });
   }
 });
@@ -314,7 +315,7 @@ export const createInvoiceSchema = envelope(
     patientName: z.string().max(160).optional(),
     patientAddress: z.string().max(300).optional(),
     patientPhone: z.string().max(30).optional(),
-    items: z.array(invoiceItem).min(1).max(50),
+    items: z.array(invoiceItem).min(1).max(100),
     tax: z.coerce.number().min(0).optional(),
     discount: z.coerce.number().min(0).optional(),
     dueDate: z.coerce.date().optional(),
@@ -323,7 +324,7 @@ export const createInvoiceSchema = envelope(
 );
 export const updateInvoiceSchema = envelope(
   z.object({
-    items: z.array(invoiceItem).min(1).max(50).optional(),
+    items: z.array(invoiceItem).min(1).max(100).optional(),
     dueDate: z.coerce.date().optional(),
     notes: optionalText,
     patientName: z.string().max(160).optional(),

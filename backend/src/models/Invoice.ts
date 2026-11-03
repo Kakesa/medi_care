@@ -11,7 +11,9 @@ const invoiceItemSchema = new Schema(
     catalogItemId: { type: Schema.Types.ObjectId, ref: 'BillableService' },
     serviceCode: { type: String, trim: true, maxlength: 40 },
     unit: { type: String, trim: true, maxlength: 20 },
-    source: { type: String, enum: ['manual', 'catalog'], default: 'manual' },
+    source: { type: String, enum: ['manual', 'catalog', 'surgery'], default: 'manual' },
+    surgicalActId: { type: Schema.Types.ObjectId, ref: 'SurgicalAct' },
+    detail: { type: String, trim: true, maxlength: 2000 },
     referenceId: { type: String },
   },
   { _id: true }
@@ -36,11 +38,13 @@ const invoiceSchema = new Schema(
     finalizedAt: { type: Date },
     paidAt: { type: Date },
     notes: { type: String, trim: true },
+    createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true }
 );
 
 invoiceSchema.index({ organizationId: 1, invoiceNumber: 1 }, { unique: true });
 invoiceSchema.index({ organizationId: 1, patientId: 1 });
+invoiceSchema.index({ organizationId: 1, 'items.surgicalActId': 1 });
 
 export const Invoice = mongoose.model('Invoice', invoiceSchema);

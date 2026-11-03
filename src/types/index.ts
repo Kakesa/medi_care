@@ -368,7 +368,9 @@ export interface InvoiceItem {
   catalogItemId?: string;
   serviceCode?: string;
   unit?: string;
-  source?: 'manual' | 'catalog';
+  source?: 'manual' | 'catalog' | 'surgery';
+  surgicalActId?: string;
+  detail?: string;
   referenceId?: string;
 }
 

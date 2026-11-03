@@ -23,6 +23,7 @@ const roles = [ROLES.HOSPITAL_ADMIN, ROLES.ACCOUNTANT, ROLES.RECEPTIONIST] as co
 
 router.use(authenticate, requireTenant);
 router.get('/my-invoices', requireRoles(ROLES.PATIENT), clinical.myInvoices);
+router.get('/cashflow', requireRoles(ROLES.HOSPITAL_ADMIN, ROLES.ACCOUNTANT, ROLES.RECEPTIONIST, ROLES.PHARMACIST), validate(cashflowSchema), clinical.cashflow);
 router.use(requireRoles(...roles));
 router.get('/settings', clinical.billingSettings);
 router.patch('/settings', requireRoles(ROLES.HOSPITAL_ADMIN), validate(billingSettingsSchema), clinical.updateBillingSettings);
@@ -30,7 +31,6 @@ router.get('/services', clinical.listServices);
 router.post('/services', requireRoles(ROLES.HOSPITAL_ADMIN), validate(createServiceSchema), clinical.createService);
 router.patch('/services/:id', requireRoles(ROLES.HOSPITAL_ADMIN), validate(updateServiceSchema), clinical.updateService);
 router.get('/stats', clinical.invoiceStats);
-router.get('/cashflow', validate(cashflowSchema), clinical.cashflow);
 router.get('/patients', clinical.billingPatients);
 router.get('/generate-number', clinical.generateNumber);
 router.get('/invoices/overdue', clinical.overdueInvoices);

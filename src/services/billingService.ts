@@ -44,12 +44,16 @@ export interface CashMovement {
   statusLabel: string;
   direction: 'in' | 'out';
   source: 'invoice' | 'sale' | 'expense';
+  service: 'reception' | 'pharmacy';
+  serviceLabel: string;
 }
 
 export interface CashflowReport {
   organization: { name: string; address: string; phone: string; email: string };
   period: { from: string; to: string };
   generatedAt: string;
+  service: 'reception' | 'pharmacy' | 'all';
+  allowed: Array<'reception' | 'pharmacy' | 'all'>;
   currency: BillingCurrency | string;
   entries: CashMovement[];
   exits: CashMovement[];
@@ -162,8 +166,10 @@ class BillingService {
     return httpClient.get<Invoice[]>(`${this.basePath}/invoices/overdue`);
   }
 
-  async getCashflow(from: string, to: string): Promise<CashflowReport> {
-    return httpClient.get<CashflowReport>(`${this.basePath}/cashflow`, { from, to });
+  async getCashflow(from: string, to: string, service?: 'reception' | 'pharmacy' | 'all'): Promise<CashflowReport> {
+    const params: Record<string, string> = { from, to };
+    if (service) params.service = service;
+    return httpClient.get<CashflowReport>(`${this.basePath}/cashflow`, params);
   }
 
   async getStats(): Promise<{

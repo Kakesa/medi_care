@@ -585,13 +585,18 @@ export const generateCashflowPDF = (report: CashflowReport): void => {
   doc.setTextColor(0, 0, 0);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(14);
-  doc.text('Rapport des entrées et sorties', 14, 42);
+  const reportTitle = report.service === 'all'
+    ? 'Rapport consolidé des entrées et sorties'
+    : `Rapport des entrées et sorties — ${report.service === 'pharmacy' ? 'Pharmacie' : 'Réception'}`;
+  doc.text(reportTitle, 14, 42);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
   doc.text(`Période : du ${reportDay(report.period.from)} au ${reportDay(report.period.to)}`, 14, 49);
-  doc.text(`Généré le ${generated}`, 14, 55);
+  doc.text(`Service : ${report.service === 'all' ? 'Réception et Pharmacie' : report.service === 'pharmacy' ? 'Pharmacie' : 'Réception'}`, 14, 55);
+  doc.text(`Généré le ${generated}`, 14, 61);
 
-  let cursor = 62;
+  let cursor = 68;
+  const showService = report.service === 'all';
   const paintSection = (title: string, rows: CashMovement[], empty: string) => {
     if (cursor > pageHeight - 40) {
       doc.addPage();
@@ -612,20 +617,26 @@ export const generateCashflowPDF = (report: CashflowReport): void => {
     }
     autoTable(doc, {
       startY: cursor,
-      head: [['Date et heure', 'Référence', 'Désignation', 'Catégorie', 'Montant', 'Paiement', 'Utilisateur']],
-      body: rows.map((row) => [
-        reportStamp(row.at),
-        row.reference,
-        row.label,
-        row.category,
-        formatMoney(row.amount, row.currency),
-        row.paymentMethod ? PAYMENT_LABELS[row.paymentMethod] || row.paymentMethod : '—',
-        row.actorName,
-      ]),
+      head: [showService
+        ? ['Date et heure', 'Service', 'Référence', 'Désignation', 'Catégorie', 'Montant', 'Paiement', 'Utilisateur']
+        : ['Date et heure', 'Référence', 'Désignation', 'Catégorie', 'Montant', 'Paiement', 'Utilisateur']],
+      body: rows.map((row) => {
+        const cells = [
+          reportStamp(row.at),
+          row.reference,
+          row.label,
+          row.category,
+          formatMoney(row.amount, row.currency),
+          row.paymentMethod ? PAYMENT_LABELS[row.paymentMethod] || row.paymentMethod : '—',
+          row.actorName,
+        ];
+        if (showService) cells.splice(1, 0, row.serviceLabel);
+        return cells;
+      }),
       theme: 'striped',
       styles: { fontSize: 8, cellPadding: 1.5, overflow: 'linebreak' },
       headStyles: { fillColor: COLORS.primary, textColor: [255, 255, 255], fontStyle: 'bold' },
-      columnStyles: { 4: { halign: 'right' } },
+      columnStyles: { [showService ? 5 : 4]: { halign: 'right' } },
       margin: { left: 14, right: 14, bottom: 16 },
     });
     cursor = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
@@ -691,9 +702,12 @@ export const generateCashflowPDF = (report: CashflowReport): void => {
     doc.text('Factures non payées, dépenses en attente, opérations annulées ou rejetées. Elles ne modifient pas le solde.', 14, cursor + 5);
     autoTable(doc, {
       startY: cursor + 8,
-      head: [['Date', 'Sens', 'Référence', 'Désignation', 'Montant', 'Statut']],
+      head: [showService
+        ? ['Date', 'Service', 'Sens', 'Référence', 'Désignation', 'Montant', 'Statut']
+        : ['Date', 'Sens', 'Référence', 'Désignation', 'Montant', 'Statut']],
       body: aside.map((row) => [
         reportStamp(row.at),
+        ...(showService ? [row.serviceLabel] : []),
         row.direction === 'in' ? 'Entrée' : 'Sortie',
         row.reference,
         row.label,

@@ -213,8 +213,8 @@ export const invoiceStats = asyncHandler(async (req: Request, res: Response) => 
   res.json(await billingService.invoiceStats(org(req)));
 });
 export const cashflow = asyncHandler(async (req: Request, res: Response) => {
-  const query = req.query as { from: string; to: string };
-  res.json(await cashflowService.cashflowReport(org(req), query.from, query.to));
+  const query = req.query as { from: string; to: string; service?: string };
+  res.json(await cashflowService.cashflowReport(auth(req), org(req), query.from, query.to, query.service));
 });
 export const generateNumber = asyncHandler(async (req: Request, res: Response) => {
   res.json(await billingService.generateInvoiceNumber(org(req)));

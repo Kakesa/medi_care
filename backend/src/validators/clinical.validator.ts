@@ -309,6 +309,7 @@ export const cashflowSchema = envelope(
   z.object({
     from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date invalide'),
     to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date invalide'),
+    service: z.enum(['reception', 'pharmacy', 'all']).optional(),
   }).refine((value) => value.from <= value.to, { message: 'La date de fin précède la date de début' })
 );
 export const listInvoicesSchema = envelope(

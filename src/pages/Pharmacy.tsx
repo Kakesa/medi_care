@@ -49,6 +49,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { pharmacyCategories } from "@/data/mockData";
 import { PharmacyDesk } from "@/components/pharmacy/PharmacyDesk";
+import { CashflowJournal } from "@/pages/Accounting";
 import { pharmacyService } from "@/services/pharmacyService";
 import type { PharmacyOrder, PharmacyProduct } from "@/types";
 import { apiMessage } from "@/lib/apiError";
@@ -504,6 +505,7 @@ export default function Pharmacy() {
             Commandes ({orders.length})
           </TabsTrigger>
           <TabsTrigger value="desk">Opérations</TabsTrigger>
+          <TabsTrigger value="journal">Journal</TabsTrigger>
         </TabsList>
 
         <TabsContent value="products" className="space-y-4">
@@ -629,6 +631,9 @@ export default function Pharmacy() {
               </Card>
             ))}
           </div>
+        </TabsContent>
+        <TabsContent value="journal">
+          <CashflowJournal serviceLock="pharmacy" title="Journal de la pharmacie" />
         </TabsContent>
         <TabsContent value="desk">
           <PharmacyDesk products={products} currency={currency} permissions={permissions} onChanged={loadPharmacy} />

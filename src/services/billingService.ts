@@ -60,6 +60,7 @@ export interface CashflowReport {
   pending: CashMovement[];
   cancelled: CashMovement[];
   totals: { income: number; expense: number; balance: number };
+  balances: Array<{ currency: string; income: number; expense: number; balance: number }>;
   incomeByCategory: Array<{ category: string; amount: number }>;
   expenseByCategory: Array<{ category: string; amount: number }>;
   otherCurrency: Array<{ currency: string; income: number; expense: number }>;

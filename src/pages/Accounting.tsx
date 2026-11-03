@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAckInvoices } from "@/contexts/WorkBadgeContext";
 import { apiMessage } from "@/lib/apiError";
-import { formatMoney } from "@/lib/money";
+import { formatBalances, formatMoney } from "@/lib/money";
 import { useAuth } from "@/contexts/AuthContext";
 import { billingService, type CashMovement, type CashflowReport } from "@/services/billingService";
 import { generateCashflowPDF } from "@/utils/pdfGenerator";
@@ -212,7 +212,7 @@ export function CashflowJournal({ serviceLock, title = "Comptabilité" }: { serv
             <ArrowUpCircle className="h-5 w-5 text-green-500" />
             <div>
               <p className="text-sm text-muted-foreground">Total des entrées</p>
-              <p className="text-xl font-bold text-green-600">{formatMoney(report?.totals.income || 0, currency)}</p>
+              <p className="text-xl font-bold text-green-600">{formatBalances(report?.balances, currency, "income")}</p>
             </div>
           </CardContent>
         </Card>
@@ -221,7 +221,7 @@ export function CashflowJournal({ serviceLock, title = "Comptabilité" }: { serv
             <ArrowDownCircle className="h-5 w-5 text-red-500" />
             <div>
               <p className="text-sm text-muted-foreground">Total des sorties</p>
-              <p className="text-xl font-bold text-red-600">{formatMoney(report?.totals.expense || 0, currency)}</p>
+              <p className="text-xl font-bold text-red-600">{formatBalances(report?.balances, currency, "expense")}</p>
             </div>
           </CardContent>
         </Card>
@@ -229,7 +229,7 @@ export function CashflowJournal({ serviceLock, title = "Comptabilité" }: { serv
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">Solde de la période</p>
             <p className={`text-xl font-bold ${(report?.totals.balance || 0) >= 0 ? "text-green-600" : "text-red-600"}`}>
-              {formatMoney(report?.totals.balance || 0, currency)}
+              {formatBalances(report?.balances, currency, "balance")}
             </p>
           </CardContent>
         </Card>

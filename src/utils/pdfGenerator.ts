@@ -6,7 +6,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { CashMovement, CashflowReport } from '@/services/billingService';
 import type { Invoice, Consultation, Exam } from '@/types';
-import { formatMoney } from '@/lib/money';
+import { formatBalances, formatMoney } from '@/lib/money';
 
 // Configuration du centre médical
 const CLINIC_CONFIG = {
@@ -658,9 +658,9 @@ export const generateCashflowPDF = (report: CashflowReport): void => {
   doc.setFontSize(11);
   doc.setTextColor(0, 0, 0);
   const lines = [
-    ['Total des entrées', formatMoney(report.totals.income, currency)],
-    ['Total des sorties', formatMoney(report.totals.expense, currency)],
-    ['Solde de la période', formatMoney(report.totals.balance, currency)],
+    ['Total des entrées', formatBalances(report.balances, currency, 'income')],
+    ['Total des sorties', formatBalances(report.balances, currency, 'expense')],
+    ['Solde de la période', formatBalances(report.balances, currency, 'balance')],
   ];
   lines.forEach(([label, value], index) => {
     doc.setFont('helvetica', index === 2 ? 'bold' : 'normal');
@@ -719,16 +719,6 @@ export const generateCashflowPDF = (report: CashflowReport): void => {
       headStyles: { fillColor: COLORS.secondary, textColor: [255, 255, 255] },
       margin: { left: 14, right: 14, bottom: 16 },
     });
-  }
-
-  if (report.otherCurrency.length) {
-    const note = report.otherCurrency
-      .map((row) => `${row.currency} : entrées ${formatMoney(row.income, row.currency)}, sorties ${formatMoney(row.expense, row.currency)}`)
-      .join(' · ');
-    doc.setFontSize(8);
-    doc.setTextColor(...COLORS.secondary);
-    const y = (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY;
-    doc.text(`Hors solde ${currency} : ${note}`, 14, (y || cursor) + 8, { maxWidth: pageWidth - 28 });
   }
 
   const pages = doc.getNumberOfPages();

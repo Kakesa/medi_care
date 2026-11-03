@@ -195,4 +195,20 @@ describe('Rapport des entrées et sorties', () => {
     expect(global.body.entries).toHaveLength(2);
     expect(global.body.totals.income).toBe(40);
   });
+
+  it('affiche le total de chaque devise sans les additionner', async () => {
+    const org = await createOrganization();
+    const receptionist = await createUser({ role: 'RECEPTIONIST', organizationId: org.id });
+    const today = new Date();
+    await Invoice.create(invoice(org.id, 'FAC-EUR', 'paid', 20, today));
+    await Invoice.create({ ...invoice(org.id, 'FAC-CDF', 'paid', 10000, today), currency: 'CDF' });
+    const day = isoDate(today);
+    const report = await request(app).get('/api/billing/cashflow').query({ from: day, to: day }).set(bearer(receptionist.token));
+    expect(report.status).toBe(200);
+    expect(report.body.totals).toEqual({ income: 20, expense: 0, balance: 20 });
+    expect(report.body.balances).toEqual([
+      { currency: 'EUR', income: 20, expense: 0, balance: 20 },
+      { currency: 'CDF', income: 10000, expense: 0, balance: 10000 },
+    ]);
+  });
 });

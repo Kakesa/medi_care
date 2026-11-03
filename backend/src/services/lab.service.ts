@@ -270,9 +270,17 @@ async function move(row: { labStatus?: string; status: string; set: (path: strin
   return name;
 }
 
+function storedStatus(row: { labStatus?: string | null; status?: string }) {
+  if (row.labStatus) return row.labStatus;
+  if (row.status === 'cancelled') return 'ANNULE';
+  if (row.status === 'completed') return 'VALIDE';
+  if (row.status === 'in_progress') return 'EN_COURS';
+  return 'EN_ATTENTE';
+}
+
 export async function startLabExam(actor: AuthContext, organizationId: string, id: string, ip?: string) {
   const row = await loadExam(actor, organizationId, id, ip);
-  if (row.labStatus !== 'EN_ATTENTE') throw new ApiError(409, 'Cet examen n\'est pas en attente', 'LAB_STATUS');
+  if (storedStatus(row) !== 'EN_ATTENTE') throw new ApiError(409, 'Cet examen n\'est pas en attente', 'LAB_STATUS');
   await move(row, actor, 'EN_COURS', 'DEMARRAGE');
   await syncOriginStatus(actor, organizationId, 'exam', row.id, 'pending', 'Examen en cours de réalisation', ip);
   return getLabExam(actor, organizationId, id, ip);

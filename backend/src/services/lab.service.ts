@@ -347,7 +347,9 @@ export async function decideLabExam(
     throw new ApiError(400, 'Un commentaire est obligatoire', 'VALIDATION_ERROR');
   }
   const current = latestOpen(row);
-  if (!current) throw new ApiError(409, 'Aucun résultat soumis', 'LAB_STATUS');
+  if (!current) {
+    throw new ApiError(409, 'Aucun résultat n\'a encore été soumis par le laborantin', 'LAB_STATUS');
+  }
   if (String(current.submittedBy || '') === actor.id) {
     throw new ApiError(403, 'Vous ne pouvez pas valider vos propres résultats', 'LAB_SELF_VALIDATION');
   }
@@ -359,7 +361,7 @@ export async function decideLabExam(
     row.markModified('versions');
     await move(row, actor, 'CORRECTION_DEMANDEE', 'CORRECTION', note);
   } else if (row.labStatus !== 'EN_ATTENTE_VALIDATION') {
-    throw new ApiError(409, 'Ce résultat n\'attend pas de décision', 'LAB_STATUS');
+    throw new ApiError(409, 'Ce dossier n\'est pas encore soumis. Le laborantin doit d\'abord envoyer le résultat.', 'LAB_STATUS');
   } else if (decision === 'REJETE' && row.results) {
     current.decision = 'REJETE';
     current.comment = note;

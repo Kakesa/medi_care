@@ -87,7 +87,7 @@ const App = () => (
                 <Route path="facture" element={<RequireRole roles={["PATIENT"]}><PatientInvoices /></RequireRole>} />
                 <Route path="laboratoire" element={<RequireRole roles={["LABORANTIN"]}><LaborantinWorkspace /></RequireRole>} />
                 <Route path="supervision-lab" element={<RequireRole roles={["HOSPITAL_ADMIN"]}><LabSupervision /></RequireRole>} />
-                <Route path="demandes-lab" element={<RequireRole roles={["RECEPTIONIST", "HOSPITAL_ADMIN"]}><ReceptionLab /></RequireRole>} />
+                <Route path="demandes-lab" element={<RequireRole roles={["RECEPTIONIST"]}><ReceptionLab /></RequireRole>} />
                 <Route path="ordonnances" element={<RequireRole roles={["DOCTOR", "HOSPITAL_ADMIN"]}><ClinicalPrescriptions /></RequireRole>} />
                 <Route path="pharmacie-ordonnances" element={<RequireRole roles={["PHARMACIST"]}><PharmacyDesk /></RequireRole>} />
                 <Route path="profile" element={<Profile />} />

@@ -103,6 +103,9 @@ export default function LabSupervision() {
               <p className="text-sm">Brouillon : {selected.draftResults || "—"}</p>
               <p className="text-sm">Observations : {selected.technicalNotes || "—"}</p>
               <p className="text-sm">Résultat officiel : {selected.official ? selected.results : "Pas encore validé"}</p>
+              {selected.labStatus !== "EN_ATTENTE_VALIDATION" && selected.labStatus !== "VALIDE" && (
+                <p className="text-sm text-muted-foreground">Ce dossier est « {labStatusLabels[selected.labStatus]} ». La validation sera possible quand le laborantin aura soumis le résultat.</p>
+              )}
               {selected.attachments.map((file) => file.data ? <a key={file.name} className="block text-sm text-primary" href={file.data} download={file.name}>{file.name}</a> : <p key={file.name} className="text-sm">{file.name}</p>)}
               <div className="space-y-1 text-xs text-muted-foreground">
                 {selected.versions.map((version) => (
@@ -111,9 +114,9 @@ export default function LabSupervision() {
               </div>
               <Textarea value={comment} placeholder="Observation, correction ou motif de rejet" onChange={(event) => setComment(event.target.value)} />
               <div className="flex flex-wrap gap-2">
-                <Button onClick={() => void decide("validate")}>Valider</Button>
-                <Button variant="outline" onClick={() => void decide("correction")}>Demander une correction</Button>
-                <Button variant="destructive" onClick={() => void decide("reject")}>Rejeter</Button>
+                <Button disabled={selected.labStatus !== "EN_ATTENTE_VALIDATION"} onClick={() => void decide("validate")}>Valider</Button>
+                <Button variant="outline" disabled={selected.labStatus !== "EN_ATTENTE_VALIDATION" && selected.labStatus !== "VALIDE"} onClick={() => void decide("correction")}>Demander une correction</Button>
+                <Button variant="destructive" disabled={selected.labStatus !== "EN_ATTENTE_VALIDATION"} onClick={() => void decide("reject")}>Rejeter</Button>
               </div>
             </CardContent>
           </Card>

@@ -47,7 +47,7 @@ export const allNavigation: { name: string; href: string; icon: typeof LayoutDas
   { name: "Pharmacie", href: "/dashboard/pharmacy", icon: Pill, roles: ['HOSPITAL_ADMIN', 'PHARMACIST'] },
   { name: "Laboratoire", href: "/dashboard/laboratoire", icon: FlaskConical, roles: ['LABORANTIN'] },
   { name: "Supervision labo", href: "/dashboard/supervision-lab", icon: FlaskConical, roles: ['HOSPITAL_ADMIN'] },
-  { name: "Demandes labo", href: "/dashboard/demandes-lab", icon: FlaskConical, roles: ['RECEPTIONIST', 'HOSPITAL_ADMIN'] },
+  { name: "Demandes labo", href: "/dashboard/demandes-lab", icon: FlaskConical, roles: ['RECEPTIONIST'] },
   { name: "Ordonnances", href: "/dashboard/ordonnances", icon: FileText, roles: ['DOCTOR', 'HOSPITAL_ADMIN'] },
   { name: "Ordonnances pharmacie", href: "/dashboard/pharmacie-ordonnances", icon: Pill, roles: ['PHARMACIST'] },
   { name: "Profil", href: "/dashboard/profile", icon: Settings, roles: ['SUPERADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'RECEPTIONIST', 'NURSE', 'LABORANTIN', 'ACCOUNTANT', 'PHARMACIST', 'PATIENT'] },

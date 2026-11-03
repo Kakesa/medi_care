@@ -294,6 +294,7 @@ export async function listExamCatalog(actor: AuthContext, organizationId: string
       if (!type) return [];
       return [{
         id: act.id,
+        kind: 'surgery' as const,
         name: act.name,
         description: act.description || '',
         categoryName,
@@ -305,6 +306,7 @@ export async function listExamCatalog(actor: AuthContext, organizationId: string
     }),
     ...services.map((service) => ({
       id: service.id,
+      kind: 'service' as const,
       name: service.name,
       description: service.description || '',
       categoryName: service.category === 'IMAGERIE' ? 'Imagerie' : 'Laboratoire',

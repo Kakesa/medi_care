@@ -14,6 +14,7 @@ import type {
 
 export interface ExamCatalogItem {
   id: string;
+  kind: "surgery" | "service";
   name: string;
   description: string;
   categoryName: string;

@@ -49,7 +49,8 @@ import { examCategories } from "@/data/mockData";
 import { useAuth } from "@/contexts/AuthContext";
 import { chargeService, type CatalogOption, type PatientChargeRecord } from "@/services/chargeService";
 import { examService, type ExamCatalogItem } from "@/services/examService";
-import { formatMoney } from "@/lib/money";
+import { billingService } from "@/services/billingService";
+import { formatMoney, type BillingCurrency } from "@/lib/money";
 import { patientService } from "@/services/patientService";
 import { personnelService } from "@/services/personnelService";
 import { surgeryService, type SurgicalAct } from "@/services/surgeryService";
@@ -138,7 +139,9 @@ const labCategoryNames = new Set([
 export default function Examinations() {
   const { user } = useAuth();
   const seesPrices = user?.role === "HOSPITAL_ADMIN" || user?.role === "ACCOUNTANT";
+  const canChangeCurrency = user?.role === "HOSPITAL_ADMIN";
   const canPlan = user?.role === "HOSPITAL_ADMIN" || user?.role === "DOCTOR" || user?.role === "NURSE";
+  const currencies: BillingCurrency[] = ["EUR", "CDF", "USD"];
   const [exams, setExams] = useState<Exam[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [doctors, setDoctors] = useState<Personnel[]>([]);
@@ -151,6 +154,7 @@ export default function Examinations() {
   const [priceDrafts, setPriceDrafts] = useState<Record<string, string>>({});
   const [tariffSearch, setTariffSearch] = useState("");
   const [selectedTariffIds, setSelectedTariffIds] = useState<string[]>([]);
+  const [examPickerSearch, setExamPickerSearch] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -271,7 +275,52 @@ export default function Examinations() {
       billableServiceId: ""
     });
     setSelectedTariffIds([]);
+    setExamPickerSearch("");
     setEditingExam(null);
+  };
+
+  const reloadCatalog = async () => {
+    const result = await examService.catalog();
+    setOrgCurrency(result.currency);
+    setCatalogExams(result.items);
+  };
+
+  const changeCurrency = async (next: BillingCurrency) => {
+    try {
+      const settings = await billingService.updateSettings(next);
+      setOrgCurrency(settings.currency);
+      toast.success(`Devise de l'établissement : ${settings.currency}`);
+      await reloadCatalog();
+      if (seesPrices) await loadPrices();
+    } catch (error) {
+      toast.error(apiMessage(error));
+    }
+  };
+
+  const transmitCatalogExam = async (item: ExamCatalogItem) => {
+    const priced = item.unitPrice != null && (!item.currency || item.currency === orgCurrency);
+    await examService.create({
+      patientId: formData.patientId,
+      patientName: "",
+      doctorId: formData.doctorId,
+      doctorName: "",
+      type: item.type,
+      category: item.categoryName || formData.category || "Laboratoire",
+      name: item.name,
+      date: formData.date,
+      notes: formData.notes || undefined,
+      billableServiceId: item.kind === "service" && priced ? item.id : undefined,
+    });
+    if (item.kind === "surgery" && priced) {
+      await chargeService.recommend({
+        patientId: formData.patientId,
+        catalogKind: "surgery",
+        catalogItemId: item.id,
+        quantity: 1,
+        idempotencyKey: crypto.randomUUID(),
+      });
+    }
+    return priced;
   };
 
   const transmitTariff = async (tariff: CatalogOption) => {
@@ -299,10 +348,19 @@ export default function Examinations() {
   };
 
   const handleSubmit = async () => {
-    const picked = examTariffs.filter((item) => selectedTariffIds.includes(item.id));
-    const planningSeveral = !editingExam && formData.type === "laboratory" && picked.length > 0;
-    if (!formData.patientId || !formData.doctorId || !formData.date || (!planningSeveral && (!formData.name || !formData.category))) {
-      toast.error("Veuillez sélectionner un patient, un médecin, une catégorie, un nom et une date");
+    const catalogPick = formData.type === "laboratory" || formData.type === "imaging";
+    const picked = catalogExams.filter((item) => item.type === formData.type && selectedTariffIds.includes(item.id));
+    const planningSeveral = !editingExam && catalogPick && picked.length > 0;
+    if (!formData.patientId || !formData.doctorId || !formData.date) {
+      toast.error("Veuillez sélectionner un patient, un médecin et une date");
+      return;
+    }
+    if (!editingExam && catalogPick && picked.length === 0) {
+      toast.error("Sélectionnez au moins un examen");
+      return;
+    }
+    if (!planningSeveral && (!formData.name || !formData.category)) {
+      toast.error("Veuillez indiquer la catégorie et le nom de l'examen");
       return;
     }
 
@@ -321,10 +379,24 @@ export default function Examinations() {
         });
         toast.success("Examen modifié avec succès");
       } else if (planningSeveral) {
-        for (const tariff of picked) {
-          await transmitTariff(tariff);
+        let billed = 0;
+        const failures: string[] = [];
+        for (const item of picked) {
+          try {
+            if (await transmitCatalogExam(item)) billed += 1;
+          } catch {
+            failures.push(item.name);
+          }
         }
-        toast.success("Examens transmis à la facturation");
+        if (failures.length > 0) {
+          toast.error(`Non enregistrés : ${failures.join(", ")}`);
+        } else if (billed === picked.length) {
+          toast.success(picked.length > 1 ? "Examens transmis à la facturation" : "Examen transmis à la facturation");
+        } else if (billed === 0) {
+          toast.success("Examens recommandés. Enregistrez leur prix pour les ajouter à la facture.");
+        } else {
+          toast.success(`${billed} examen(s) transmis. Les autres sont recommandés sans tarif.`);
+        }
         setSumPatientId(formData.patientId);
         await loadCharges(formData.patientId);
       } else {
@@ -349,7 +421,7 @@ export default function Examinations() {
           setSumPatientId(formData.patientId);
           await loadCharges(formData.patientId);
         }
-        toast.success(tariff ? "Examen transmis à la facturation" : "Examen planifié avec succès");
+        toast.success(tariff ? "Examen transmis à la facturation" : "Examen recommandé");
       }
       setIsDialogOpen(false);
       resetForm();
@@ -535,18 +607,33 @@ export default function Examinations() {
             Gestion des examens de laboratoire et imagerie médicale
           </p>
         </div>
+        <div className="flex flex-col items-start gap-3 sm:items-end">
+          <div className="space-y-2">
+            <Label>Devise de l'établissement</Label>
+            {canChangeCurrency ? (
+              <Select value={orgCurrency} onValueChange={(value) => void changeCurrency(value as BillingCurrency)}>
+                <SelectTrigger className="w-full sm:w-56"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {currencies.map((code) => <SelectItem key={code} value={code}>{code}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            ) : (
+              <p className="text-sm font-medium">{orgCurrency}</p>
+            )}
+            <p className="max-w-sm text-xs text-muted-foreground">Les factures déjà créées gardent leur devise. Un examen change de devise seulement quand son prix est ressaisi.</p>
+          </div>
         {canPlan && <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
           <DialogTrigger asChild>
             <Button className="gap-2">
               <Plus className="h-4 w-4" />
-              Planifier un examen
+              Recommander un examen
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>{editingExam ? 'Modifier l\'examen' : 'Planifier un examen'}</DialogTitle>
+              <DialogTitle>{editingExam ? 'Modifier l\'examen' : 'Recommander un examen'}</DialogTitle>
               <DialogDescription>
-                {editingExam ? 'Modifiez les informations de l\'examen' : 'Remplissez les informations pour planifier un nouvel examen'}
+                {editingExam ? 'Modifiez les informations de l\'examen' : 'Choisissez le patient et les examens à recommander'}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
@@ -575,7 +662,7 @@ export default function Examinations() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Type</Label>
-                  <Select value={formData.type} onValueChange={(v) => setFormData({...formData, type: v as Exam['type'], category: "", billableServiceId: ""})}>
+                  <Select value={formData.type} onValueChange={(v) => { setSelectedTariffIds([]); setFormData({...formData, type: v as Exam['type'], category: "", billableServiceId: ""}); }}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="laboratory">Laboratoire</SelectItem>
@@ -590,7 +677,7 @@ export default function Examinations() {
                   <Input type="date" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} />
                 </div>
               </div>
-              <div className="space-y-2">
+              {(editingExam || (formData.type !== "laboratory" && formData.type !== "imaging")) && <div className="space-y-2">
                 <Label>Catégorie</Label>
                 <Select value={formData.category} onValueChange={(v) => setFormData({...formData, category: v})}>
                   <SelectTrigger><SelectValue placeholder="Sélectionner une catégorie" /></SelectTrigger>
@@ -600,32 +687,39 @@ export default function Examinations() {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              {formData.type === "laboratory" && !editingExam ? (
+              </div>}
+              {(formData.type === "laboratory" || formData.type === "imaging") && !editingExam ? (
                 <div className="space-y-2">
-                  <Label>Examens du catalogue</Label>
+                  <Label>Examens à recommander</Label>
+                  <Input
+                    value={examPickerSearch}
+                    onChange={(event) => setExamPickerSearch(event.target.value)}
+                    placeholder="Rechercher un examen"
+                  />
                   <div className="max-h-52 space-y-1 overflow-y-auto rounded-md border border-border p-2">
-                    {examTariffs.length === 0 ? (
-                      <p className="px-2 py-3 text-sm text-muted-foreground">Aucun examen n'a encore de prix enregistré.</p>
-                    ) : examTariffs.map((tariff) => {
-                      const checked = selectedTariffIds.includes(tariff.id);
+                    {catalogExams.filter((item) => item.type === formData.type && (item.name.toLowerCase().includes(examPickerSearch.toLowerCase()) || item.categoryName.toLowerCase().includes(examPickerSearch.toLowerCase()))).length === 0 ? (
+                      <p className="px-2 py-3 text-sm text-muted-foreground">Aucun examen dans cette catégorie.</p>
+                    ) : catalogExams
+                      .filter((item) => item.type === formData.type && (item.name.toLowerCase().includes(examPickerSearch.toLowerCase()) || item.categoryName.toLowerCase().includes(examPickerSearch.toLowerCase())))
+                      .map((item) => {
+                      const checked = selectedTariffIds.includes(item.id);
                       return (
                         <button
-                          key={tariff.id}
+                          key={item.id}
                           type="button"
-                          onClick={() => setSelectedTariffIds((current) => checked ? current.filter((id) => id !== tariff.id) : [...current, tariff.id])}
+                          onClick={() => setSelectedTariffIds((current) => checked ? current.filter((id) => id !== item.id) : [...current, item.id])}
                           className={`flex w-full items-center justify-between gap-3 rounded-md px-2 py-2 text-left text-sm ${checked ? "bg-primary/10" : "hover:bg-muted"}`}
                         >
                           <span>
-                            <span className="block font-medium">{tariff.name}</span>
-                            <span className="text-xs text-muted-foreground">{tariff.categoryLabel}</span>
+                            <span className="block font-medium">{item.name}</span>
+                            <span className="text-xs text-muted-foreground">{item.categoryName}</span>
                           </span>
-                          <span className="shrink-0 font-medium">{formatMoney(tariff.unitPrice, tariff.currency)}</span>
+                          <span className="shrink-0 font-medium">{item.unitPrice == null ? "—" : formatMoney(item.unitPrice, item.currency || orgCurrency)}</span>
                         </button>
                       );
                     })}
                   </div>
-                  <p className="text-xs text-muted-foreground">Le prix affiché est celui déjà enregistré. Après validation, la somme se trouve dans l'onglet Somme.</p>
+                  <p className="text-xs text-muted-foreground">{selectedTariffIds.filter((id) => catalogExams.some((item) => item.id === id && item.type === formData.type)).length} examen(s) sélectionné(s). La somme se trouve dans l'onglet Somme.</p>
                 </div>
               ) : (
               <div className="space-y-2">
@@ -661,10 +755,10 @@ export default function Examinations() {
                 <p className="text-xs text-muted-foreground">Le prix vient du catalogue. L'examen transmis reste recommandé tant qu'il n'est pas réalisé.</p>
               </div>
               )}
-              <div className="space-y-2">
+              {(editingExam || (formData.type !== "laboratory" && formData.type !== "imaging")) && <div className="space-y-2">
                 <Label>Nom de l'examen</Label>
                 <Input value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} placeholder="Ex: Bilan sanguin complet" />
-              </div>
+              </div>}
               <div className="space-y-2">
                 <Label>Notes</Label>
                 <Textarea value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} placeholder="Instructions ou notes..." />
@@ -672,10 +766,11 @@ export default function Examinations() {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Annuler</Button>
-              <Button onClick={handleSubmit}>{editingExam ? 'Modifier' : 'Planifier'}</Button>
+              <Button onClick={handleSubmit}>{editingExam ? 'Modifier' : 'Recommander'}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>}
+        </div>
       </div>
 
       {/* Filters */}

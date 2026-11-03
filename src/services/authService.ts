@@ -60,8 +60,12 @@ class AuthService {
     });
   }
 
-  async resetPassword(email: string): Promise<ApiResponse<void>> {
-    return httpClient.post<ApiResponse<void>>(`${this.basePath}/reset-password`, { email });
+  async requestPasswordReset(email: string): Promise<ApiResponse<void>> {
+    return httpClient.post<ApiResponse<void>>(`${this.basePath}/forgot-password`, { email });
+  }
+
+  async confirmPasswordReset(token: string, newPassword: string): Promise<ApiResponse<void>> {
+    return httpClient.post<ApiResponse<void>>(`${this.basePath}/reset-password`, { token, newPassword });
   }
 }
 

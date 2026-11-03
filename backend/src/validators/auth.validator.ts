@@ -35,6 +35,23 @@ export const updateProfileSchema = z.object({
   params: z.object({}).strict().optional().default({}),
 });
 
+export const forgotPasswordSchema = z.object({
+  body: z.object({
+    email: z.string().email('Email invalide').max(160),
+  }).strict(),
+  query: z.object({}).strict().optional().default({}),
+  params: z.object({}).strict().optional().default({}),
+});
+
+export const resetPasswordSchema = z.object({
+  body: z.object({
+    token: z.string().min(20).max(200),
+    newPassword: passwordSchema,
+  }).strict(),
+  query: z.object({}).strict().optional().default({}),
+  params: z.object({}).strict().optional().default({}),
+});
+
 export const changePasswordSchema = z.object({
   body: z.object({
     currentPassword: z.string().min(1).max(128),

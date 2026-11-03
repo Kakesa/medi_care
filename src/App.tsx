@@ -23,6 +23,8 @@ import Accounting from "./pages/Accounting";
 import BedManagement from "./pages/BedManagement";
 import Profile from "./pages/Profile";
 import Login from "./pages/Login";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import Register from "./pages/Register";
 import Hospitals from "./pages/Hospitals";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
@@ -55,6 +57,8 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/login" element={<Login />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/register" element={<Register />} />
               <Route path="/dashboard" element={<DashboardLayout />}>
                 <Route index element={<Dashboard />} />

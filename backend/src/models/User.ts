@@ -12,6 +12,8 @@ const userSchema = new Schema(
     isActive: { type: Boolean, default: true, required: true },
     mustChangePassword: { type: Boolean, default: false, required: true },
     tokenVersion: { type: Number, default: 0, required: true },
+    passwordResetTokenHash: { type: String, select: false },
+    passwordResetExpires: { type: Date, select: false },
     organizationId: {
       type: Schema.Types.ObjectId,
       ref: 'Organization',

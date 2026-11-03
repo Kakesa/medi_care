@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { getEnv } from '../config/env.js';
 import { ROLES } from '../config/permissions.js';
@@ -7,6 +8,9 @@ import { User } from '../models/User.js';
 import { ApiError } from '../utils/ApiError.js';
 import { signAccessToken } from '../utils/tokens.js';
 import { recordAudit } from './audit.service.js';
+import { sendMail } from './mailer.js';
+
+const RESET_SENT = 'Si un compte existe pour cette adresse, un e-mail de réinitialisation a été envoyé.';
 
 const INVALID_LOGIN = 'Email ou mot de passe incorrect';
 
@@ -227,6 +231,72 @@ export async function updateProfile(
   });
 
   return toPublicUser(user.id);
+}
+
+function resetTokenHash(token: string) {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+export async function requestPasswordReset(email: string) {
+  const normalized = email.toLowerCase().trim();
+  const user = await User.findOne({ email: normalized });
+  if (!user || !user.isActive) return { success: true, message: RESET_SENT };
+
+  const token = crypto.randomBytes(32).toString('hex');
+  user.set('passwordResetTokenHash', resetTokenHash(token));
+  user.set('passwordResetExpires', new Date(Date.now() + 30 * 60 * 1000));
+  await user.save();
+
+  const origin = getEnv().CORS_ORIGIN[0] ?? 'http://localhost:8080';
+  try {
+    await sendMail({
+      to: user.email,
+      subject: 'Réinitialisation de votre mot de passe MediCare',
+      text: [
+        `Bonjour ${user.firstName} ${user.lastName},`,
+        '',
+        'Pour choisir un nouveau mot de passe, ouvrez ce lien. Il est valable 30 minutes :',
+        `${origin}/reset-password?token=${token}`,
+        '',
+        "Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail.",
+      ].join('\n'),
+    });
+  } catch {
+    return { success: true, message: RESET_SENT };
+  }
+
+  return { success: true, message: RESET_SENT };
+}
+
+export async function resetPassword(token: string, newPassword: string, ip?: string) {
+  const user = await User.findOne({
+    passwordResetTokenHash: resetTokenHash(token),
+    passwordResetExpires: { $gt: new Date() },
+    isActive: true,
+  }).select('+passwordHash +passwordResetTokenHash');
+  if (!user) {
+    throw new ApiError(400, 'Ce lien n’est plus valable. Demandez un nouvel e-mail.', 'RESET_TOKEN_INVALID');
+  }
+
+  user.passwordHash = await hashPassword(newPassword);
+  user.mustChangePassword = false;
+  user.tokenVersion += 1;
+  user.set('passwordResetTokenHash', undefined);
+  user.set('passwordResetExpires', undefined);
+  await user.save();
+
+  await recordAudit({
+    actorId: user.id,
+    actorRole: user.role,
+    organizationId: user.organizationId?.toString() ?? null,
+    action: 'PASSWORD_RESET',
+    resourceType: 'user',
+    resourceId: user.id,
+    success: true,
+    ip,
+  });
+
+  return { success: true, message: 'Mot de passe modifié. Vous pouvez vous connecter.' };
 }
 
 export async function changePassword(

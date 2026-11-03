@@ -22,6 +22,14 @@ export const updateProfile = asyncHandler(async (req: Request, res: Response) =>
   res.json(user);
 });
 
+export const forgotPassword = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await authService.requestPasswordReset(req.body.email));
+});
+
+export const resetPassword = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await authService.resetPassword(req.body.token, req.body.newPassword, req.ip));
+});
+
 export const changePassword = asyncHandler(async (req: Request, res: Response) => {
   const result = await authService.changePassword(
     req.auth!.id,

@@ -115,8 +115,8 @@ class BillingService {
     return httpClient.patch<Invoice>(`${this.basePath}/invoices/${id}/finalize`, {});
   }
 
-  async markAsPaid(id: string, paymentMethod: PaymentMethod): Promise<Invoice> {
-    return httpClient.patch<Invoice>(`${this.basePath}/invoices/${id}/pay`, { paymentMethod });
+  async markAsPaid(id: string, paymentMethod: PaymentMethod, paymentReference?: string): Promise<Invoice> {
+    return httpClient.patch<Invoice>(`${this.basePath}/invoices/${id}/pay`, { paymentMethod, paymentReference });
   }
 
   async cancelInvoice(id: string): Promise<Invoice> {

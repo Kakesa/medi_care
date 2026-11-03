@@ -13,6 +13,7 @@ import type { AuthContext } from '../types/express.js';
 import { actorPersonnel, ownPatientId, requireOwned, requireVisiblePatient } from './access.service.js';
 import { recordAudit } from './audit.service.js';
 import { recordCharge, syncOriginStatus } from './charge.service.js';
+import { notifyRoles } from './notification.service.js';
 import { resolveClinicalDoctor } from './personnel.service.js';
 
 function toExamDto(row: {
@@ -30,8 +31,14 @@ function toExamDto(row: {
   results?: string | null;
   files?: string[];
   notes?: string | null;
+  labStatus?: string | null;
   createdAt?: Date;
-}) {
+}, actor?: AuthContext) {
+  const laboratory = row.type === 'laboratory';
+  const official = !laboratory
+    || (!row.labStatus && Boolean(row.results))
+    || (Boolean(row.results) && row.labStatus !== 'ANNULE' && row.labStatus !== 'REJETE');
+  const canSeeDraft = actor && ['HOSPITAL_ADMIN', 'LABORANTIN', 'DOCTOR', 'NURSE'].includes(actor.role);
   return {
     id: row.id ?? row._id.toString(),
     patientId: row.patientId.toString(),
@@ -43,7 +50,9 @@ function toExamDto(row: {
     name: row.name,
     date: dateOnly(row.date),
     status: row.status,
-    results: row.results || undefined,
+    labStatus: row.labStatus || undefined,
+    official,
+    results: official || canSeeDraft ? row.results || undefined : undefined,
     files: row.files ?? [],
     notes: row.notes || undefined,
     createdAt: row.createdAt,
@@ -98,13 +107,13 @@ export async function listExams(
     Exam.find(filter).sort({ date: -1 }).skip(skip).limit(limit),
     Exam.countDocuments(filter),
   ]);
-  return paginated(rows.map((row) => toExamDto(row)), total, page, limit);
+  return paginated(rows.map((row) => toExamDto(row, actor)), total, page, limit);
 }
 
 export async function getExam(actor: AuthContext, organizationId: string, id: string, ip?: string) {
   const row = await requireOwned(Exam, id, organizationId, actor, 'exam', ip);
   await assertReadable(actor, organizationId, row, ip);
-  return toExamDto(row);
+  return toExamDto(row, actor);
 }
 
 export async function createExam(
@@ -137,9 +146,20 @@ export async function createExam(
     name: input.name.trim(),
     date: utcDayBounds(input.date).start,
     notes: input.notes?.trim(),
-    results: input.results?.trim(),
+    results: input.type === 'laboratory' ? undefined : input.results?.trim(),
     status: input.status ?? 'pending',
+    labStatus: input.type === 'laboratory' ? 'EN_ATTENTE' : undefined,
   });
+  if (input.type === 'laboratory') {
+    await notifyRoles({
+      organizationId,
+      roles: [ROLES.LABORANTIN],
+      type: 'exam_result',
+      relatedId: row.id,
+      title: 'Nouvelle demande d\'examen',
+      message: `${row.name} pour ${row.patientName} est transmis au laboratoire.`,
+    });
+  }
   if (input.billableServiceId) {
     try {
       await recordCharge(actor, organizationId, {
@@ -170,7 +190,7 @@ export async function createExam(
     success: true,
     ip,
   });
-  return toExamDto(row);
+  return toExamDto(row, actor);
 }
 
 export async function updateExam(
@@ -207,10 +227,17 @@ export async function updateExam(
   if (input.category !== undefined) row.category = input.category.trim();
   if (input.name !== undefined) row.name = input.name.trim();
   if (input.date) row.date = utcDayBounds(input.date).start;
+  if (row.type === 'laboratory' && (input.results !== undefined || input.status === 'completed')) {
+    throw new ApiError(409, 'Les résultats de laboratoire sont saisis par le laborantin et validés par l\'administration', 'LAB_VALIDATION_REQUIRED');
+  }
   if (input.notes !== undefined) row.notes = input.notes.trim();
   if (input.results !== undefined) row.results = input.results.trim();
   if (input.files) row.files = input.files;
   if (input.status) row.status = input.status;
+  if (row.type === 'laboratory' && input.status === 'cancelled') row.labStatus = 'ANNULE';
+  if (row.type === 'laboratory' && input.status === 'in_progress' && (!row.labStatus || row.labStatus === 'EN_ATTENTE')) {
+    row.labStatus = 'EN_COURS';
+  }
   await row.save();
   if (input.status) {
     const realization = input.status === 'completed'
@@ -222,7 +249,7 @@ export async function updateExam(
           : 'recommended';
     await syncOriginStatus(actor, organizationId, 'exam', row.id, realization, 'Statut de l\'examen mis à jour', ip);
   }
-  return toExamDto(row);
+  return toExamDto(row, actor);
 }
 
 export async function updateExamStatus(

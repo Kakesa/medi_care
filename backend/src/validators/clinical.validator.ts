@@ -337,7 +337,10 @@ export const updateInvoiceSchema = envelope(
   paramsId
 );
 export const payInvoiceSchema = envelope(
-  z.object({ paymentMethod: z.enum(['cash', 'card', 'transfer', 'insurance']) }),
+  z.object({
+    paymentMethod: z.enum(['cash', 'card', 'transfer', 'insurance']),
+    paymentReference: z.string().trim().max(80).optional(),
+  }),
   empty,
   paramsId
 );

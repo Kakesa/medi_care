@@ -15,6 +15,47 @@ const examSchema = new Schema(
     results: { type: String, trim: true },
     files: { type: [String], default: [] },
     notes: { type: String, trim: true },
+    labStatus: {
+      type: String,
+      enum: ['EN_ATTENTE', 'EN_COURS', 'BROUILLON', 'EN_ATTENTE_VALIDATION', 'CORRECTION_DEMANDEE', 'VALIDE', 'REJETE', 'ANNULE'],
+    },
+    draftResults: { type: String, trim: true, default: '' },
+    technicalNotes: { type: String, trim: true, default: '' },
+    attachments: {
+      type: [{
+        name: { type: String, required: true },
+        mimeType: { type: String, required: true },
+        data: { type: String, required: true },
+      }],
+      default: [],
+    },
+    versions: {
+      type: [{
+        version: Number,
+        results: String,
+        technicalNotes: String,
+        submittedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+        submittedByName: String,
+        submittedAt: Date,
+        decision: String,
+        decisionByName: String,
+        decisionAt: Date,
+        comment: String,
+      }],
+      default: [],
+    },
+    history: {
+      type: [{
+        at: Date,
+        userId: { type: Schema.Types.ObjectId, ref: 'User' },
+        userName: String,
+        action: String,
+        from: String,
+        to: String,
+        comment: String,
+      }],
+      default: [],
+    },
   },
   { timestamps: true }
 );

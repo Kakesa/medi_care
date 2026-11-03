@@ -30,6 +30,11 @@ import Hospitals from "./pages/Hospitals";
 import PatientAppointments from "./pages/patient/PatientAppointments";
 import PatientExams from "./pages/patient/PatientExams";
 import PatientInvoices from "./pages/patient/PatientInvoices";
+import LaborantinWorkspace from "./pages/laboratory/LaborantinWorkspace";
+import LabSupervision from "./pages/laboratory/LabSupervision";
+import ReceptionLab from "./pages/laboratory/ReceptionLab";
+import ClinicalPrescriptions from "./pages/laboratory/ClinicalPrescriptions";
+import PharmacyDesk from "./pages/laboratory/PharmacyDesk";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 import { RequireRole } from "./components/auth/RequireRole";
 
@@ -80,6 +85,11 @@ const App = () => (
                 <Route path="rendez-vous" element={<RequireRole roles={["PATIENT"]}><PatientAppointments /></RequireRole>} />
                 <Route path="examen" element={<RequireRole roles={["PATIENT"]}><PatientExams /></RequireRole>} />
                 <Route path="facture" element={<RequireRole roles={["PATIENT"]}><PatientInvoices /></RequireRole>} />
+                <Route path="laboratoire" element={<RequireRole roles={["LABORANTIN"]}><LaborantinWorkspace /></RequireRole>} />
+                <Route path="supervision-lab" element={<RequireRole roles={["HOSPITAL_ADMIN"]}><LabSupervision /></RequireRole>} />
+                <Route path="demandes-lab" element={<RequireRole roles={["RECEPTIONIST", "HOSPITAL_ADMIN"]}><ReceptionLab /></RequireRole>} />
+                <Route path="ordonnances" element={<RequireRole roles={["DOCTOR", "HOSPITAL_ADMIN"]}><ClinicalPrescriptions /></RequireRole>} />
+                <Route path="pharmacie-ordonnances" element={<RequireRole roles={["PHARMACIST"]}><PharmacyDesk /></RequireRole>} />
                 <Route path="profile" element={<Profile />} />
               </Route>
               <Route path="*" element={<NotFound />} />

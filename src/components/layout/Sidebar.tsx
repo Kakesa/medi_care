@@ -29,7 +29,7 @@ import { useTheme } from "next-themes";
 import type { UserRole } from "@/types";
 
 export const allNavigation: { name: string; href: string; icon: typeof LayoutDashboard; roles: UserRole[] }[] = [
-  { name: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard, roles: ['SUPERADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'RECEPTIONIST', 'NURSE', 'ACCOUNTANT', 'PHARMACIST', 'PATIENT'] },
+  { name: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard, roles: ['SUPERADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'RECEPTIONIST', 'NURSE', 'LABORANTIN', 'ACCOUNTANT', 'PHARMACIST', 'PATIENT'] },
   { name: "Rendez-vous", href: "/dashboard/rendez-vous", icon: Calendar, roles: ['PATIENT'] },
   { name: "Examen", href: "/dashboard/examen", icon: FlaskConical, roles: ['PATIENT'] },
   { name: "Facture", href: "/dashboard/facture", icon: FileText, roles: ['PATIENT'] },
@@ -45,7 +45,12 @@ export const allNavigation: { name: string; href: string; icon: typeof LayoutDas
   { name: "Comptabilité", href: "/dashboard/accounting", icon: Landmark, roles: ['HOSPITAL_ADMIN', 'ACCOUNTANT', 'RECEPTIONIST'] },
   { name: "Gestion des lits", href: "/dashboard/beds", icon: BedDouble, roles: ['HOSPITAL_ADMIN', 'RECEPTIONIST'] },
   { name: "Pharmacie", href: "/dashboard/pharmacy", icon: Pill, roles: ['HOSPITAL_ADMIN', 'PHARMACIST'] },
-  { name: "Profil", href: "/dashboard/profile", icon: Settings, roles: ['SUPERADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'RECEPTIONIST', 'NURSE', 'ACCOUNTANT', 'PHARMACIST', 'PATIENT'] },
+  { name: "Laboratoire", href: "/dashboard/laboratoire", icon: FlaskConical, roles: ['LABORANTIN'] },
+  { name: "Supervision labo", href: "/dashboard/supervision-lab", icon: FlaskConical, roles: ['HOSPITAL_ADMIN'] },
+  { name: "Demandes labo", href: "/dashboard/demandes-lab", icon: FlaskConical, roles: ['RECEPTIONIST', 'HOSPITAL_ADMIN'] },
+  { name: "Ordonnances", href: "/dashboard/ordonnances", icon: FileText, roles: ['DOCTOR', 'HOSPITAL_ADMIN'] },
+  { name: "Ordonnances pharmacie", href: "/dashboard/pharmacie-ordonnances", icon: Pill, roles: ['PHARMACIST'] },
+  { name: "Profil", href: "/dashboard/profile", icon: Settings, roles: ['SUPERADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'RECEPTIONIST', 'NURSE', 'LABORANTIN', 'ACCOUNTANT', 'PHARMACIST', 'PATIENT'] },
 ];
 
 interface SidebarProps {

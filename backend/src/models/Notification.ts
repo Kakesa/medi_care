@@ -4,7 +4,7 @@ const notificationSchema = new Schema(
   {
     organizationId: { type: Schema.Types.ObjectId, ref: 'Organization', required: true, index: true },
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-    type: { type: String, enum: ['appointment', 'billing'], required: true },
+    type: { type: String, enum: ['appointment', 'billing', 'exam_result', 'pharmacy'], required: true },
     title: { type: String, required: true, maxlength: 140 },
     message: { type: String, required: true, maxlength: 500 },
     read: { type: Boolean, default: false },

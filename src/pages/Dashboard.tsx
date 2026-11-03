@@ -3,6 +3,7 @@ import AdminDashboard from "./dashboards/AdminDashboard";
 import DoctorDashboard from "./dashboards/DoctorDashboard";
 import PatientDashboard from "./dashboards/PatientDashboard";
 import ReceptionDashboard from "./dashboards/ReceptionDashboard";
+import LaborantinWorkspace from "./laboratory/LaborantinWorkspace";
 import SuperAdminDashboard from "./dashboards/SuperAdminDashboard";
 
 export default function Dashboard() {
@@ -20,6 +21,8 @@ export default function Dashboard() {
       return <PatientDashboard />;
     case 'RECEPTIONIST':
       return <ReceptionDashboard />;
+    case 'LABORANTIN':
+      return <LaborantinWorkspace />;
     case 'ACCOUNTANT':
       return <AdminDashboard />;
     case 'PHARMACIST':

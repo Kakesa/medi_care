@@ -40,6 +40,7 @@ const invoiceSchema = new Schema(
     currency: { type: String, enum: ['EUR', 'CDF', 'USD'], default: 'EUR' },
     status: { type: String, enum: ['draft', 'pending', 'paid', 'overdue', 'cancelled'], default: 'draft' },
     paymentMethod: { type: String, enum: ['cash', 'card', 'transfer', 'insurance'] },
+    paymentReference: { type: String, trim: true, maxlength: 80 },
     finalizedAt: { type: Date },
     paidAt: { type: Date },
     notes: { type: String, trim: true },

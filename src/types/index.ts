@@ -10,6 +10,7 @@ export type UserRole =
   | 'DOCTOR'
   | 'RECEPTIONIST'
   | 'NURSE'
+  | 'LABORANTIN'
   | 'ACCOUNTANT'
   | 'PHARMACIST'
   | 'PATIENT';
@@ -398,6 +399,7 @@ export interface Invoice {
   balance?: number;
   status: InvoiceStatus;
   paymentMethod?: PaymentMethod;
+  paymentReference?: string;
   finalizedAt?: string;
   paidAt?: string;
   dueDate: string;

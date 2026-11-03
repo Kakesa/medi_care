@@ -36,6 +36,7 @@ const accountLabels: Record<AssignableRole, string> = {
   DOCTOR: 'médecin',
   RECEPTIONIST: 'réceptionniste',
   NURSE: 'infirmier',
+  LABORANTIN: 'laborantin',
   ACCOUNTANT: 'comptable',
   PHARMACIST: 'pharmacien',
   PATIENT: 'patient',

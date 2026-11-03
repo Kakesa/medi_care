@@ -233,7 +233,7 @@ export const finalizeInvoice = asyncHandler(async (req: Request, res: Response) 
   res.json(await billingService.finalizeInvoice(auth(req), org(req), req.params.id, req.ip));
 });
 export const payInvoice = asyncHandler(async (req: Request, res: Response) => {
-  res.json(await billingService.payInvoice(auth(req), org(req), req.params.id, req.body.paymentMethod, req.ip));
+  res.json(await billingService.payInvoice(auth(req), org(req), req.params.id, req.body.paymentMethod, req.ip, req.body.paymentReference));
 });
 export const cancelInvoice = asyncHandler(async (req: Request, res: Response) => {
   res.json(await billingService.cancelInvoice(auth(req), org(req), req.params.id, req.ip));

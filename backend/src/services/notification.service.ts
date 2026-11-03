@@ -1,4 +1,5 @@
 import { Notification } from '../models/Notification.js';
+import { User } from '../models/User.js';
 import { ApiError } from '../utils/ApiError.js';
 import { paginated, readPagination } from '../utils/pagination.js';
 import type { AuthContext } from '../types/express.js';
@@ -29,7 +30,7 @@ export async function notifyUser(input: {
   userId?: { toString(): string } | string | null;
   title: string;
   message: string;
-  type?: 'appointment' | 'billing';
+  type?: 'appointment' | 'billing' | 'exam_result' | 'pharmacy';
   relatedId?: string;
 }) {
   const userId = input.userId ? String(input.userId) : '';
@@ -43,6 +44,22 @@ export async function notifyUser(input: {
     read: false,
     relatedId: input.relatedId,
   });
+}
+
+export async function notifyRoles(input: {
+  organizationId: string;
+  roles: string[];
+  title: string;
+  message: string;
+  type?: 'appointment' | 'billing' | 'exam_result' | 'pharmacy';
+  relatedId?: string;
+}) {
+  const users = await User.find({
+    organizationId: input.organizationId,
+    role: { $in: input.roles },
+    isActive: true,
+  }).select('_id');
+  await Promise.all(users.map((user) => notifyUser({ ...input, userId: user.id })));
 }
 
 export async function listNotifications(actor: AuthContext, organizationId: string, query: { page?: number; limit?: number }) {

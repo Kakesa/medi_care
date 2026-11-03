@@ -565,7 +565,7 @@ export async function priceSurgicalAct(
     unitPrice: fromMinorUnits(act.priceMinor),
     total: fromMinorUnits(totalMinor),
     type: 'service',
-    category: 'CHIRURGIE',
+    category: act.billingCategory || 'CHIRURGIE',
     surgicalActId: act._id,
     unit: 'acte',
     source: 'surgery' as const,

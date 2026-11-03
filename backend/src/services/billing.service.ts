@@ -59,6 +59,7 @@ function toInvoiceDto(row: {
   total: number;
   status: string;
   paymentMethod?: string | null;
+  paymentReference?: string | null;
   finalizedAt?: Date | null;
   paidAt?: Date | null;
   notes?: string | null;
@@ -103,6 +104,7 @@ function toInvoiceDto(row: {
     balance: status === 'paid' || status === 'cancelled' ? 0 : row.total,
     status,
     paymentMethod: row.paymentMethod || undefined,
+    paymentReference: row.paymentReference || undefined,
     finalizedAt: row.finalizedAt || undefined,
     paidAt: row.paidAt,
     dueDate: dateOnly(row.dueDate),
@@ -307,7 +309,8 @@ export async function payInvoice(
   organizationId: string,
   id: string,
   paymentMethod: 'cash' | 'card' | 'transfer' | 'insurance',
-  ip?: string
+  ip?: string,
+  paymentReference?: string
 ) {
   await markOverdue(organizationId);
   const row = await requireOwned(Invoice, id, organizationId, actor, 'invoice', ip);
@@ -322,6 +325,7 @@ export async function payInvoice(
   }
   row.status = 'paid';
   row.paymentMethod = paymentMethod;
+  row.paymentReference = paymentReference?.trim() || undefined;
   row.paidAt = new Date();
   await row.save();
   await recordAudit({

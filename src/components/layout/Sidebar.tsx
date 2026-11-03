@@ -19,8 +19,7 @@ import {
   Sun,
   Landmark,
   BedDouble,
-  Building2,
-  UserCog
+  Building2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -31,7 +30,6 @@ import type { UserRole } from "@/types";
 export const allNavigation: { name: string; href: string; icon: typeof LayoutDashboard; roles: UserRole[] }[] = [
   { name: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard, roles: ['SUPERADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'RECEPTIONIST', 'NURSE', 'ACCOUNTANT', 'PHARMACIST', 'PATIENT'] },
   { name: "Hôpitaux", href: "/dashboard/hospitals", icon: Building2, roles: ['SUPERADMIN'] },
-  { name: "Utilisateurs", href: "/dashboard/users", icon: UserCog, roles: ['HOSPITAL_ADMIN'] },
   { name: "Réception", href: "/dashboard/reception", icon: UserPlus, roles: ['HOSPITAL_ADMIN', 'RECEPTIONIST'] },
   { name: "Personnel", href: "/dashboard/personnel", icon: Users, roles: ['HOSPITAL_ADMIN'] },
   { name: "Patients", href: "/dashboard/patients", icon: UserCircle, roles: ['HOSPITAL_ADMIN', 'DOCTOR', 'RECEPTIONIST', 'NURSE'] },
@@ -71,7 +69,7 @@ export function Sidebar({ variant = "fixed", onNavigate }: SidebarProps) {
   return (
     <aside 
       className={cn(
-        "bg-sidebar border-r border-sidebar-border flex flex-col",
+        "flex flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground",
         isDrawer
           ? "h-full w-full"
           : cn(

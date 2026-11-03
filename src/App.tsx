@@ -24,7 +24,6 @@ import Profile from "./pages/Profile";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Hospitals from "./pages/Hospitals";
-import UsersAdmin from "./pages/UsersAdmin";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 import { RequireRole } from "./components/auth/RequireRole";
 
@@ -59,7 +58,6 @@ const App = () => (
               <Route path="/dashboard" element={<DashboardLayout />}>
                 <Route index element={<Dashboard />} />
                 <Route path="hospitals" element={<RequireRole roles={["SUPERADMIN"]}><Hospitals /></RequireRole>} />
-                <Route path="users" element={<RequireRole roles={["HOSPITAL_ADMIN"]}><UsersAdmin /></RequireRole>} />
                 <Route path="personnel" element={<RequireRole roles={["HOSPITAL_ADMIN"]}><Personnel /></RequireRole>} />
                 <Route path="patients" element={<RequireRole roles={["HOSPITAL_ADMIN", "DOCTOR", "RECEPTIONIST", "NURSE"]}><Patients /></RequireRole>} />
                 <Route path="appointments" element={<RequireRole roles={["HOSPITAL_ADMIN", "DOCTOR", "RECEPTIONIST"]}><Appointments /></RequireRole>} />

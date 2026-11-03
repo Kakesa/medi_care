@@ -327,6 +327,7 @@ export async function payInvoice(
   row.paymentMethod = paymentMethod;
   row.paymentReference = paymentReference?.trim() || undefined;
   row.paidAt = new Date();
+  row.paidBy = actor.id;
   await row.save();
   await recordAudit({
     actorId: actor.id,

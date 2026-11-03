@@ -7,6 +7,7 @@ import * as receptionService from '../services/reception.service.js';
 import * as examService from '../services/exam.service.js';
 import * as pharmacyService from '../services/pharmacy.service.js';
 import * as billingService from '../services/billing.service.js';
+import * as cashflowService from '../services/cashflow.service.js';
 import * as catalogService from '../services/catalog.service.js';
 
 const org = (req: Request) => req.organizationId!;
@@ -210,6 +211,10 @@ export const myInvoices = asyncHandler(async (req: Request, res: Response) => {
 });
 export const invoiceStats = asyncHandler(async (req: Request, res: Response) => {
   res.json(await billingService.invoiceStats(org(req)));
+});
+export const cashflow = asyncHandler(async (req: Request, res: Response) => {
+  const query = req.query as { from: string; to: string };
+  res.json(await cashflowService.cashflowReport(org(req), query.from, query.to));
 });
 export const generateNumber = asyncHandler(async (req: Request, res: Response) => {
   res.json(await billingService.generateInvoiceNumber(org(req)));

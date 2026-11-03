@@ -11,6 +11,7 @@ import {
   createServiceSchema,
   invoiceByPatientSchema,
   invoiceParamsSchema,
+  cashflowSchema,
   listInvoicesSchema,
   payInvoiceSchema,
   updateInvoiceSchema,
@@ -29,6 +30,7 @@ router.get('/services', clinical.listServices);
 router.post('/services', requireRoles(ROLES.HOSPITAL_ADMIN), validate(createServiceSchema), clinical.createService);
 router.patch('/services/:id', requireRoles(ROLES.HOSPITAL_ADMIN), validate(updateServiceSchema), clinical.updateService);
 router.get('/stats', clinical.invoiceStats);
+router.get('/cashflow', validate(cashflowSchema), clinical.cashflow);
 router.get('/patients', clinical.billingPatients);
 router.get('/generate-number', clinical.generateNumber);
 router.get('/invoices/overdue', clinical.overdueInvoices);

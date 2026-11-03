@@ -43,6 +43,7 @@ const invoiceSchema = new Schema(
     paymentReference: { type: String, trim: true, maxlength: 80 },
     finalizedAt: { type: Date },
     paidAt: { type: Date },
+    paidBy: { type: Schema.Types.ObjectId, ref: 'User' },
     notes: { type: String, trim: true },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
   },

@@ -1,86 +1,117 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowUpCircle, Clock, PieChart as PieChartIcon, Search, TrendingUp } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, FileDown, RotateCcw, Search } from "lucide-react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAckInvoices } from "@/contexts/WorkBadgeContext";
 import { apiMessage } from "@/lib/apiError";
-import { categoryLabel, DEFAULT_CATEGORIES, type BillingCategory } from "@/lib/billingCategories";
-import { formatMoney, type BillingCurrency } from "@/lib/money";
-import { billingService } from "@/services/billingService";
-import type { Invoice, InvoiceStatus } from "@/types";
+import { formatMoney } from "@/lib/money";
+import { billingService, type CashMovement, type CashflowReport } from "@/services/billingService";
+import { generateCashflowPDF } from "@/utils/pdfGenerator";
 
-const OPEN_STATUSES = new Set<InvoiceStatus>(["pending", "overdue"]);
-const ENTRY_STATUSES = new Set<InvoiceStatus>(["paid", "pending", "overdue"]);
-const COLORS = ["#22c55e", "#16a34a", "#15803d", "#0f766e", "#059669", "#14532d", "#65a30d", "#047857"];
-
-const statusConfig: Record<"paid" | "pending" | "overdue", { label: string; variant: "default" | "secondary" | "destructive" }> = {
-  paid: { label: "Encaissée", variant: "default" },
-  pending: { label: "À encaisser", variant: "secondary" },
-  overdue: { label: "En retard", variant: "destructive" },
-};
-
-const paymentLabels: Record<string, string> = {
+const COLORS = ["#22c55e", "#16a34a", "#15803d", "#0f766e", "#059669", "#14532d"];
+const PAYMENT: Record<string, string> = {
   cash: "Espèces",
   card: "Carte",
   transfer: "Virement",
   insurance: "Assurance",
+  other: "Autre",
 };
 
-async function loadByStatus(status: InvoiceStatus) {
-  const first = await billingService.getInvoices({ status, limit: 100, page: 1 });
-  const rows = [...first.data];
-  const pages = Math.min(first.totalPages || 1, 5);
-  for (let page = 2; page <= pages; page += 1) {
-    const next = await billingService.getInvoices({ status, limit: 100, page });
-    rows.push(...next.data);
-  }
-  return rows;
+function isoDate(date: Date) {
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
 }
 
-function moneyOf(invoice: Invoice) {
-  return invoice.currency || "EUR";
+function todayRange() {
+  const today = isoDate(new Date());
+  return { from: today, to: today };
 }
 
-function when(invoice: Invoice) {
-  const raw = invoice.status === "paid" && invoice.paidAt ? invoice.paidAt : invoice.createdAt;
-  return new Date(raw).toLocaleDateString("fr-FR");
+function weekRange() {
+  const now = new Date();
+  const day = now.getDay();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  return { from: isoDate(monday), to: isoDate(sunday) };
 }
 
-function categoriesOf(invoice: Invoice, categories: BillingCategory[]) {
-  const codes = [...new Set(invoice.items.map((item) => item.category || "AUTRE"))];
-  if (!codes.length) return "Autre";
-  return codes.map((code) => categoryLabel(categories, code)).join(", ");
+function monthRange() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  return { from: isoDate(start), to: isoDate(now) };
+}
+
+function when(value: string) {
+  return new Date(value).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
+}
+
+function isEmpty(report: CashflowReport) {
+  return !report.entries.length && !report.exits.length && !report.pending.length && !report.cancelled.length;
+}
+
+function MovementTable({ rows, empty }: { rows: CashMovement[]; empty: string }) {
+  if (!rows.length) return <p className="py-6 text-center text-sm text-muted-foreground">{empty}</p>;
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Date</TableHead>
+          <TableHead>Référence</TableHead>
+          <TableHead>Désignation</TableHead>
+          <TableHead>Catégorie</TableHead>
+          <TableHead>Paiement</TableHead>
+          <TableHead>Utilisateur</TableHead>
+          <TableHead className="text-right">Montant</TableHead>
+          <TableHead>Statut</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((row) => (
+          <TableRow key={`${row.source}-${row.id}`}>
+            <TableCell className="whitespace-nowrap text-muted-foreground">{when(row.at)}</TableCell>
+            <TableCell>{row.reference}</TableCell>
+            <TableCell className="max-w-[220px] truncate font-medium">{row.label}</TableCell>
+            <TableCell><Badge variant="secondary">{row.category}</Badge></TableCell>
+            <TableCell className="text-sm text-muted-foreground">{row.paymentMethod ? PAYMENT[row.paymentMethod] || row.paymentMethod : "—"}</TableCell>
+            <TableCell className="text-sm">{row.actorName}</TableCell>
+            <TableCell className={`text-right font-semibold ${row.direction === "in" ? "text-green-600" : "text-red-600"}`}>
+              {formatMoney(row.amount, row.currency)}
+            </TableCell>
+            <TableCell><Badge variant={row.status === "paid" ? "default" : row.status === "cancelled" ? "destructive" : "outline"}>{row.statusLabel}</Badge></TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
 }
 
 export default function Accounting() {
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [currency, setCurrency] = useState<BillingCurrency>("EUR");
-  const [categories, setCategories] = useState<BillingCategory[]>(DEFAULT_CATEGORIES);
+  const initial = monthRange();
+  const [from, setFrom] = useState(initial.from);
+  const [to, setTo] = useState(initial.to);
+  const [applied, setApplied] = useState(initial);
+  const [report, setReport] = useState<CashflowReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  useAckInvoices(invoices.flatMap((invoice) => (OPEN_STATUSES.has(invoice.status) ? [invoice.id] : [])));
+  useAckInvoices((report?.pending || []).flatMap((row) => (row.source === "invoice" ? [row.id] : [])));
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
+      setLoading(true);
       try {
-        const [settings, paid, pending, overdue] = await Promise.all([
-          billingService.getSettings(),
-          loadByStatus("paid"),
-          loadByStatus("pending"),
-          loadByStatus("overdue"),
-        ]);
-        if (cancelled) return;
-        setCurrency(settings.currency);
-        setCategories(settings.categories?.length ? settings.categories : DEFAULT_CATEGORIES);
-        setInvoices([...paid, ...pending, ...overdue]);
+        const data = await billingService.getCashflow(applied.from, applied.to);
+        if (!cancelled) setReport(data);
       } catch (error) {
         if (!cancelled) toast.error(apiMessage(error));
       } finally {
@@ -90,182 +121,146 @@ export default function Accounting() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [applied]);
 
-  const entries = useMemo(
-    () => invoices.filter((invoice) => ENTRY_STATUSES.has(invoice.status)),
-    [invoices],
-  );
+  const apply = (next = { from, to }) => {
+    if (!next.from || !next.to || next.from > next.to) {
+      toast.error("La date de fin précède la date de début.");
+      return;
+    }
+    setFrom(next.from);
+    setTo(next.to);
+    setApplied(next);
+  };
 
-  const filtered = useMemo(() => {
+  const matches = (row: CashMovement) => {
     const needle = search.trim().toLocaleLowerCase("fr");
-    return entries.filter((invoice) => {
-      const matchesStatus = statusFilter === "all" || invoice.status === statusFilter;
-      const haystack = `${invoice.invoiceNumber} ${invoice.patientName} ${invoice.paymentReference || ""}`.toLocaleLowerCase("fr");
-      return matchesStatus && (!needle || haystack.includes(needle));
-    });
-  }, [entries, search, statusFilter]);
+    if (!needle) return true;
+    return `${row.reference} ${row.label} ${row.category} ${row.actorName}`.toLocaleLowerCase("fr").includes(needle);
+  };
 
-  const inCurrency = (invoice: Invoice) => moneyOf(invoice) === currency;
-  const sum = (status: InvoiceStatus) => entries
-    .filter((invoice) => invoice.status === status && inCurrency(invoice))
-    .reduce((total, invoice) => total + invoice.total, 0);
+  const entries = useMemo(() => (report?.entries || []).filter(matches), [report, search]);
+  const exits = useMemo(() => (report?.exits || []).filter(matches), [report, search]);
+  const aside = useMemo(() => [...(report?.pending || []), ...(report?.cancelled || [])].filter(matches), [report, search]);
+  const currency = report?.currency || "EUR";
 
-  const incomeByCategory = useMemo(() => {
-    const map: Record<string, number> = {};
-    entries
-      .filter((invoice) => invoice.status === "paid" && inCurrency(invoice))
-      .forEach((invoice) => {
-        const items = invoice.items.filter((item) => item.total > 0);
-        if (!items.length) {
-          const label = "Autre";
-          map[label] = (map[label] || 0) + invoice.total;
-          return;
-        }
-        items.forEach((item) => {
-          const label = categoryLabel(categories, item.category || "AUTRE");
-          map[label] = (map[label] || 0) + item.total;
-        });
-      });
-    return Object.entries(map).map(([name, value]) => ({ name, value: Math.round(value * 100) / 100 }));
-  }, [entries, categories, currency]);
+  const exportPdf = () => {
+    if (!report || isEmpty(report)) {
+      toast.error("Aucune opération enregistrée sur cette période.");
+      return;
+    }
+    generateCashflowPDF({ ...report, generatedAt: new Date().toISOString() });
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Comptabilité</h1>
-        <p className="mt-1 text-muted-foreground">Entrées réelles issues des factures de l'hôpital</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Comptabilité</h1>
+          <p className="mt-1 text-muted-foreground">Entrées encaissées et sorties payées de l'établissement</p>
+        </div>
+        <Button type="button" onClick={exportPdf} disabled={loading}>
+          <FileDown className="mr-2 h-4 w-4" />Exporter en PDF
+        </Button>
       </div>
+
+      <Card>
+        <CardContent className="grid gap-3 p-4 lg:grid-cols-[1fr_1fr_auto_auto_auto] lg:items-end">
+          <div className="space-y-2">
+            <Label htmlFor="cash-from">Date de début</Label>
+            <Input id="cash-from" type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="cash-to">Date de fin</Label>
+            <Input id="cash-to" type="date" value={to} onChange={(event) => setTo(event.target.value)} />
+          </div>
+          <Button type="button" onClick={() => apply()}>Filtrer</Button>
+          <Button type="button" variant="outline" onClick={() => apply(monthRange())}>
+            <RotateCcw className="mr-2 h-4 w-4" />Réinitialiser
+          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="secondary" onClick={() => apply(todayRange())}>Jour</Button>
+            <Button type="button" variant="secondary" onClick={() => apply(weekRange())}>Semaine</Button>
+            <Button type="button" variant="secondary" onClick={() => apply(monthRange())}>Mois</Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Card className="border-l-4 border-l-green-500">
           <CardContent className="flex items-center gap-3 p-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-500/10">
-              <TrendingUp className="h-5 w-5 text-green-500" />
-            </div>
+            <ArrowUpCircle className="h-5 w-5 text-green-500" />
             <div>
-              <p className="text-sm text-muted-foreground">Encaissé</p>
-              <p className="text-xl font-bold text-green-600">{formatMoney(sum("paid"), currency)}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-l-4 border-l-yellow-500">
-          <CardContent className="flex items-center gap-3 p-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-yellow-500/10">
-              <Clock className="h-5 w-5 text-yellow-500" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">À encaisser</p>
-              <p className="text-xl font-bold">{formatMoney(sum("pending"), currency)}</p>
+              <p className="text-sm text-muted-foreground">Total des entrées</p>
+              <p className="text-xl font-bold text-green-600">{formatMoney(report?.totals.income || 0, currency)}</p>
             </div>
           </CardContent>
         </Card>
         <Card className="border-l-4 border-l-red-500">
           <CardContent className="flex items-center gap-3 p-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-500/10">
-              <ArrowUpCircle className="h-5 w-5 text-red-500" />
-            </div>
+            <ArrowDownCircle className="h-5 w-5 text-red-500" />
             <div>
-              <p className="text-sm text-muted-foreground">En retard</p>
-              <p className="text-xl font-bold text-red-600">{formatMoney(sum("overdue"), currency)}</p>
+              <p className="text-sm text-muted-foreground">Total des sorties</p>
+              <p className="text-xl font-bold text-red-600">{formatMoney(report?.totals.expense || 0, currency)}</p>
             </div>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-primary">
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">Solde de la période</p>
+            <p className={`text-xl font-bold ${(report?.totals.balance || 0) >= 0 ? "text-green-600" : "text-red-600"}`}>
+              {formatMoney(report?.totals.balance || 0, currency)}
+            </p>
           </CardContent>
         </Card>
       </div>
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <PieChartIcon className="h-4 w-4 text-green-500" />
-            Entrées encaissées par catégorie
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {incomeByCategory.length > 0 ? (
-            <ResponsiveContainer width="100%" height={260}>
+      {report && report.incomeByCategory.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-base">Entrées par catégorie</CardTitle></CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={240}>
               <PieChart>
-                <Pie data={incomeByCategory} cx="50%" cy="50%" outerRadius={88} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false} fontSize={11}>
-                  {incomeByCategory.map((row, index) => (
-                    <Cell key={row.name} fill={COLORS[index % COLORS.length]} />
-                  ))}
+                <Pie data={report.incomeByCategory} dataKey="amount" nameKey="category" cx="50%" cy="50%" outerRadius={80} label={({ category, percent }) => `${category} ${(percent * 100).toFixed(0)}%`} labelLine={false} fontSize={11}>
+                  {report.incomeByCategory.map((row, index) => <Cell key={row.category} fill={COLORS[index % COLORS.length]} />)}
                 </Pie>
                 <Tooltip formatter={(value: number) => formatMoney(value, currency)} />
               </PieChart>
             </ResponsiveContainer>
-          ) : (
-            <p className="py-10 text-center text-sm text-muted-foreground">Aucune entrée encaissée</p>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
-      <Card>
-        <CardContent className="flex flex-col gap-3 p-4 sm:flex-row">
-          <div className="relative min-w-0 flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Patient, facture ou référence" value={search} onChange={(event) => setSearch(event.target.value)} className="pl-10" />
-          </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-48"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Toutes les entrées</SelectItem>
-              <SelectItem value="paid">Encaissées</SelectItem>
-              <SelectItem value="pending">À encaisser</SelectItem>
-              <SelectItem value="overdue">En retard</SelectItem>
-            </SelectContent>
-          </Select>
-        </CardContent>
-      </Card>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input placeholder="Rechercher une référence, une désignation ou un utilisateur" value={search} onChange={(event) => setSearch(event.target.value)} className="pl-10" />
+      </div>
 
-      <Card>
-        <CardHeader><CardTitle>Entrées ({filtered.length})</CardTitle></CardHeader>
-        <CardContent>
-          {loading ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">Chargement des entrées...</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Patient</TableHead>
-                  <TableHead>Facture</TableHead>
-                  <TableHead>Catégorie</TableHead>
-                  <TableHead>Paiement</TableHead>
-                  <TableHead className="text-right">Montant</TableHead>
-                  <TableHead>Statut</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((invoice) => {
-                  const status = invoice.status as "paid" | "pending" | "overdue";
-                  return (
-                    <TableRow key={invoice.id}>
-                      <TableCell className="text-muted-foreground">{when(invoice)}</TableCell>
-                      <TableCell className="font-medium">{invoice.patientName}</TableCell>
-                      <TableCell>{invoice.invoiceNumber}</TableCell>
-                      <TableCell><Badge variant="secondary">{categoriesOf(invoice, categories)}</Badge></TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {invoice.paymentMethod ? paymentLabels[invoice.paymentMethod] || invoice.paymentMethod : "—"}
-                        {invoice.paymentReference ? ` · ${invoice.paymentReference}` : ""}
-                      </TableCell>
-                      <TableCell className="text-right font-semibold text-green-600">
-                        {formatMoney(invoice.total, moneyOf(invoice))}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={statusConfig[status].variant}>{statusConfig[status].label}</Badge>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-                {filtered.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Aucune entrée pour ce filtre</TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+      {loading ? (
+        <p className="text-sm text-muted-foreground">Chargement des mouvements...</p>
+      ) : report && isEmpty(report) ? (
+        <Card><CardContent className="py-10 text-center text-muted-foreground">Aucune opération enregistrée sur cette période.</CardContent></Card>
+      ) : (
+        <div className="space-y-4">
+          <Card>
+            <CardHeader><CardTitle>Entrées ({entries.length})</CardTitle></CardHeader>
+            <CardContent><MovementTable rows={entries} empty="Aucune entrée encaissée sur cette période." /></CardContent>
+          </Card>
+          <Card>
+            <CardHeader><CardTitle>Sorties ({exits.length})</CardTitle></CardHeader>
+            <CardContent><MovementTable rows={exits} empty="Aucune sortie payée sur cette période." /></CardContent>
+          </Card>
+          {aside.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Hors solde ({aside.length})</CardTitle>
+                <p className="text-sm text-muted-foreground">Factures non payées, dépenses en attente et opérations annulées. Elles ne sont pas comptées dans le solde.</p>
+              </CardHeader>
+              <CardContent><MovementTable rows={aside} empty="" /></CardContent>
+            </Card>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      )}
     </div>
   );
 }

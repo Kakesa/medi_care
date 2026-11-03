@@ -30,6 +30,37 @@ export interface BillableServiceRecord {
   billingRule?: string;
 }
 
+export interface CashMovement {
+  id: string;
+  at: string;
+  reference: string;
+  label: string;
+  category: string;
+  amount: number;
+  currency: string;
+  paymentMethod: string | null;
+  actorName: string;
+  status: 'paid' | 'pending' | 'cancelled';
+  statusLabel: string;
+  direction: 'in' | 'out';
+  source: 'invoice' | 'sale' | 'expense';
+}
+
+export interface CashflowReport {
+  organization: { name: string; address: string; phone: string; email: string };
+  period: { from: string; to: string };
+  generatedAt: string;
+  currency: BillingCurrency | string;
+  entries: CashMovement[];
+  exits: CashMovement[];
+  pending: CashMovement[];
+  cancelled: CashMovement[];
+  totals: { income: number; expense: number; balance: number };
+  incomeByCategory: Array<{ category: string; amount: number }>;
+  expenseByCategory: Array<{ category: string; amount: number }>;
+  otherCurrency: Array<{ currency: string; income: number; expense: number }>;
+}
+
 export interface BillingSettings {
   currency: BillingCurrency;
   currencies: BillingCurrency[];
@@ -129,6 +160,10 @@ class BillingService {
 
   async getOverdueInvoices(): Promise<Invoice[]> {
     return httpClient.get<Invoice[]>(`${this.basePath}/invoices/overdue`);
+  }
+
+  async getCashflow(from: string, to: string): Promise<CashflowReport> {
+    return httpClient.get<CashflowReport>(`${this.basePath}/cashflow`, { from, to });
   }
 
   async getStats(): Promise<{

@@ -4,6 +4,7 @@
 
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import type { CashMovement, CashflowReport } from '@/services/billingService';
 import type { Invoice, Consultation, Exam } from '@/types';
 import { formatMoney } from '@/lib/money';
 
@@ -538,4 +539,194 @@ export const generateStatsReportPDF = (data: StatsData): void => {
 
   // Save
   doc.save(`rapport-statistiques-${data.period.replace(/\s+/g, '_')}.pdf`);
+};
+
+const PAYMENT_LABELS: Record<string, string> = {
+  cash: 'Espèces',
+  card: 'Carte',
+  transfer: 'Virement',
+  insurance: 'Assurance',
+  other: 'Autre',
+};
+
+function reportStamp(value: string) {
+  return new Date(value).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+}
+
+function reportDay(value: string) {
+  const [year, month, day] = value.split('-');
+  return `${day}/${month}/${year}`;
+}
+
+export const generateCashflowPDF = (report: CashflowReport): void => {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const currency = report.currency || 'EUR';
+  const generated = reportStamp(report.generatedAt);
+
+  doc.setFillColor(...COLORS.primary);
+  doc.rect(0, 0, pageWidth, 32, 'F');
+  doc.setFillColor(255, 255, 255);
+  doc.roundedRect(12, 8, 14, 14, 2, 2, 'F');
+  doc.setFillColor(...COLORS.primary);
+  doc.rect(17.4, 10, 3.2, 10, 'F');
+  doc.rect(14, 13.4, 10, 3.2, 'F');
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+  doc.text(report.organization.name, 32, 14);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.text(report.organization.address, 32, 20);
+  doc.text(`${report.organization.phone} · ${report.organization.email}`, 32, 25);
+
+  doc.setTextColor(0, 0, 0);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.text('Rapport des entrées et sorties', 14, 42);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.text(`Période : du ${reportDay(report.period.from)} au ${reportDay(report.period.to)}`, 14, 49);
+  doc.text(`Généré le ${generated}`, 14, 55);
+
+  let cursor = 62;
+  const paintSection = (title: string, rows: CashMovement[], empty: string) => {
+    if (cursor > pageHeight - 40) {
+      doc.addPage();
+      cursor = 16;
+    }
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.setTextColor(...COLORS.primary);
+    doc.text(title, 14, cursor);
+    cursor += 4;
+    if (!rows.length) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(...COLORS.secondary);
+      doc.text(empty, 14, cursor + 4);
+      cursor += 12;
+      return;
+    }
+    autoTable(doc, {
+      startY: cursor,
+      head: [['Date et heure', 'Référence', 'Désignation', 'Catégorie', 'Montant', 'Paiement', 'Utilisateur']],
+      body: rows.map((row) => [
+        reportStamp(row.at),
+        row.reference,
+        row.label,
+        row.category,
+        formatMoney(row.amount, row.currency),
+        row.paymentMethod ? PAYMENT_LABELS[row.paymentMethod] || row.paymentMethod : '—',
+        row.actorName,
+      ]),
+      theme: 'striped',
+      styles: { fontSize: 8, cellPadding: 1.5, overflow: 'linebreak' },
+      headStyles: { fillColor: COLORS.primary, textColor: [255, 255, 255], fontStyle: 'bold' },
+      columnStyles: { 4: { halign: 'right' } },
+      margin: { left: 14, right: 14, bottom: 16 },
+    });
+    cursor = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+  };
+
+  paintSection('A. Entrées encaissées', report.entries, 'Aucune entrée encaissée sur cette période.');
+  paintSection('B. Sorties payées', report.exits, 'Aucune sortie payée sur cette période.');
+
+  if (cursor > pageHeight - 70) {
+    doc.addPage();
+    cursor = 16;
+  }
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.setTextColor(...COLORS.primary);
+  doc.text('C. Récapitulatif financier', 14, cursor);
+  cursor += 6;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(11);
+  doc.setTextColor(0, 0, 0);
+  const lines = [
+    ['Total des entrées', formatMoney(report.totals.income, currency)],
+    ['Total des sorties', formatMoney(report.totals.expense, currency)],
+    ['Solde de la période', formatMoney(report.totals.balance, currency)],
+  ];
+  lines.forEach(([label, value], index) => {
+    doc.setFont('helvetica', index === 2 ? 'bold' : 'normal');
+    doc.text(label, 14, cursor + index * 7);
+    doc.text(value, pageWidth - 14, cursor + index * 7, { align: 'right' });
+  });
+  cursor += 28;
+
+  const categoryRows = [
+    ...report.incomeByCategory.map((row) => ['Entrée', row.category, formatMoney(row.amount, currency)]),
+    ...report.expenseByCategory.map((row) => ['Sortie', row.category, formatMoney(row.amount, currency)]),
+  ];
+  if (categoryRows.length) {
+    autoTable(doc, {
+      startY: cursor,
+      head: [['Sens', 'Catégorie', 'Montant']],
+      body: categoryRows,
+      theme: 'grid',
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: COLORS.primary, textColor: [255, 255, 255] },
+      margin: { left: 14, right: 14, bottom: 16 },
+    });
+    cursor = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+  }
+
+  const aside = [...report.pending, ...report.cancelled];
+  if (aside.length) {
+    if (cursor > pageHeight - 40) {
+      doc.addPage();
+      cursor = 16;
+    }
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.setTextColor(...COLORS.primary);
+    doc.text('Opérations hors solde', 14, cursor);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(...COLORS.secondary);
+    doc.text('Factures non payées, dépenses en attente, opérations annulées ou rejetées. Elles ne modifient pas le solde.', 14, cursor + 5);
+    autoTable(doc, {
+      startY: cursor + 8,
+      head: [['Date', 'Sens', 'Référence', 'Désignation', 'Montant', 'Statut']],
+      body: aside.map((row) => [
+        reportStamp(row.at),
+        row.direction === 'in' ? 'Entrée' : 'Sortie',
+        row.reference,
+        row.label,
+        formatMoney(row.amount, row.currency),
+        row.statusLabel,
+      ]),
+      theme: 'striped',
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: COLORS.secondary, textColor: [255, 255, 255] },
+      margin: { left: 14, right: 14, bottom: 16 },
+    });
+  }
+
+  if (report.otherCurrency.length) {
+    const note = report.otherCurrency
+      .map((row) => `${row.currency} : entrées ${formatMoney(row.income, row.currency)}, sorties ${formatMoney(row.expense, row.currency)}`)
+      .join(' · ');
+    doc.setFontSize(8);
+    doc.setTextColor(...COLORS.secondary);
+    const y = (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY;
+    doc.text(`Hors solde ${currency} : ${note}`, 14, (y || cursor) + 8, { maxWidth: pageWidth - 28 });
+  }
+
+  const pages = doc.getNumberOfPages();
+  for (let page = 1; page <= pages; page += 1) {
+    doc.setPage(page);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(...COLORS.secondary);
+    doc.text(`Généré le ${generated}`, 14, pageHeight - 8);
+    doc.text(report.organization.name, pageWidth / 2, pageHeight - 8, { align: 'center' });
+    doc.text(`${page} / ${pages}`, pageWidth - 14, pageHeight - 8, { align: 'right' });
+  }
+
+  doc.save(`entrees-sorties-${report.period.from}-${report.period.to}.pdf`);
 };

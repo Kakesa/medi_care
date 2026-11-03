@@ -304,6 +304,13 @@ const invoiceItem = z.object({
   }
 });
 
+export const cashflowSchema = envelope(
+  empty,
+  z.object({
+    from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date invalide'),
+    to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date invalide'),
+  }).refine((value) => value.from <= value.to, { message: 'La date de fin précède la date de début' })
+);
 export const listInvoicesSchema = envelope(
   empty,
   paginationSchema.extend({

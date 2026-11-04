@@ -7,7 +7,6 @@ import {
   Stethoscope,
   User,
   Calendar,
-  FileText,
   Clock,
   CheckCircle
 } from "lucide-react";
@@ -498,140 +497,72 @@ export default function Consultations() {
       </div>
 
       {/* Consultations list */}
-      <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {filteredConsultations.length === 0 && (
-          <p className="py-8 text-center text-muted-foreground">Aucune consultation enregistrée.</p>
+          <p className="col-span-full py-8 text-center text-muted-foreground">Aucune consultation enregistrée.</p>
         )}
-        {filteredConsultations.map((consultation, index) => {
+        {filteredConsultations.map((consultation) => {
           const StatusIcon = statusConfig[consultation.status].icon;
           return (
-            <Card 
+            <Card
               key={consultation.id}
-              className="p-4 animate-slide-up sm:p-6"
-              style={{ animationDelay: `${200 + index * 50}ms` }}
+              className="cursor-pointer p-4 transition-colors hover:bg-muted/40"
+              onClick={() => setSelectedConsultation(consultation)}
             >
-              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="flex min-w-0 items-start gap-4">
-                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Stethoscope className="h-6 w-6 text-primary" />
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                    <Stethoscope className="h-5 w-5 text-primary" />
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-lg">{consultation.plainte || "Consultation"}</h3>
-                    <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <User className="h-4 w-4" />
-                        {consultation.patientName}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Stethoscope className="h-4 w-4" />
-                        {consultation.doctorName}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4" />
-                        {consultation.date}
-                      </span>
-                    </div>
+                  <div className="min-w-0">
+                    <h3 className="truncate font-semibold">{consultation.patientName}</h3>
+                    <p className="line-clamp-2 text-sm text-muted-foreground">{consultation.plainte || "Consultation"}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className={statusConfig[consultation.status].color}>
-                    <StatusIcon className="h-3 w-3 mr-1" />
-                    {statusConfig[consultation.status].label}
-                  </Badge>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setSelectedConsultation(consultation)}>
-                        Voir les détails
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="shrink-0" onClick={(event) => event.stopPropagation()}>
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
+                    <DropdownMenuItem onClick={() => setSelectedConsultation(consultation)}>
+                      Voir les détails
+                    </DropdownMenuItem>
+                    {canWrite && (
+                      <DropdownMenuItem onClick={() => openEdit(consultation)}>
+                        Modifier
                       </DropdownMenuItem>
-                      {canWrite && (
-                        <DropdownMenuItem onClick={() => openEdit(consultation)}>
-                          Modifier
-                        </DropdownMenuItem>
-                      )}
-                      {canWrite && consultation.status === "in_progress" && (
-                        <DropdownMenuItem onClick={() => handleComplete(consultation.id)}>
-                          Marquer comme terminée
-                        </DropdownMenuItem>
-                      )}
-                      {canDelete && (
-                        <DropdownMenuItem className="text-destructive" onClick={() => setPendingDelete(consultation)}>
-                          Supprimer
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
+                    )}
+                    {canWrite && consultation.status === "in_progress" && (
+                      <DropdownMenuItem onClick={() => handleComplete(consultation.id)}>
+                        Marquer comme terminée
+                      </DropdownMenuItem>
+                    )}
+                    {canDelete && (
+                      <DropdownMenuItem className="text-destructive" onClick={() => setPendingDelete(consultation)}>
+                        Supprimer
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
-
-              {([
-                ["Plainte", consultation.plainte],
-                ["Histoire de la maladie", consultation.histoireMaladie],
-                ["Antécédent", consultation.antecedent],
-                ["Comportement Anamnèse", consultation.comportementAnamnese],
-                ["Examen physique", consultation.examenPhysique],
-                ["Conclusion", consultation.conclusion],
-              ] as const).some(([, value]) => value) && (
-                <div className="mb-4 space-y-3">
-                  {([
-                    ["Plainte", consultation.plainte],
-                    ["Histoire de la maladie", consultation.histoireMaladie],
-                    ["Antécédent", consultation.antecedent],
-                    ["Comportement Anamnèse", consultation.comportementAnamnese],
-                    ["Examen physique", consultation.examenPhysique],
-                    ["Conclusion", consultation.conclusion],
-                  ] as const).filter(([, value]) => value).map(([label, value]) => (
-                    <div key={label} className="space-y-1">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
-                      <p className="whitespace-pre-wrap text-sm">{value}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {consultation.allergies && consultation.allergies.length > 0 && (
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Allergies</p>
-                    <div className="flex flex-wrap gap-1">
-                      {consultation.allergies.map((allergy, i) => (
-                        <Badge key={i} variant="destructive" className="text-xs">{allergy}</Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {consultation.recommandationExamens && (
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-                      <FileText className="h-3 w-3" />
-                      Recommandation des examens
-                    </p>
-                    <p className="whitespace-pre-wrap text-sm">{consultation.recommandationExamens}</p>
-                  </div>
-                )}
-                {consultation.prescription && (
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-                      <FileText className="h-3 w-3" />
-                      Prescription
-                    </p>
-                    <p className="text-sm">{consultation.prescription}</p>
-                  </div>
-                )}
-              </div>
-
-              {consultation.followUpDate && (
-                <div className="mt-4 pt-4 border-t border-border">
-                  <p className="text-sm text-muted-foreground flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-primary" />
-                    Suivi prévu le {consultation.followUpDate}
+              <div className="mt-4 flex items-center justify-between gap-2">
+                <div className="min-w-0 space-y-1 text-xs text-muted-foreground">
+                  <p className="flex items-center gap-1 truncate">
+                    <User className="h-3 w-3 shrink-0" />
+                    {consultation.doctorName}
+                  </p>
+                  <p className="flex items-center gap-1">
+                    <Calendar className="h-3 w-3 shrink-0" />
+                    {consultation.date}
                   </p>
                 </div>
-              )}
+                <Badge variant="outline" className={statusConfig[consultation.status].color}>
+                  <StatusIcon className="h-3 w-3 mr-1" />
+                  {statusConfig[consultation.status].label}
+                </Badge>
+              </div>
             </Card>
           );
         })}

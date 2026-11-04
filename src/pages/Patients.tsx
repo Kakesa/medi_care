@@ -75,7 +75,7 @@ export default function Patients() {
     lastName: "",
     email: "",
     phone: "",
-    dateOfBirth: "",
+    age: "",
     gender: "M" as "M" | "F",
     address: "",
     bloodType: "",
@@ -109,7 +109,7 @@ export default function Patients() {
       lastName: "",
       email: "",
       phone: "",
-      dateOfBirth: "",
+      age: "",
       gender: "M",
       address: "",
       bloodType: "",
@@ -130,7 +130,7 @@ export default function Patients() {
       lastName: patient.lastName,
       email: patient.email,
       phone: patient.phone,
-      dateOfBirth: patient.dateOfBirth,
+      age: patient.dateOfBirth ? String(calculateAge(patient.dateOfBirth)) : "",
       gender: patient.gender,
       address: patient.address,
       bloodType: patient.bloodType || "",
@@ -145,11 +145,20 @@ export default function Patients() {
   };
 
   const handleSubmit = async () => {
-    if (!formData.firstName || !formData.lastName || !formData.email || !formData.dateOfBirth) {
+    const age = Number(formData.age);
+    if (!formData.firstName || !formData.lastName || !formData.email || formData.age.trim() === "") {
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: "Veuillez remplir le nom, l'email et la date de naissance",
+        description: "Veuillez remplir le nom, l'email et l'âge",
+      });
+      return;
+    }
+    if (!Number.isInteger(age) || age < 0 || age > 120) {
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: "Indiquez l'âge en années, par exemple 20",
       });
       return;
     }
@@ -175,7 +184,7 @@ export default function Patients() {
       lastName: formData.lastName,
       email: formData.email,
       phone: formData.phone || undefined,
-      dateOfBirth: formData.dateOfBirth,
+      dateOfBirth: dateFromAge(age),
       gender: formData.gender,
       address: formData.address || undefined,
       bloodType: formData.bloodType || undefined,
@@ -245,12 +254,23 @@ export default function Patients() {
     patient.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const dateFromAge = (years: number) => {
+    const date = new Date();
+    date.setFullYear(date.getFullYear() - years);
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${date.getFullYear()}-${month}-${day}`;
+  };
+
   const calculateAge = (dateOfBirth: string) => {
+    const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateOfBirth);
+    if (!match) return 0;
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
     const today = new Date();
-    const birthDate = new Date(dateOfBirth);
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const m = today.getMonth() - birthDate.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+    let age = today.getFullYear() - year;
+    if (today.getMonth() + 1 < month || (today.getMonth() + 1 === month && today.getDate() < day)) {
       age--;
     }
     return age;
@@ -323,12 +343,21 @@ export default function Patients() {
 
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label>Date de naissance *</Label>
-                  <Input 
-                    type="date"
-                    value={formData.dateOfBirth}
-                    onChange={(e) => handleChange("dateOfBirth", e.target.value)}
-                  />
+                  <Label htmlFor="patient-age">Âge *</Label>
+                  <div className="relative">
+                    <Input
+                      id="patient-age"
+                      type="number"
+                      min={0}
+                      max={120}
+                      step={1}
+                      value={formData.age}
+                      onChange={(e) => handleChange("age", e.target.value)}
+                      placeholder="20"
+                      className="pr-12"
+                    />
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">ans</span>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Sexe *</Label>
@@ -543,7 +572,7 @@ export default function Patients() {
             <div className="space-y-3 text-sm">
               <div className="flex items-center gap-2 text-muted-foreground">
                 <User className="h-4 w-4" />
-                <span>{calculateAge(patient.dateOfBirth)} ans • {patient.gender === "M" ? "Homme" : "Femme"}</span>
+                <span>Âge : {calculateAge(patient.dateOfBirth)} ans • {patient.gender === "M" ? "Homme" : "Femme"}</span>
                 {patient.bloodType && (
                   <Badge variant="outline" className="ml-auto">{patient.bloodType}</Badge>
                 )}

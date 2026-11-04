@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useAckExamResults } from "@/contexts/WorkBadgeContext";
 import { useToast } from "@/hooks/use-toast";
@@ -17,6 +18,7 @@ export default function LabSupervision() {
   const { toast } = useToast();
   const [rows, setRows] = useState<LabExam[]>([]);
   const [selected, setSelected] = useState<LabExam | null>(null);
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   useAckExamResults(
     selected && (selected.results || selected.draftResults || selected.official || selected.versions.length > 0)
       ? [selected.id]
@@ -70,6 +72,21 @@ export default function LabSupervision() {
     }
   };
 
+  const patients = Array.from(
+    rows.reduce((grouped, row) => {
+      if (!grouped.has(row.patientId)) {
+        grouped.set(row.patientId, { id: row.patientId, name: row.patientName });
+      }
+      return grouped;
+    }, new Map<string, { id: string; name: string }>()),
+    ([, patient]) => patient,
+  ).sort((a, b) => {
+    const aIsEspoir = a.name.localeCompare("Espoir Kakesa", "fr", { sensitivity: "base" }) === 0;
+    const bIsEspoir = b.name.localeCompare("Espoir Kakesa", "fr", { sensitivity: "base" }) === 0;
+    if (aIsEspoir !== bIsEspoir) return aIsEspoir ? -1 : 1;
+    return a.name.localeCompare(b.name, "fr", { sensitivity: "base" });
+  });
+
   return (
     <div className="space-y-6">
       <div>
@@ -90,17 +107,91 @@ export default function LabSupervision() {
         </CardContent>
       </Card>
       <div className="grid gap-4 lg:grid-cols-[1fr_1.1fr]">
-        <div className="space-y-2">
-          {rows.map((row) => (
-            <button key={row.id} type="button" className="w-full rounded-xl border bg-card p-4 text-left" onClick={() => void open(row.id)}>
-              <div className="flex items-center justify-between gap-2">
-                <p className="font-medium">{row.patientName}</p>
-                <Badge variant={row.labStatus === "VALIDE" ? "default" : "secondary"}>{labStatusLabels[row.labStatus]}</Badge>
-              </div>
-              <p className="text-sm text-muted-foreground">{row.name} · paiement {row.paymentStatus}</p>
-            </button>
-          ))}
-        </div>
+        <Card className="overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50 hover:bg-muted/50">
+                <TableHead className="w-16">N°</TableHead>
+                <TableHead>Patient</TableHead>
+                <TableHead className="text-right">Examens</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {patients.map((patient, index) => {
+                const patientExams = rows.filter((row) => row.patientId === patient.id);
+                const isExpanded = selectedPatientId === patient.id;
+
+                return (
+                  <Fragment key={patient.id}>
+                    <TableRow className={isExpanded ? "bg-muted/30" : ""}>
+                      <TableCell>
+                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+                          {index + 1}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <button
+                          type="button"
+                          aria-expanded={isExpanded}
+                          className="w-full text-left font-semibold hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          onClick={() => {
+                            setSelectedPatientId(isExpanded ? null : patient.id);
+                            setSelected(null);
+                          }}
+                        >
+                          {patient.name}
+                        </button>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge variant={isExpanded ? "default" : "secondary"}>
+                          {patientExams.length} examen{patientExams.length > 1 ? "s" : ""}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                    {isExpanded && (
+                      <TableRow className="bg-muted/20 hover:bg-muted/20">
+                        <TableCell colSpan={3} className="p-3 sm:p-4">
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="border-muted">
+                                <TableHead className="w-16">N°</TableHead>
+                                <TableHead>Examen</TableHead>
+                                <TableHead>Statut</TableHead>
+                                <TableHead>Paiement</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {patientExams.map((exam, examIndex) => (
+                                <TableRow key={exam.id}>
+                                  <TableCell className="text-muted-foreground">{examIndex + 1}</TableCell>
+                                  <TableCell>
+                                    <button
+                                      type="button"
+                                      className="text-left font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                      onClick={() => void open(exam.id)}
+                                    >
+                                      {exam.name}
+                                    </button>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge variant={exam.labStatus === "VALIDE" ? "default" : "secondary"}>
+                                      {labStatusLabels[exam.labStatus]}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-muted-foreground">{exam.paymentStatus}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </Fragment>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </Card>
         {selected ? (
           <Card>
             <CardContent className="space-y-3 p-4">

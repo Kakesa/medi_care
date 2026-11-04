@@ -7,6 +7,7 @@ import type { AuthContext } from '../types/express.js';
 import { actorPersonnel, ownPatientId, requireOwned, requireVisiblePatient } from './access.service.js';
 import { recordAudit } from './audit.service.js';
 import { recordCharge, syncOriginStatus } from './charge.service.js';
+import { releaseCompletedConsultation } from './consultationHandoff.service.js';
 import { resolveClinicalDoctor } from './personnel.service.js';
 
 function cleanDate(value?: Date | '' | null) {
@@ -256,12 +257,16 @@ export async function updateConsultation(
   if (input.prescription !== undefined) row.prescription = input.prescription.trim();
   if (input.notes !== undefined) row.notes = input.notes.trim();
   if (input.followUpDate !== undefined) row.set('followUpDate', cleanDate(input.followUpDate) ?? null);
+  const becomingComplete = input.status === 'completed' && row.status !== 'completed';
   if (input.status) row.status = input.status;
   await row.save();
   if (row.status === 'completed') {
     await syncOriginStatus(actor, organizationId, 'consultation', row.id, 'performed', 'Consultation terminée', ip);
   }
-  return toConsultationDto(row);
+  const handoff = becomingComplete || (row.status === 'completed' && !row.handoffAt)
+    ? await releaseCompletedConsultation(actor, organizationId, row, ip)
+    : undefined;
+  return handoff ? { ...toConsultationDto(row), handoff } : toConsultationDto(row);
 }
 
 export async function completeConsultation(actor: AuthContext, organizationId: string, id: string, ip?: string) {

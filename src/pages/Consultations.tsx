@@ -236,10 +236,22 @@ export default function Consultations() {
 
   const handleComplete = async (id: string) => {
     try {
-      await consultationService.complete(id);
+      const result = await consultationService.complete(id) as Consultation & {
+        handoff?: { invoiceNumbers: string[]; examCount: number; unpriced: number; pharmacyAfterPayment: boolean; pharmacyNow: boolean };
+      };
+      const handoff = result.handoff;
+      const invoiceText = handoff?.invoiceNumbers.length
+        ? `Facture ${handoff.invoiceNumbers.join(", ")} envoyée à la réception pour le paiement des examens.`
+        : "La consultation a été marquée comme terminée.";
+      const pharmacyText = handoff?.pharmacyAfterPayment
+        ? " Après encaissement, orientez le patient vers la pharmacie."
+        : handoff?.pharmacyNow
+          ? " Le patient peut aller à la pharmacie."
+          : "";
+      const unpricedText = handoff?.unpriced ? ` ${handoff.unpriced} examen(s) sans tarif n'ont pas été facturés.` : "";
       toast({
         title: "Consultation terminée",
-        description: "La consultation a été marquée comme terminée",
+        description: `${invoiceText}${pharmacyText}${unpricedText}`,
       });
       await loadConsultations();
     } catch (error) {

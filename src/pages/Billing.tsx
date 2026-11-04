@@ -278,7 +278,9 @@ export default function Billing() {
     try {
       const updated = await billingService.markAsPaid(invoice.id, paymentMethod);
       setSelectedInvoice(updated);
-      toast.success("Facture encaissée");
+      toast.success((updated as Invoice & { pharmacyHandoff?: boolean }).pharmacyHandoff
+        ? "Facture encaissée. Orientez le patient vers la pharmacie."
+        : "Facture encaissée");
       await loadBilling();
     } catch (error) {
       toast.error(apiMessage(error));

@@ -84,10 +84,15 @@ export default function ReceptionLab() {
   const pay = async () => {
     try {
       await billingService.finalizeInvoice(invoiceId);
-      await billingService.markAsPaid(invoiceId, method, reference);
+      const paid = await billingService.markAsPaid(invoiceId, method, reference);
       setReference("");
       await load();
-      toast({ title: "Paiement enregistré", description: "Le résultat reste indépendant de cet encaissement." });
+      toast({
+        title: "Paiement enregistré",
+        description: (paid as { pharmacyHandoff?: boolean }).pharmacyHandoff
+          ? "Orientez le patient vers la pharmacie."
+          : "Le résultat reste indépendant de cet encaissement.",
+      });
     } catch (error) {
       toast({ variant: "destructive", title: "Encaissement impossible", description: apiMessage(error) });
     }

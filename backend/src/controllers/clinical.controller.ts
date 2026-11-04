@@ -238,7 +238,10 @@ export const finalizeInvoice = asyncHandler(async (req: Request, res: Response) 
   res.json(await billingService.finalizeInvoice(auth(req), org(req), req.params.id, req.ip));
 });
 export const payInvoice = asyncHandler(async (req: Request, res: Response) => {
-  res.json(await billingService.payInvoice(auth(req), org(req), req.params.id, req.body.paymentMethod, req.ip, req.body.paymentReference));
+  const invoice = await billingService.payInvoice(auth(req), org(req), req.params.id, req.body.paymentMethod, req.ip, req.body.paymentReference);
+  const { releasePharmacyForPaidInvoice } = await import('../services/consultationHandoff.service.js');
+  const pharmacyHandoff = await releasePharmacyForPaidInvoice(auth(req), org(req), req.params.id);
+  res.json({ ...invoice, pharmacyHandoff });
 });
 export const cancelInvoice = asyncHandler(async (req: Request, res: Response) => {
   res.json(await billingService.cancelInvoice(auth(req), org(req), req.params.id, req.ip));

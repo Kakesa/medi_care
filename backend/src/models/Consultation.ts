@@ -24,6 +24,9 @@ const consultationSchema = new Schema(
     notes: { type: String, trim: true },
     followUpDate: { type: Date },
     status: { type: String, enum: ['in_progress', 'completed'], default: 'in_progress' },
+    handoffAt: { type: Date },
+    pharmacyReleasedAt: { type: Date },
+    examInvoiceIds: [{ type: Schema.Types.ObjectId, ref: 'Invoice' }],
   },
   { timestamps: true }
 );

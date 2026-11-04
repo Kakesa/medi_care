@@ -55,6 +55,7 @@ export type RecordChargeInput = {
   catalogKind: 'surgery' | 'service' | 'pharmacy';
   catalogItemId?: string;
   pharmacyLine?: { label: string; unitPrice: number; category: string; productId?: string };
+  invoiceId?: string;
 };
 
 function idOf(row: { id?: string; _id: { toString(): string } }) {
@@ -162,19 +163,24 @@ function applyTotals(invoice: { items: Array<{ total: number }>; subtotal: numbe
   invoice.total = subtotal;
 }
 
-async function attach(actor: AuthContext, organizationId: string, charge: ChargeRow) {
+async function attach(actor: AuthContext, organizationId: string, charge: ChargeRow, invoiceId?: string) {
   if (charge.realizationStatus === 'cancelled') return charge;
   const current = charge.invoiceId
     ? await Invoice.findOne({ _id: charge.invoiceId, organizationId })
     : null;
   if (current && current.status !== 'cancelled') return charge;
 
-  let invoice = await Invoice.findOne({
-    organizationId,
-    patientId: charge.patientId,
-    status: 'draft',
-    currency: charge.currency,
-  }).sort({ createdAt: -1 });
+  let invoice = invoiceId
+    ? await Invoice.findOne({ _id: invoiceId, organizationId, status: 'draft' })
+    : await Invoice.findOne({
+      organizationId,
+      patientId: charge.patientId,
+      status: 'draft',
+      currency: charge.currency,
+    }).sort({ createdAt: -1 });
+  if (invoiceId && (!invoice || invoice.currency !== charge.currency)) {
+    throw new ApiError(409, 'La facture des examens n\'est plus modifiable', 'INVOICE_LOCKED');
+  }
 
   const line = lineFrom(charge);
   if (!invoice) {
@@ -367,7 +373,7 @@ export async function recordCharge(
     if (String(existing.patientId) !== patient.id) {
       throw new ApiError(409, 'Cette transmission est déjà liée à un autre patient', 'DUPLICATE_ACT');
     }
-    const attached = await attach(actor, organizationId, existing as unknown as ChargeRow);
+    const attached = await attach(actor, organizationId, existing as unknown as ChargeRow, input.invoiceId);
     const invoice = attached.invoiceId ? await Invoice.findById(attached.invoiceId).select('invoiceNumber status dueDate') : null;
     return { charge: toDto(attached, invoice), created: false };
   }
@@ -413,12 +419,12 @@ export async function recordCharge(
     if (!duplicateKey(error)) throw error;
     const raced = await PatientCharge.findOne({ organizationId, originModule: input.originModule, originId: input.originId });
     if (!raced) throw error;
-    const attached = await attach(actor, organizationId, raced as unknown as ChargeRow);
+    const attached = await attach(actor, organizationId, raced as unknown as ChargeRow, input.invoiceId);
     const invoice = attached.invoiceId ? await Invoice.findById(attached.invoiceId).select('invoiceNumber status dueDate') : null;
     return { charge: toDto(attached, invoice), created: false };
   }
 
-  const attached = await attach(actor, organizationId, charge);
+  const attached = await attach(actor, organizationId, charge, input.invoiceId);
   await recordAudit({
     actorId: actor.id,
     actorRole: actor.role,
@@ -551,6 +557,51 @@ export async function syncOriginStatus(
   const charge = await PatientCharge.findOne({ organizationId, originModule, originId });
   if (!charge || charge.realizationStatus === realizationStatus) return;
   await updateCharge(actor, organizationId, idOf(charge), { realizationStatus, note }, ip);
+}
+
+export async function openDraftInvoice(
+  actor: AuthContext,
+  organizationId: string,
+  patientId: string,
+  currency: string,
+  notes: string,
+  ip?: string
+) {
+  const patient = await requireVisiblePatient(actor, organizationId, patientId, ip);
+  return Invoice.create({
+    organizationId,
+    invoiceNumber: await nextNumber(organizationId),
+    patientId: patient._id,
+    patientName: `${patient.firstName} ${patient.lastName}`,
+    date: new Date(),
+    dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    items: [],
+    subtotal: 0,
+    tax: 0,
+    discount: 0,
+    total: 0,
+    currency,
+    status: 'draft',
+    notes,
+    createdBy: actor.id,
+  });
+}
+
+export async function quoteCatalogLine(
+  actor: AuthContext,
+  organizationId: string,
+  catalogKind: 'surgery' | 'service',
+  catalogItemId: string,
+  ip?: string
+) {
+  return pricedLine(actor, organizationId, {
+    patientId: '',
+    originModule: 'exam',
+    originId: '',
+    catalogKind,
+    catalogItemId,
+    quantity: 1,
+  }, 1, ip);
 }
 
 export async function recordStayIfTariff(

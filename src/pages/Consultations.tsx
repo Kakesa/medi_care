@@ -33,6 +33,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -279,6 +280,9 @@ export default function Consultations() {
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingId ? "Modifier la consultation" : "Nouvelle consultation"}</DialogTitle>
+              <DialogDescription>
+                {editingId ? "Mettez à jour le dossier de cette consultation." : "Renseignez le dossier clinique du patient."}
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="grid grid-cols-2 gap-4">
@@ -572,6 +576,7 @@ export default function Consultations() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{selectedConsultation?.patientName || "Consultation"}</DialogTitle>
+            <DialogDescription>Dossier de la consultation.</DialogDescription>
           </DialogHeader>
           {selectedConsultation && (
             <div className="space-y-4 py-2">

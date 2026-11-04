@@ -55,6 +55,16 @@ export function errorHandler(error: unknown, req: Request, res: Response, _next:
     return;
   }
 
+  if (error instanceof mongoose.Error.ValidationError) {
+    const first = Object.values(error.errors)[0];
+    res.status(400).json({
+      success: false,
+      message: first?.message || 'Données invalides',
+      code: 'VALIDATION_ERROR',
+    });
+    return;
+  }
+
   if (error instanceof mongoose.Error.CastError) {
     res.status(404).json({ success: false, message: 'Ressource introuvable', code: 'NOT_FOUND' });
     return;

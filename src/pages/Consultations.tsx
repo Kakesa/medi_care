@@ -248,6 +248,7 @@ export default function Consultations() {
                   id="consultation-histoire"
                   value={formData.histoireMaladie}
                   onChange={(e) => handleChange("histoireMaladie", e.target.value)}
+                  placeholder="Début des symptômes, évolution..."
                   rows={3}
                 />
               </div>
@@ -258,6 +259,7 @@ export default function Consultations() {
                   id="consultation-antecedent"
                   value={formData.antecedent}
                   onChange={(e) => handleChange("antecedent", e.target.value)}
+                  placeholder="Diabète, hypertension, chirurgie..."
                   rows={3}
                 />
               </div>
@@ -268,6 +270,7 @@ export default function Consultations() {
                   id="consultation-anamnese"
                   value={formData.comportementAnamnese}
                   onChange={(e) => handleChange("comportementAnamnese", e.target.value)}
+                  placeholder="Habitudes, mode de vie, contexte..."
                   rows={3}
                 />
               </div>
@@ -278,6 +281,7 @@ export default function Consultations() {
                   id="consultation-examen"
                   value={formData.examenPhysique}
                   onChange={(e) => handleChange("examenPhysique", e.target.value)}
+                  placeholder="Constantes, examen clinique..."
                   rows={3}
                 />
               </div>
@@ -288,6 +292,7 @@ export default function Consultations() {
                   id="consultation-conclusion"
                   value={formData.conclusion}
                   onChange={(e) => handleChange("conclusion", e.target.value)}
+                  placeholder="Synthèse et conduite à tenir..."
                   rows={3}
                 />
               </div>

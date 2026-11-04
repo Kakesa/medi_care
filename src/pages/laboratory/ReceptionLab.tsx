@@ -2,20 +2,20 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAckExamResults } from "@/contexts/WorkBadgeContext";
 import { useToast } from "@/hooks/use-toast";
 import { apiMessage } from "@/lib/apiError";
-import { formatMoney } from "@/lib/money";
-import { billingService } from "@/services/billingService";
-import { examService, type ExamCatalogItem } from "@/services/examService";
 import { labService, labStatusLabels, type LabExam } from "@/services/labService";
-import { patientService } from "@/services/patientService";
-import { personnelService } from "@/services/personnelService";
-import type { Patient, PaymentMethod, Personnel } from "@/types";
+
+const paymentLabels: Record<string, string> = {
+  unbilled: "Sans facture",
+  draft: "Brouillon",
+  pending: "À payer",
+  paid: "Payé",
+  overdue: "En retard",
+  cancelled: "Annulé",
+};
 
 function printReport(exam: LabExam) {
   const popup = window.open("", "_blank", "noopener,noreferrer");
@@ -28,31 +28,13 @@ function printReport(exam: LabExam) {
 
 export default function ReceptionLab() {
   const { toast } = useToast();
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [doctors, setDoctors] = useState<Personnel[]>([]);
-  const [catalog, setCatalog] = useState<ExamCatalogItem[]>([]);
   const [rows, setRows] = useState<LabExam[]>([]);
   useAckExamResults(rows.flatMap((row) => (row.official ? [row.id] : [])));
-  const [patientId, setPatientId] = useState("");
-  const [doctorId, setDoctorId] = useState("");
-  const [instructions, setInstructions] = useState("");
-  const [picked, setPicked] = useState<string[]>([]);
-  const [invoiceId, setInvoiceId] = useState("");
-  const [method, setMethod] = useState<PaymentMethod>("cash");
-  const [reference, setReference] = useState("");
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
 
   const load = async () => {
     try {
-      const [patientResult, doctorResult, catalogResult, exams] = await Promise.all([
-        patientService.getAll({ limit: 100 }),
-        personnelService.getDoctors(),
-        examService.catalog(),
-        labService.list(),
-      ]);
-      setPatients(patientResult.data);
-      setDoctors(doctorResult);
-      setCatalog(catalogResult.items.filter((item) => item.type === "laboratory"));
-      setRows(exams);
+      setRows(await labService.list());
     } catch (error) {
       toast({ variant: "destructive", title: "Laboratoire indisponible", description: apiMessage(error) });
     }
@@ -60,114 +42,60 @@ export default function ReceptionLab() {
 
   useEffect(() => { void load(); }, []);
 
-  const order = async () => {
-    const items = catalog.filter((item) => picked.includes(item.id)).map((item) => ({
-      kind: item.kind,
-      catalogItemId: item.id,
-      name: item.name,
-      category: item.categoryName || "Laboratoire",
-    }));
-    try {
-      const created = await labService.order({ patientId, doctorId, instructions, items });
-      setInvoiceId(created.invoiceId || "");
-      setPicked([]);
-      await load();
-      toast({
-        title: "Demande transmise au laboratoire",
-        description: created.invoiceNumber ? `Facture ${created.invoiceNumber}` : "Examens sans tarif : ils sont transmis, sans facture.",
-      });
-    } catch (error) {
-      toast({ variant: "destructive", title: "Demande impossible", description: apiMessage(error) });
-    }
-  };
-
-  const pay = async () => {
-    try {
-      await billingService.finalizeInvoice(invoiceId);
-      const paid = await billingService.markAsPaid(invoiceId, method, reference);
-      setReference("");
-      await load();
-      toast({
-        title: "Paiement enregistré",
-        description: (paid as { pharmacyHandoff?: boolean }).pharmacyHandoff
-          ? "Orientez le patient vers la pharmacie."
-          : "Le résultat reste indépendant de cet encaissement.",
-      });
-    } catch (error) {
-      toast({ variant: "destructive", title: "Encaissement impossible", description: apiMessage(error) });
-    }
-  };
+  const patientsWithExams = [...rows.reduce((groups, row) => {
+    const current = groups.get(row.patientId) || [];
+    current.push(row);
+    groups.set(row.patientId, current);
+    return groups;
+  }, new Map<string, LabExam[]>()).entries()].map(([id, exams]) => ({
+    id,
+    name: exams[0]?.patientName || "Patient",
+    exams,
+  }));
+  const selectedPatient = patientsWithExams.find((patient) => patient.id === selectedPatientId) || null;
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Demandes de laboratoire</h1>
-        <p className="mt-1 text-muted-foreground">Enregistrez les examens, encaissez la facture, puis suivez le rapport validé.</p>
+        <p className="mt-1 text-muted-foreground">Les examens demandés depuis les consultations.</p>
       </div>
-      <Card>
-        <CardContent className="grid gap-4 p-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Patient</Label>
-              <Select value={patientId} onValueChange={setPatientId}>
-                <SelectTrigger><SelectValue placeholder="Choisir" /></SelectTrigger>
-                <SelectContent>{patients.map((patient) => <SelectItem key={patient.id} value={patient.id}>{patient.firstName} {patient.lastName}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Médecin demandeur</Label>
-              <Select value={doctorId} onValueChange={setDoctorId}>
-                <SelectTrigger><SelectValue placeholder="Choisir" /></SelectTrigger>
-                <SelectContent>{doctors.map((doctor) => <SelectItem key={doctor.id} value={doctor.id}>Dr. {doctor.firstName} {doctor.lastName}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-          </div>
-          <Textarea value={instructions} placeholder="Instructions pour le laboratoire" onChange={(event) => setInstructions(event.target.value)} />
-          <div className="max-h-64 space-y-2 overflow-y-auto">
-            {catalog.map((item) => (
-              <label key={item.id} className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm">
-                <span className="flex items-center gap-2">
-                  <input type="checkbox" checked={picked.includes(item.id)} onChange={(event) => setPicked((current) => event.target.checked ? [...current, item.id] : current.filter((id) => id !== item.id))} />
-                  {item.name}
-                </span>
-                <span>{item.unitPrice == null ? "—" : formatMoney(item.unitPrice, item.currency || "EUR")}</span>
-              </label>
-            ))}
-          </div>
-          <Button disabled={!patientId || !doctorId || picked.length === 0} onClick={() => void order()}>Transmettre {picked.length || ""} examen(s)</Button>
-          {invoiceId && (
-            <div className="grid gap-3 sm:grid-cols-3">
-              <Select value={method} onValueChange={(value) => setMethod(value as PaymentMethod)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cash">Espèces</SelectItem>
-                  <SelectItem value="card">Carte</SelectItem>
-                  <SelectItem value="transfer">Virement</SelectItem>
-                  <SelectItem value="insurance">Assurance</SelectItem>
-                </SelectContent>
-              </Select>
-              <Input value={reference} placeholder="Référence de transaction" onChange={(event) => setReference(event.target.value)} />
-              <Button variant="outline" onClick={() => void pay()}>Encaisser la facture</Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-      <div className="space-y-2">
-        {rows.map((row) => (
-          <Card key={row.id}>
-            <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="font-medium">{row.patientName} · {row.name}</p>
-                <p className="text-sm text-muted-foreground">{row.invoiceNumber || "Sans facture"} · {row.paymentStatus}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant={row.official ? "default" : "secondary"}>{labStatusLabels[row.labStatus]}</Badge>
-                {row.official && <Button size="sm" variant="outline" onClick={() => printReport(row)}>Imprimer</Button>}
-              </div>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {patientsWithExams.length === 0 && (
+          <p className="col-span-full text-sm text-muted-foreground">Aucune demande pour le moment.</p>
+        )}
+        {patientsWithExams.map((patient) => (
+          <Card key={patient.id} className="cursor-pointer transition-colors hover:bg-muted/40" onClick={() => setSelectedPatientId(patient.id)}>
+            <CardContent className="flex items-center justify-between gap-3 p-4">
+              <p className="font-medium">{patient.name}</p>
+              <Badge variant="secondary">{patient.exams.length} examen{patient.exams.length > 1 ? "s" : ""}</Badge>
             </CardContent>
           </Card>
         ))}
       </div>
+
+      <Dialog open={!!selectedPatient} onOpenChange={(open) => { if (!open) setSelectedPatientId(null); }}>
+        <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{selectedPatient?.name}</DialogTitle>
+            <DialogDescription>{selectedPatient ? `${selectedPatient.exams.length} examen${selectedPatient.exams.length > 1 ? "s" : ""} demandé${selectedPatient.exams.length > 1 ? "s" : ""}` : ""}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {selectedPatient?.exams.map((exam) => (
+              <div key={exam.id} className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-medium">{exam.name}</p>
+                  <p className="text-sm text-muted-foreground">{exam.invoiceNumber || "Sans facture"} · {paymentLabels[exam.paymentStatus] || exam.paymentStatus}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant={exam.official ? "default" : "secondary"}>{labStatusLabels[exam.labStatus]}</Badge>
+                  {exam.official && <Button size="sm" variant="outline" onClick={() => printReport(exam)}>Imprimer</Button>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

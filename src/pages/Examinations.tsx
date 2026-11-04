@@ -49,13 +49,14 @@ import { examCategories } from "@/data/mockData";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAckExamResults } from "@/contexts/WorkBadgeContext";
 import { chargeService, type CatalogOption, type PatientChargeRecord } from "@/services/chargeService";
+import { consultationService } from "@/services/consultationService";
 import { examService, type ExamCatalogItem } from "@/services/examService";
 import { billingService } from "@/services/billingService";
 import { formatMoney, type BillingCurrency } from "@/lib/money";
 import { patientService } from "@/services/patientService";
 import { personnelService } from "@/services/personnelService";
 import { surgeryService, type SurgicalAct } from "@/services/surgeryService";
-import type { Exam, Patient, Personnel } from "@/types";
+import type { Consultation, Exam, Patient, Personnel } from "@/types";
 import { apiMessage } from "@/lib/apiError";
 import { toast } from "sonner";
 
@@ -145,6 +146,7 @@ export default function Examinations() {
   const canPlan = user?.role === "HOSPITAL_ADMIN" || user?.role === "DOCTOR" || user?.role === "NURSE";
   const currencies: BillingCurrency[] = ["EUR", "CDF", "USD"];
   const [exams, setExams] = useState<Exam[]>([]);
+  const [consultations, setConsultations] = useState<Consultation[]>([]);
   useAckExamResults(exams.flatMap((exam) => (exam.results ? [exam.id] : [])));
   const [patients, setPatients] = useState<Patient[]>([]);
   const [doctors, setDoctors] = useState<Personnel[]>([]);
@@ -228,6 +230,9 @@ export default function Examinations() {
       setOrgCurrency(result.currency);
       setCatalogExams(result.items);
     }).catch((error) => toast.error(apiMessage(error)));
+    if (user.role === "HOSPITAL_ADMIN" || user.role === "DOCTOR" || user.role === "NURSE") {
+      void consultationService.getAll({ limit: 100 }).then((result) => setConsultations(result.data)).catch(() => setConsultations([]));
+    }
     if (user.role !== "DOCTOR") void loadCharges();
     if (user.role !== "ACCOUNTANT" && user.role !== "RECEPTIONIST") {
       void chargeService.catalog().then((result) => setTariffs(result.items)).catch(() => setTariffs([]));
@@ -251,6 +256,43 @@ export default function Examinations() {
     const matchesStatus = statusFilter === "all" || exam.status === statusFilter;
     return matchesSearch && matchesType && matchesStatus;
   });
+
+  const recommendedByPatient = new Map<string, { patientId: string; patientName: string; lines: { name: string; doctorName: string; date: string; status: string }[] }>();
+  const seenRecommendations = new Set<string>();
+  const addRecommendation = (patientId: string, patientName: string, name: string, doctorName: string, date: string, status: string) => {
+    const key = `${patientId}|${name.toLowerCase()}`;
+    if (seenRecommendations.has(key)) return;
+    seenRecommendations.add(key);
+    const query = searchTerm.trim().toLowerCase();
+    if (query && !patientName.toLowerCase().includes(query) && !name.toLowerCase().includes(query) && !doctorName.toLowerCase().includes(query)) return;
+    const group = recommendedByPatient.get(patientId) || { patientId, patientName, lines: [] };
+    group.lines.push({ name, doctorName, date, status });
+    recommendedByPatient.set(patientId, group);
+  };
+  for (const consultation of consultations) {
+    for (const name of (consultation.recommandationExamens ?? "").split("\n").map((item) => item.trim()).filter(Boolean)) {
+      addRecommendation(
+        consultation.patientId,
+        consultation.patientName,
+        name,
+        consultation.doctorName,
+        consultation.date,
+        consultation.status === "completed" ? "Validé" : "Recommandé"
+      );
+    }
+  }
+  for (const exam of exams) {
+    if (!exam.notes?.startsWith("Consultation ")) continue;
+    addRecommendation(
+      exam.patientId,
+      exam.patientName,
+      exam.name,
+      exam.doctorName,
+      exam.date,
+      exam.status === "completed" ? "Terminé" : exam.status === "in_progress" ? "En cours" : exam.status === "cancelled" ? "Annulé" : "Validé"
+    );
+  }
+  const recommendedGroups = [...recommendedByPatient.values()];
 
   const laboratoryExams = filteredExams.filter(e => e.type === 'laboratory');
   const imagingExams = filteredExams.filter(e => e.type === 'imaging');
@@ -814,6 +856,7 @@ export default function Examinations() {
             <FileImage className="h-4 w-4 mr-1" />
             Imagerie ({imagingCatalog.length + imagingExams.length})
           </TabsTrigger>
+          <TabsTrigger value="recommandes">Recommandés ({recommendedGroups.reduce((sum, group) => sum + group.lines.length, 0)})</TabsTrigger>
           <TabsTrigger value="somme">Somme</TabsTrigger>
           {seesPrices && <TabsTrigger value="tarifs">Tarifs</TabsTrigger>}
         </TabsList>
@@ -852,6 +895,29 @@ export default function Examinations() {
               </div>
             </>
           )}
+        </TabsContent>
+
+        <TabsContent value="recommandes" className="space-y-4">
+          {recommendedGroups.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Aucun examen recommandé pour le moment.</p>
+          ) : recommendedGroups.map((group) => (
+            <Card key={group.patientId}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">{group.patientName}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {group.lines.map((line) => (
+                  <div key={`${line.name}-${line.date}`} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                    <div>
+                      <p className="font-medium">{line.name}</p>
+                      <p className="text-xs text-muted-foreground">{line.doctorName} · {line.date}</p>
+                    </div>
+                    <Badge variant={line.status === "Recommandé" ? "secondary" : "outline"}>{line.status}</Badge>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          ))}
         </TabsContent>
 
         <TabsContent value="somme" className="space-y-4">

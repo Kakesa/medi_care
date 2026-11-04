@@ -224,7 +224,7 @@ export default function Surgery() {
   const pageHeader = (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <h1 className="text-3xl font-bold">Actes</h1>
+        <h1 className="text-3xl font-bold">Chirurgie</h1>
         <p className="mt-1 text-muted-foreground">Recommandez un acte tarifé : il rejoint la facture du patient sans être marqué comme réalisé.</p>
       </div>
       <div className="flex flex-col items-start gap-3 sm:items-end">

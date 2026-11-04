@@ -61,9 +61,15 @@ export default function Consultations() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedConsultation, setSelectedConsultation] = useState<Consultation | null>(null);
   
-  const [formData, setFormData] = useState({
+  const emptyForm = {
     patientId: "",
     doctorId: "",
+    plainte: "",
+    histoireMaladie: "",
+    antecedent: "",
+    comportementAnamnese: "",
+    examenPhysique: "",
+    conclusion: "",
     diagnosis: "",
     symptoms: "",
     allergies: "",
@@ -72,7 +78,8 @@ export default function Consultations() {
     notes: "",
     followUpDate: "",
     billableServiceId: ""
-  });
+  };
+  const [formData, setFormData] = useState(emptyForm);
 
   const loadConsultations = async () => {
     try {
@@ -119,6 +126,12 @@ export default function Consultations() {
         diagnosis: formData.diagnosis,
         symptoms: formData.symptoms.split(",").map((item) => item.trim()).filter(Boolean),
         allergies: formData.allergies.split(",").map((item) => item.trim()).filter(Boolean),
+        plainte: formData.plainte.trim() || undefined,
+        histoireMaladie: formData.histoireMaladie.trim() || undefined,
+        antecedent: formData.antecedent.trim() || undefined,
+        comportementAnamnese: formData.comportementAnamnese.trim() || undefined,
+        examenPhysique: formData.examenPhysique.trim() || undefined,
+        conclusion: formData.conclusion.trim() || undefined,
         treatment: formData.treatment,
         prescription: formData.prescription || undefined,
         notes: formData.notes || undefined,
@@ -126,18 +139,7 @@ export default function Consultations() {
         billableServiceId: formData.billableServiceId || undefined,
       });
       setIsDialogOpen(false);
-      setFormData({
-        patientId: "",
-        doctorId: "",
-        diagnosis: "",
-        symptoms: "",
-        allergies: "",
-        treatment: "",
-        prescription: "",
-        notes: "",
-        followUpDate: "",
-        billableServiceId: ""
-      });
+      setFormData(emptyForm);
       toast({
         title: "Consultation créée",
         description: formData.billableServiceId
@@ -166,7 +168,9 @@ export default function Consultations() {
   const filteredConsultations = consultations.filter(c =>
     c.patientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
     c.doctorName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.diagnosis.toLowerCase().includes(searchQuery.toLowerCase())
+    c.diagnosis.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (c.plainte ?? "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (c.conclusion ?? "").toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -174,7 +178,7 @@ export default function Consultations() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between animate-fade-in">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Consultations</h1>
+          <h1 className="text-3xl font-bold text-foreground">Consultation</h1>
           <p className="mt-1 text-muted-foreground">
             Gestion des consultations et diagnostics
           </p>
@@ -238,6 +242,67 @@ export default function Consultations() {
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">Le prix vient du catalogue. Sans tarif, la consultation reste dans le dossier et n'est pas envoyée en facturation.</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="consultation-plainte">Plainte</Label>
+                <Textarea
+                  id="consultation-plainte"
+                  value={formData.plainte}
+                  onChange={(e) => handleChange("plainte", e.target.value)}
+                  placeholder="Motif de la consultation"
+                  rows={3}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="consultation-histoire">Histoire de la maladie</Label>
+                <Textarea
+                  id="consultation-histoire"
+                  value={formData.histoireMaladie}
+                  onChange={(e) => handleChange("histoireMaladie", e.target.value)}
+                  rows={3}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="consultation-antecedent">Antécédent</Label>
+                <Textarea
+                  id="consultation-antecedent"
+                  value={formData.antecedent}
+                  onChange={(e) => handleChange("antecedent", e.target.value)}
+                  rows={3}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="consultation-anamnese">Comportement Anamnèse</Label>
+                <Textarea
+                  id="consultation-anamnese"
+                  value={formData.comportementAnamnese}
+                  onChange={(e) => handleChange("comportementAnamnese", e.target.value)}
+                  rows={3}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="consultation-examen">Examen physique</Label>
+                <Textarea
+                  id="consultation-examen"
+                  value={formData.examenPhysique}
+                  onChange={(e) => handleChange("examenPhysique", e.target.value)}
+                  rows={3}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="consultation-conclusion">Conclusion</Label>
+                <Textarea
+                  id="consultation-conclusion"
+                  value={formData.conclusion}
+                  onChange={(e) => handleChange("conclusion", e.target.value)}
+                  rows={3}
+                />
               </div>
 
               <div className="space-y-2">
@@ -370,7 +435,7 @@ export default function Consultations() {
                     <Stethoscope className="h-6 w-6 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-lg">{consultation.diagnosis}</h3>
+                    <h3 className="font-semibold text-lg">{consultation.diagnosis || consultation.plainte || "Consultation"}</h3>
                     <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <User className="h-4 w-4" />
@@ -411,6 +476,31 @@ export default function Consultations() {
                   </DropdownMenu>
                 </div>
               </div>
+
+              {([
+                ["Plainte", consultation.plainte],
+                ["Histoire de la maladie", consultation.histoireMaladie],
+                ["Antécédent", consultation.antecedent],
+                ["Comportement Anamnèse", consultation.comportementAnamnese],
+                ["Examen physique", consultation.examenPhysique],
+                ["Conclusion", consultation.conclusion],
+              ] as const).some(([, value]) => value) && (
+                <div className="mb-4 space-y-3">
+                  {([
+                    ["Plainte", consultation.plainte],
+                    ["Histoire de la maladie", consultation.histoireMaladie],
+                    ["Antécédent", consultation.antecedent],
+                    ["Comportement Anamnèse", consultation.comportementAnamnese],
+                    ["Examen physique", consultation.examenPhysique],
+                    ["Conclusion", consultation.conclusion],
+                  ] as const).filter(([, value]) => value).map(([label, value]) => (
+                    <div key={label} className="space-y-1">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
+                      <p className="whitespace-pre-wrap text-sm">{value}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {consultation.allergies && consultation.allergies.length > 0 && (

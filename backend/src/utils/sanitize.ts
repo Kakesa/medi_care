@@ -15,6 +15,12 @@ const REDACTED_KEYS = new Set([
   'allergies',
   'bloodtype',
   'notes',
+  'plainte',
+  'histoiremaladie',
+  'antecedent',
+  'comportementanamnese',
+  'examenphysique',
+  'conclusion',
 ]);
 
 export function sanitize(value: unknown): unknown {

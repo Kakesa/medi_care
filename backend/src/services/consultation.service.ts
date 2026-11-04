@@ -28,6 +28,12 @@ function toConsultationDto(row: {
   diagnosis: string;
   symptoms?: string[];
   allergies?: string[];
+  plainte?: string | null;
+  histoireMaladie?: string | null;
+  antecedent?: string | null;
+  comportementAnamnese?: string | null;
+  examenPhysique?: string | null;
+  conclusion?: string | null;
   treatment?: string | null;
   prescription?: string | null;
   notes?: string | null;
@@ -45,6 +51,12 @@ function toConsultationDto(row: {
     diagnosis: row.diagnosis,
     symptoms: row.symptoms ?? [],
     allergies: row.allergies ?? [],
+    plainte: row.plainte || undefined,
+    histoireMaladie: row.histoireMaladie || undefined,
+    antecedent: row.antecedent || undefined,
+    comportementAnamnese: row.comportementAnamnese || undefined,
+    examenPhysique: row.examenPhysique || undefined,
+    conclusion: row.conclusion || undefined,
     treatment: row.treatment || '',
     prescription: row.prescription || undefined,
     notes: row.notes || undefined,
@@ -112,6 +124,12 @@ export async function createConsultation(
     diagnosis?: string;
     symptoms?: string[];
     allergies?: string[];
+    plainte?: string;
+    histoireMaladie?: string;
+    antecedent?: string;
+    comportementAnamnese?: string;
+    examenPhysique?: string;
+    conclusion?: string;
     treatment?: string;
     prescription?: string;
     notes?: string;
@@ -135,6 +153,12 @@ export async function createConsultation(
     diagnosis: input.diagnosis?.trim() || '',
     symptoms: (input.symptoms ?? []).map((item) => item.trim()).filter(Boolean),
     allergies: (input.allergies ?? []).map((item) => item.trim()).filter(Boolean),
+    plainte: input.plainte?.trim(),
+    histoireMaladie: input.histoireMaladie?.trim(),
+    antecedent: input.antecedent?.trim(),
+    comportementAnamnese: input.comportementAnamnese?.trim(),
+    examenPhysique: input.examenPhysique?.trim(),
+    conclusion: input.conclusion?.trim(),
     treatment: input.treatment?.trim() || '',
     prescription: input.prescription?.trim(),
     notes: input.notes?.trim(),
@@ -181,6 +205,12 @@ export async function updateConsultation(
     diagnosis: string;
     symptoms: string[];
     allergies: string[];
+    plainte: string;
+    histoireMaladie: string;
+    antecedent: string;
+    comportementAnamnese: string;
+    examenPhysique: string;
+    conclusion: string;
     treatment: string;
     prescription: string;
     notes: string;
@@ -210,6 +240,12 @@ export async function updateConsultation(
   if (input.diagnosis !== undefined) row.diagnosis = input.diagnosis.trim();
   if (input.symptoms) row.symptoms = input.symptoms.map((item) => item.trim()).filter(Boolean);
   if (input.allergies) row.allergies = input.allergies.map((item) => item.trim()).filter(Boolean);
+  if (input.plainte !== undefined) row.plainte = input.plainte.trim();
+  if (input.histoireMaladie !== undefined) row.histoireMaladie = input.histoireMaladie.trim();
+  if (input.antecedent !== undefined) row.antecedent = input.antecedent.trim();
+  if (input.comportementAnamnese !== undefined) row.comportementAnamnese = input.comportementAnamnese.trim();
+  if (input.examenPhysique !== undefined) row.examenPhysique = input.examenPhysique.trim();
+  if (input.conclusion !== undefined) row.conclusion = input.conclusion.trim();
   if (input.treatment !== undefined) row.treatment = input.treatment.trim();
   if (input.prescription !== undefined) row.prescription = input.prescription.trim();
   if (input.notes !== undefined) row.notes = input.notes.trim();

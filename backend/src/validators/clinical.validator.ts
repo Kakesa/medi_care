@@ -12,6 +12,7 @@ function envelope(body: z.ZodTypeAny, query: z.ZodTypeAny = empty, params: z.Zod
 }
 
 const optionalText = z.string().max(2000).optional();
+const clinicalNote = z.string().max(4000).optional();
 
 export const listPersonnelSchema = envelope(
   empty,
@@ -119,6 +120,12 @@ const consultationWrite = {
   diagnosis: z.string().max(2000).optional().default(''),
   symptoms: z.array(z.string().max(200)).max(40).optional().default([]),
   allergies: z.array(z.string().max(80)).max(30).optional().default([]),
+  plainte: clinicalNote,
+  histoireMaladie: clinicalNote,
+  antecedent: clinicalNote,
+  comportementAnamnese: clinicalNote,
+  examenPhysique: clinicalNote,
+  conclusion: clinicalNote,
   treatment: z.string().max(4000).optional().default(''),
   prescription: optionalText,
   notes: optionalText,

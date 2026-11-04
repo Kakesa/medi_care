@@ -32,17 +32,17 @@ import { NavCount } from "./NavCount";
 
 export const allNavigation: { name: string; href: string; icon: typeof LayoutDashboard; roles: UserRole[] }[] = [
   { name: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard, roles: ['SUPERADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'RECEPTIONIST', 'NURSE', 'LABORANTIN', 'ACCOUNTANT', 'PHARMACIST', 'PATIENT'] },
-  { name: "Rendez-vous", href: "/dashboard/rendez-vous", icon: Calendar, roles: ['PATIENT'] },
-  { name: "Examen", href: "/dashboard/examen", icon: FlaskConical, roles: ['PATIENT'] },
-  { name: "Facture", href: "/dashboard/facture", icon: FileText, roles: ['PATIENT'] },
-  { name: "Hôpitaux", href: "/dashboard/hospitals", icon: Building2, roles: ['SUPERADMIN'] },
   { name: "Réception", href: "/dashboard/reception", icon: UserPlus, roles: ['HOSPITAL_ADMIN', 'RECEPTIONIST'] },
   { name: "Personnel", href: "/dashboard/personnel", icon: Users, roles: ['HOSPITAL_ADMIN'] },
-  { name: "Patients", href: "/dashboard/patients", icon: UserCircle, roles: ['HOSPITAL_ADMIN', 'DOCTOR', 'RECEPTIONIST', 'NURSE'] },
+  { name: "Consultation", href: "/dashboard/consultations", icon: Stethoscope, roles: ['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE'] },
+  { name: "Examen", href: "/dashboard/examinations", icon: FlaskConical, roles: ['HOSPITAL_ADMIN', 'ACCOUNTANT', 'RECEPTIONIST', 'DOCTOR', 'NURSE'] },
+  { name: "Examen", href: "/dashboard/examen", icon: FlaskConical, roles: ['PATIENT'] },
+  { name: "Chirurgie", href: "/dashboard/surgery", icon: Scissors, roles: ['HOSPITAL_ADMIN', 'ACCOUNTANT', 'RECEPTIONIST', 'DOCTOR', 'NURSE'] },
+  { name: "Patient", href: "/dashboard/patients", icon: UserCircle, roles: ['HOSPITAL_ADMIN', 'DOCTOR', 'RECEPTIONIST', 'NURSE'] },
   { name: "Rendez-vous", href: "/dashboard/appointments", icon: Calendar, roles: ['HOSPITAL_ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
-  { name: "Consultations", href: "/dashboard/consultations", icon: Stethoscope, roles: ['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE'] },
-  { name: "Examens", href: "/dashboard/examinations", icon: FlaskConical, roles: ['HOSPITAL_ADMIN', 'ACCOUNTANT', 'RECEPTIONIST', 'DOCTOR', 'NURSE'] },
-  { name: "Actes", href: "/dashboard/surgery", icon: Scissors, roles: ['HOSPITAL_ADMIN', 'ACCOUNTANT', 'RECEPTIONIST', 'DOCTOR', 'NURSE'] },
+  { name: "Rendez-vous", href: "/dashboard/rendez-vous", icon: Calendar, roles: ['PATIENT'] },
+  { name: "Facture", href: "/dashboard/facture", icon: FileText, roles: ['PATIENT'] },
+  { name: "Hôpitaux", href: "/dashboard/hospitals", icon: Building2, roles: ['SUPERADMIN'] },
   { name: "Facturation", href: "/dashboard/billing", icon: FileText, roles: ['HOSPITAL_ADMIN', 'ACCOUNTANT', 'RECEPTIONIST'] },
   { name: "Comptabilité", href: "/dashboard/accounting", icon: Landmark, roles: ['HOSPITAL_ADMIN', 'ACCOUNTANT', 'RECEPTIONIST'] },
   { name: "Gestion des lits", href: "/dashboard/beds", icon: BedDouble, roles: ['HOSPITAL_ADMIN', 'RECEPTIONIST'] },
@@ -114,7 +114,7 @@ export function Sidebar({ variant = "fixed", onNavigate }: SidebarProps) {
             const count = badges[item.href] || 0;
             return (
               <li 
-                key={item.name}
+                key={item.href}
                 className="animate-slide-up opacity-0"
                 style={{ animationDelay: `${index * 50}ms` }}
               >

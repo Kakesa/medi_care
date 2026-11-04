@@ -315,7 +315,7 @@ export default function Patients() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between animate-fade-in">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Gestion des Patients</h1>
+          <h1 className="text-3xl font-bold text-foreground">Patient</h1>
           <p className="mt-1 text-muted-foreground">
             Dossiers médicaux et suivi des patients
           </p>

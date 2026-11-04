@@ -196,6 +196,12 @@ export interface Consultation {
   diagnosis: string;
   symptoms: string[];
   allergies?: string[];
+  plainte?: string;
+  histoireMaladie?: string;
+  antecedent?: string;
+  comportementAnamnese?: string;
+  examenPhysique?: string;
+  conclusion?: string;
   treatment: string;
   prescription?: string;
   notes?: string;
@@ -212,6 +218,12 @@ export interface CreateConsultationData {
   diagnosis: string;
   symptoms: string[];
   allergies?: string[];
+  plainte?: string;
+  histoireMaladie?: string;
+  antecedent?: string;
+  comportementAnamnese?: string;
+  examenPhysique?: string;
+  conclusion?: string;
   treatment: string;
   prescription?: string;
   notes?: string;

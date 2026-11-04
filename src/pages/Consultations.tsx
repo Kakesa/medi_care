@@ -571,7 +571,7 @@ export default function Consultations() {
       <Dialog open={!!selectedConsultation} onOpenChange={(open) => { if (!open) setSelectedConsultation(null); }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{selectedConsultation?.plainte || "Consultation"}</DialogTitle>
+            <DialogTitle>{selectedConsultation?.patientName || "Consultation"}</DialogTitle>
           </DialogHeader>
           {selectedConsultation && (
             <div className="space-y-4 py-2">

@@ -140,6 +140,7 @@ const labCategoryNames = new Set([
 export default function Examinations() {
   const { user } = useAuth();
   const seesPrices = user?.role === "HOSPITAL_ADMIN" || user?.role === "ACCOUNTANT" || user?.role === "RECEPTIONIST";
+  const canSetPrice = user?.role === "HOSPITAL_ADMIN";
   const canChangeCurrency = user?.role === "HOSPITAL_ADMIN";
   const canPlan = user?.role === "HOSPITAL_ADMIN" || user?.role === "DOCTOR" || user?.role === "NURSE";
   const currencies: BillingCurrency[] = ["EUR", "CDF", "USD"];
@@ -622,7 +623,7 @@ export default function Examinations() {
             ) : (
               <p className="text-sm font-medium">{orgCurrency}</p>
             )}
-            <p className="max-w-sm text-xs text-muted-foreground">Les factures déjà créées gardent leur devise. Un examen change de devise seulement quand son prix est ressaisi.</p>
+            {canSetPrice && <p className="max-w-sm text-xs text-muted-foreground">Les factures déjà créées gardent leur devise. Un examen change de devise seulement quand son prix est ressaisi.</p>}
           </div>
         {canPlan && <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
           <DialogTrigger asChild>
@@ -904,17 +905,20 @@ export default function Examinations() {
                       {act.createdAt && <p className="text-xs text-muted-foreground">Créé le {new Date(act.createdAt).toLocaleDateString("fr-FR")}</p>}
                     </div>
                     <div className="flex items-center gap-2">
-                      <Input
-                        className="w-28"
-                        inputMode="decimal"
-                        value={priceDrafts[act.id] ?? (act.unitPrice == null ? "" : String(act.unitPrice))}
-                        onChange={(event) => setPriceDrafts((current) => ({ ...current, [act.id]: event.target.value }))}
-                        placeholder="Prix"
-                      />
+                      {canSetPrice ? (
+                        <Input
+                          className="w-28"
+                          inputMode="decimal"
+                          value={priceDrafts[act.id] ?? (act.unitPrice == null ? "" : String(act.unitPrice))}
+                          onChange={(event) => setPriceDrafts((current) => ({ ...current, [act.id]: event.target.value }))}
+                          placeholder="Prix"
+                          aria-label={`Prix de ${act.name}`}
+                        />
+                      ) : null}
                       <span className="w-28 text-sm font-medium">
-                        {act.unitPrice == null ? "—" : formatMoney(act.unitPrice, act.currency || orgCurrency)}
+                        {act.unitPrice == null ? "Sans tarif" : formatMoney(act.unitPrice, act.currency || orgCurrency)}
                       </span>
-                      <Button type="button" variant="outline" size="sm" onClick={() => void savePrice(act)}>Enregistrer</Button>
+                      {canSetPrice && <Button type="button" variant="outline" size="sm" onClick={() => void savePrice(act)}>Enregistrer</Button>}
                     </div>
                   </div>
                 ))}

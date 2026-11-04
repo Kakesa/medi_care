@@ -51,7 +51,8 @@ function periodRange(preset: string, customStart: string, customEnd: string) {
 export default function Surgery() {
   const { user } = useAuth();
   const canChangeCurrency = user?.role === "HOSPITAL_ADMIN";
-  const canManageCatalog = user?.role === "HOSPITAL_ADMIN" || user?.role === "ACCOUNTANT" || user?.role === "RECEPTIONIST";
+  const canEditCatalog = user?.role === "HOSPITAL_ADMIN";
+  const canManageCatalog = canEditCatalog || user?.role === "ACCOUNTANT" || user?.role === "RECEPTIONIST";
   const canPrescribe = user?.role === "HOSPITAL_ADMIN" || user?.role === "DOCTOR" || user?.role === "NURSE";
   const [currency, setCurrency] = useState<BillingCurrency>("EUR");
   const [currencies, setCurrencies] = useState<BillingCurrency[]>(["EUR", "CDF", "USD"]);
@@ -136,7 +137,7 @@ export default function Surgery() {
         name: form.name.trim(),
         categoryId: form.categoryId,
         description: form.description.trim(),
-        ...(form.unitPrice.trim() ? { unitPrice: Number(form.unitPrice) } : {}),
+        ...(canEditCatalog && form.unitPrice.trim() ? { unitPrice: Number(form.unitPrice) } : {}),
       };
       if (editing) {
         await surgeryService.updateAct(editing.id, payload);
@@ -227,7 +228,7 @@ export default function Surgery() {
         <p className="mt-1 text-muted-foreground">Recommandez un acte tarifé : il rejoint la facture du patient sans être marqué comme réalisé.</p>
       </div>
       <div className="flex flex-col items-start gap-3 sm:items-end">
-        {canManageCatalog && <Button variant="hero" onClick={openCreate}><Plus className="mr-2 h-4 w-4" />Nouvel acte</Button>}
+        {canEditCatalog && <Button variant="hero" onClick={openCreate}><Plus className="mr-2 h-4 w-4" />Nouvel acte</Button>}
         {canManageCatalog && <div className="space-y-2">
           <Label>Devise de l'établissement</Label>
           {canChangeCurrency ? (
@@ -240,7 +241,7 @@ export default function Surgery() {
           ) : (
             <p className="text-sm font-medium">{currency}</p>
           )}
-          <p className="max-w-sm text-xs text-muted-foreground">Les factures déjà créées gardent leur devise. Un acte change de devise seulement quand son prix est ressaisi.</p>
+          {canEditCatalog && <p className="max-w-sm text-xs text-muted-foreground">Les factures déjà créées gardent leur devise. Un acte change de devise seulement quand son prix est ressaisi.</p>}
         </div>}
       </div>
     </div>
@@ -371,11 +372,11 @@ export default function Surgery() {
                     {act.createdAt && <p className="text-xs text-muted-foreground">Créé le {new Date(act.createdAt).toLocaleDateString("fr-FR")}</p>}
                   </div>
                   <div className="flex flex-col items-start gap-2 sm:items-end">
-                    <p className="font-semibold">{act.unitPrice == null ? "Tarif à saisir" : formatMoney(act.unitPrice, act.currency || currency)}</p>
-                    <div className="flex gap-2">
+                    <p className="font-semibold">{act.unitPrice == null ? (canEditCatalog ? "Tarif à saisir" : "Sans tarif") : formatMoney(act.unitPrice, act.currency || currency)}</p>
+                    {canEditCatalog && <div className="flex gap-2">
                       <Button variant="outline" onClick={() => openEdit(act)}>Modifier</Button>
                       <Button variant="outline" onClick={() => void toggleAct(act)}>{act.active ? "Désactiver" : "Activer"}</Button>
-                    </div>
+                    </div>}
                   </div>
                 </CardContent>
               </Card>
@@ -436,7 +437,7 @@ export default function Surgery() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2"><Label>Prix ({currency})</Label><Input type="number" min={0} step="0.01" value={form.unitPrice} onChange={(event) => setForm({ ...form, unitPrice: event.target.value })} placeholder="À renseigner" /></div>
+              {canEditCatalog && <div className="space-y-2"><Label>Prix ({currency})</Label><Input type="number" min={0} step="0.01" value={form.unitPrice} onChange={(event) => setForm({ ...form, unitPrice: event.target.value })} placeholder="À renseigner" /></div>}
             </div>
             <div className="space-y-2"><Label>Description</Label><Textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></div>
             <div className="flex flex-col gap-2 sm:flex-row">

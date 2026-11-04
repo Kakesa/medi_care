@@ -20,11 +20,11 @@ const router = Router();
 
 router.use(authenticate, requireTenant, requireRoles(ROLES.HOSPITAL_ADMIN, ROLES.ACCOUNTANT, ROLES.RECEPTIONIST));
 router.get('/categories', surgery.listCategories);
-router.post('/categories', validate(createCategorySchema), surgery.createCategory);
+router.post('/categories', requireRoles(ROLES.HOSPITAL_ADMIN), validate(createCategorySchema), surgery.createCategory);
 router.get('/acts', validate(listActsSchema), surgery.listActs);
-router.post('/acts', validate(createActSchema), surgery.createAct);
+router.post('/acts', requireRoles(ROLES.HOSPITAL_ADMIN), validate(createActSchema), surgery.createAct);
 router.get('/acts/:id', validate(actParamsSchema), surgery.getAct);
-router.patch('/acts/:id', validate(updateActSchema), surgery.updateAct);
+router.patch('/acts/:id', requireRoles(ROLES.HOSPITAL_ADMIN), validate(updateActSchema), surgery.updateAct);
 router.get('/prices', validate(priceHistorySchema), surgery.priceHistory);
 router.get('/changes', surgery.changeHistory);
 router.get('/stats', validate(statsSchema), surgery.stats);

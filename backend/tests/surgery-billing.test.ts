@@ -51,9 +51,14 @@ describe('Chirurgie et facturation', () => {
       categoryId: appendectomy.categoryId,
       description: 'Doublon',
     });
-    expect(duplicate.status).toBe(409);
+    expect(duplicate.status).toBe(403);
 
-    const priced = await request(app).patch(`/api/surgery/acts/${appendectomy.id}`).set(bearer(accountant.token)).send({
+    const refusedPrice = await request(app).patch(`/api/surgery/acts/${appendectomy.id}`).set(bearer(accountant.token)).send({
+      unitPrice: 150,
+    });
+    expect(refusedPrice.status).toBe(403);
+
+    const priced = await request(app).patch(`/api/surgery/acts/${appendectomy.id}`).set(bearer(admin.token)).send({
       unitPrice: 150,
     });
     expect(priced.status).toBe(200);
@@ -135,7 +140,9 @@ describe('Chirurgie et facturation', () => {
     expect(mismatch.status).toBe(409);
     expect(mismatch.body.code).toBe('CURRENCY_MISMATCH');
 
-    const retariff = await request(app).patch(`/api/surgery/acts/${appendectomy.id}`).set(bearer(accountant.token)).send({ unitPrice: 210 });
+    const refused = await request(app).patch(`/api/surgery/acts/${appendectomy.id}`).set(bearer(accountant.token)).send({ unitPrice: 210 });
+    expect(refused.status).toBe(403);
+    const retariff = await request(app).patch(`/api/surgery/acts/${appendectomy.id}`).set(bearer(admin.token)).send({ unitPrice: 210 });
     expect(retariff.body.currency).toBe('USD');
     const usdInvoice = await request(app).post('/api/billing/invoices').set(bearer(accountant.token)).send({
       patientId,

@@ -1,3 +1,4 @@
+import { ROLES } from '../config/permissions.js';
 import { SURGICAL_SEED, surgicalNameKey } from '../domain/surgicalSeed.js';
 import { AuditLog } from '../models/AuditLog.js';
 import { Invoice } from '../models/Invoice.js';
@@ -249,6 +250,9 @@ export async function createAct(
   if (await SurgicalAct.exists({ organizationId, nameKey })) {
     throw new ApiError(409, 'Cet acte existe déjà', 'ACT_EXISTS');
   }
+  if (input.unitPrice != null && actor.role !== ROLES.HOSPITAL_ADMIN) {
+    throw new ApiError(403, "Seul l'administrateur peut saisir ou modifier un tarif", 'PRICE_FORBIDDEN');
+  }
   const priceMinor = input.unitPrice == null ? undefined : toMinorUnits(input.unitPrice);
   let row;
   try {
@@ -317,6 +321,9 @@ export async function updateAct(
   if (input.active !== undefined && input.active !== row.active) {
     row.active = input.active;
     changes.push(input.active ? 'activation' : 'désactivation');
+  }
+  if (input.unitPrice !== undefined && actor.role !== ROLES.HOSPITAL_ADMIN) {
+    throw new ApiError(403, "Seul l'administrateur peut saisir ou modifier un tarif", 'PRICE_FORBIDDEN');
   }
   if (input.unitPrice !== undefined) {
     const currency = await organizationCurrency(organizationId);

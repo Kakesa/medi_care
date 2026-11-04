@@ -28,6 +28,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -38,8 +39,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { chargeService, type CatalogOption } from "@/services/chargeService";
 import { consultationService } from "@/services/consultationService";
+import { examService, type ExamCatalogItem } from "@/services/examService";
 import { patientService } from "@/services/patientService";
 import { personnelService } from "@/services/personnelService";
 import type { Consultation, Patient, Personnel } from "@/types";
@@ -55,7 +56,8 @@ export default function Consultations() {
   const [consultations, setConsultations] = useState<Consultation[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [doctors, setDoctors] = useState<Personnel[]>([]);
-  const [tariffs, setTariffs] = useState<CatalogOption[]>([]);
+  const [examCatalog, setExamCatalog] = useState<ExamCatalogItem[]>([]);
+  const [examQuery, setExamQuery] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedConsultation, setSelectedConsultation] = useState<Consultation | null>(null);
@@ -70,10 +72,9 @@ export default function Consultations() {
     examenPhysique: "",
     conclusion: "",
     allergies: "",
-    recommandationExamens: "",
+    recommandationExamens: [] as string[],
     prescription: "",
     followUpDate: "",
-    billableServiceId: ""
   };
   const [formData, setFormData] = useState(emptyForm);
 
@@ -94,9 +95,9 @@ export default function Consultations() {
 
   useEffect(() => {
     void loadConsultations();
-    void chargeService.catalog()
-      .then((result) => setTariffs(result.items.filter((item) => item.kind === "service" && item.category === "CONSULTATION")))
-      .catch(() => setTariffs([]));
+    void examService.catalog()
+      .then((result) => setExamCatalog(result.items))
+      .catch(() => setExamCatalog([]));
   }, []);
 
   const handleChange = (field: string, value: string) => {
@@ -128,19 +129,20 @@ export default function Consultations() {
         comportementAnamnese: formData.comportementAnamnese.trim() || undefined,
         examenPhysique: formData.examenPhysique.trim() || undefined,
         conclusion: formData.conclusion.trim() || undefined,
-        recommandationExamens: formData.recommandationExamens.trim() || undefined,
+        recommandationExamens: examCatalog
+          .filter((item) => formData.recommandationExamens.includes(item.id))
+          .map((item) => item.name)
+          .join("\n") || undefined,
         treatment: "",
         prescription: formData.prescription || undefined,
         followUpDate: formData.followUpDate || undefined,
-        billableServiceId: formData.billableServiceId || undefined,
       });
       setIsDialogOpen(false);
+      setExamQuery("");
       setFormData(emptyForm);
       toast({
         title: "Consultation créée",
-        description: formData.billableServiceId
-          ? "La consultation est transmise à la facture du patient, au statut recommandé."
-          : "La consultation a été enregistrée avec succès",
+        description: "La consultation a été enregistrée avec succès",
       });
       await loadConsultations();
     } catch (error) {
@@ -160,6 +162,11 @@ export default function Consultations() {
       toast({ variant: "destructive", title: "Erreur", description: apiMessage(error) });
     }
   };
+
+  const visibleExams = examCatalog.filter((item) => {
+    const query = examQuery.trim().toLowerCase();
+    return !query || item.name.toLowerCase().includes(query) || item.categoryName.toLowerCase().includes(query);
+  });
 
   const filteredConsultations = consultations.filter(c =>
     c.patientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -222,22 +229,6 @@ export default function Consultations() {
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label>Tarif de consultation</Label>
-                <Select value={formData.billableServiceId || "none"} onValueChange={(value) => handleChange("billableServiceId", value === "none" ? "" : value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choisir un tarif" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Ne pas facturer</SelectItem>
-                    {tariffs.map((tariff) => (
-                      <SelectItem key={tariff.id} value={tariff.id}>{tariff.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">Le prix vient du catalogue. Sans tarif, la consultation reste dans le dossier et n'est pas envoyée en facturation.</p>
               </div>
 
               <div className="space-y-2">
@@ -313,14 +304,43 @@ export default function Consultations() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="consultation-recommandation">Recommandation des examens</Label>
-                <Textarea
-                  id="consultation-recommandation"
-                  value={formData.recommandationExamens}
-                  onChange={(e) => handleChange("recommandationExamens", e.target.value)}
-                  placeholder="Examens à réaliser"
-                  rows={3}
+                <Label htmlFor="consultation-exam-search">Recommandation des examens</Label>
+                <Input
+                  id="consultation-exam-search"
+                  value={examQuery}
+                  onChange={(event) => setExamQuery(event.target.value)}
+                  placeholder="Rechercher un examen..."
                 />
+                <div className="max-h-64 space-y-1 overflow-y-auto rounded-md border p-2">
+                  {visibleExams.length === 0 ? (
+                    <p className="px-2 py-3 text-sm text-muted-foreground">
+                      {examCatalog.length === 0 ? "Aucun examen dans la liste." : "Aucun examen ne correspond à cette recherche."}
+                    </p>
+                  ) : visibleExams.map((item) => (
+                    <label key={`${item.kind}-${item.id}`} className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-sm hover:bg-muted">
+                      <Checkbox
+                        checked={formData.recommandationExamens.includes(item.id)}
+                        onCheckedChange={(checked) => {
+                          setFormData((current) => ({
+                            ...current,
+                            recommandationExamens: checked
+                              ? [...current.recommandationExamens, item.id]
+                              : current.recommandationExamens.filter((id) => id !== item.id),
+                          }));
+                        }}
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block">{item.name}</span>
+                        {item.categoryName && <span className="text-xs text-muted-foreground">{item.categoryName}</span>}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {formData.recommandationExamens.length === 0
+                    ? "Cochez les examens à recommander."
+                    : `${formData.recommandationExamens.length} examen(s) sélectionné(s).`}
+                </p>
               </div>
 
               <div className="space-y-2">

@@ -14,6 +14,9 @@ const patientSchema = new Schema(
     gender: { type: String, enum: ['M', 'F'] },
     address: { type: String, trim: true, maxlength: 300 },
     bloodType: { type: String, trim: true, maxlength: 8 },
+    temperature: { type: Number, min: 30, max: 45 },
+    tension: { type: String, trim: true, maxlength: 7 },
+    saturation: { type: Number, min: 0, max: 100 },
     allergies: [{ type: String, trim: true, maxlength: 80 }],
     status: {
       type: String,

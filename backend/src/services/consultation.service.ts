@@ -27,6 +27,7 @@ function toConsultationDto(row: {
   date: Date;
   diagnosis: string;
   symptoms?: string[];
+  allergies?: string[];
   treatment?: string | null;
   prescription?: string | null;
   notes?: string | null;
@@ -43,6 +44,7 @@ function toConsultationDto(row: {
     date: dateOnly(row.date),
     diagnosis: row.diagnosis,
     symptoms: row.symptoms ?? [],
+    allergies: row.allergies ?? [],
     treatment: row.treatment || '',
     prescription: row.prescription || undefined,
     notes: row.notes || undefined,
@@ -109,6 +111,7 @@ export async function createConsultation(
     appointmentId?: string;
     diagnosis?: string;
     symptoms?: string[];
+    allergies?: string[];
     treatment?: string;
     prescription?: string;
     notes?: string;
@@ -131,6 +134,7 @@ export async function createConsultation(
     date: input.date ? utcDayBounds(input.date).start : utcDayBounds(new Date()).start,
     diagnosis: input.diagnosis?.trim() || '',
     symptoms: (input.symptoms ?? []).map((item) => item.trim()).filter(Boolean),
+    allergies: (input.allergies ?? []).map((item) => item.trim()).filter(Boolean),
     treatment: input.treatment?.trim() || '',
     prescription: input.prescription?.trim(),
     notes: input.notes?.trim(),
@@ -176,6 +180,7 @@ export async function updateConsultation(
     doctorId: string;
     diagnosis: string;
     symptoms: string[];
+    allergies: string[];
     treatment: string;
     prescription: string;
     notes: string;
@@ -204,6 +209,7 @@ export async function updateConsultation(
   }
   if (input.diagnosis !== undefined) row.diagnosis = input.diagnosis.trim();
   if (input.symptoms) row.symptoms = input.symptoms.map((item) => item.trim()).filter(Boolean);
+  if (input.allergies) row.allergies = input.allergies.map((item) => item.trim()).filter(Boolean);
   if (input.treatment !== undefined) row.treatment = input.treatment.trim();
   if (input.prescription !== undefined) row.prescription = input.prescription.trim();
   if (input.notes !== undefined) row.notes = input.notes.trim();

@@ -257,7 +257,7 @@ export default function ReceptionPage() {
                     <SelectContent>
                       {patients.map(p => (
                         <SelectItem key={p.id} value={p.id}>
-                          {p.firstName} {p.lastName} - {p.id}
+                          {p.firstName} {p.lastName}
                         </SelectItem>
                       ))}
                     </SelectContent>

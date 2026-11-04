@@ -21,6 +21,9 @@ interface PatientWriteInput {
   gender?: 'M' | 'F';
   address?: string;
   bloodType?: string;
+  temperature?: number | null;
+  tension?: string | null;
+  saturation?: number | null;
   allergies?: string[];
   status?: 'outpatient' | 'hospitalized' | 'discharged';
   room?: string;
@@ -44,6 +47,9 @@ function toPatientDto(patient: {
   gender?: string | null;
   address?: string | null;
   bloodType?: string | null;
+  temperature?: number | null;
+  tension?: string | null;
+  saturation?: number | null;
   allergies?: string[];
   status: string;
   room?: string | null;
@@ -66,6 +72,9 @@ function toPatientDto(patient: {
     gender: patient.gender || undefined,
     address: patient.address || undefined,
     bloodType: patient.bloodType || undefined,
+    temperature: patient.temperature ?? undefined,
+    tension: patient.tension || undefined,
+    saturation: patient.saturation ?? undefined,
     allergies: patient.allergies ?? [],
     status: patient.status,
     room: patient.status === 'hospitalized' ? patient.room || undefined : undefined,
@@ -227,6 +236,9 @@ export async function createPatient(
     gender: input.gender,
     address: input.address,
     bloodType: input.bloodType,
+    temperature: input.temperature ?? undefined,
+    tension: input.tension || undefined,
+    saturation: input.saturation ?? undefined,
     allergies: input.allergies ?? [],
     status,
     room: status === 'hospitalized' ? input.room : undefined,
@@ -316,6 +328,9 @@ export async function updatePatient(
   if (input.gender) patient.gender = input.gender;
   if (input.address !== undefined) patient.address = input.address;
   if (input.bloodType !== undefined) patient.bloodType = input.bloodType;
+  if (input.temperature !== undefined) patient.temperature = input.temperature ?? undefined;
+  if (input.tension !== undefined) patient.tension = input.tension || undefined;
+  if (input.saturation !== undefined) patient.saturation = input.saturation ?? undefined;
   if (input.allergies) patient.allergies = input.allergies;
   if (input.status) {
     patient.status = input.status;

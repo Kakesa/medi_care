@@ -10,6 +10,7 @@ const consultationSchema = new Schema(
     date: { type: Date, required: true },
     appointmentId: { type: Schema.Types.ObjectId, ref: 'Appointment' },
     symptoms: { type: [String], default: [] },
+    allergies: [{ type: String, trim: true, maxlength: 80 }],
     diagnosis: { type: String, required: true },
     treatment: { type: String, trim: true },
     prescription: { type: String, trim: true },

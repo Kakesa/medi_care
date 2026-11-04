@@ -117,6 +117,9 @@ export interface Patient {
   gender: Gender;
   address: string;
   bloodType?: string;
+  temperature?: number;
+  tension?: string;
+  saturation?: number;
   allergies?: string[];
   status: PatientStatus;
   room?: string;
@@ -134,6 +137,9 @@ export interface CreatePatientData {
   gender: Gender;
   address: string;
   bloodType?: string;
+  temperature?: number | null;
+  tension?: string | null;
+  saturation?: number | null;
   allergies?: string[];
 }
 
@@ -189,6 +195,7 @@ export interface Consultation {
   date: string;
   diagnosis: string;
   symptoms: string[];
+  allergies?: string[];
   treatment: string;
   prescription?: string;
   notes?: string;
@@ -204,6 +211,7 @@ export interface CreateConsultationData {
   appointmentId?: string;
   diagnosis: string;
   symptoms: string[];
+  allergies?: string[];
   treatment: string;
   prescription?: string;
   notes?: string;

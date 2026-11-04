@@ -48,7 +48,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Card } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { patientService } from "@/services/patientService";
 import type { Patient } from "@/types";
@@ -80,7 +79,9 @@ export default function Patients() {
     gender: "M" as "M" | "F",
     address: "",
     bloodType: "",
-    allergies: "",
+    temperature: "",
+    tension: "",
+    saturation: "",
     status: "outpatient" as Patient["status"],
     room: ""
   });
@@ -112,7 +113,9 @@ export default function Patients() {
       gender: "M",
       address: "",
       bloodType: "",
-      allergies: "",
+      temperature: "",
+      tension: "",
+      saturation: "",
       status: "outpatient",
       room: ""
     });
@@ -131,7 +134,9 @@ export default function Patients() {
       gender: patient.gender,
       address: patient.address,
       bloodType: patient.bloodType || "",
-      allergies: patient.allergies?.join(", ") || "",
+      temperature: patient.temperature != null ? String(patient.temperature) : "",
+      tension: patient.tension || "",
+      saturation: patient.saturation != null ? String(patient.saturation) : "",
       status: patient.status,
       room: patient.room || ""
     });
@@ -149,6 +154,22 @@ export default function Patients() {
       return;
     }
 
+    const temperature = formData.temperature ? Number(formData.temperature) : null;
+    const tension = formData.tension.replace(/\s/g, "");
+    const saturation = formData.saturation ? Number(formData.saturation) : null;
+    if (temperature != null && (Number.isNaN(temperature) || temperature < 30 || temperature > 45)) {
+      toast({ variant: "destructive", title: "Erreur", description: "La température doit être entre 30 et 45 °C" });
+      return;
+    }
+    if (tension && !/^\d{2,3}\/\d{2,3}$/.test(tension)) {
+      toast({ variant: "destructive", title: "Erreur", description: "Indiquez la tension au format 120/80" });
+      return;
+    }
+    if (saturation != null && (!Number.isInteger(saturation) || saturation < 0 || saturation > 100)) {
+      toast({ variant: "destructive", title: "Erreur", description: "La saturation doit être un pourcentage entre 0 et 100" });
+      return;
+    }
+
     const patientData = {
       firstName: formData.firstName,
       lastName: formData.lastName,
@@ -157,8 +178,10 @@ export default function Patients() {
       dateOfBirth: formData.dateOfBirth,
       gender: formData.gender,
       address: formData.address || undefined,
-      allergies: formData.allergies ? formData.allergies.split(",").map(a => a.trim()).filter(Boolean) : undefined,
       bloodType: formData.bloodType || undefined,
+      temperature: formData.temperature ? Number(formData.temperature) : null,
+      tension: formData.tension.replace(/\s/g, "") || null,
+      saturation: formData.saturation ? Number(formData.saturation) : null,
       status: formData.status,
       room: formData.status === "hospitalized" ? formData.room || undefined : undefined,
     };
@@ -218,7 +241,7 @@ export default function Patients() {
 
   const filteredPatients = patients.filter(patient =>
     `${patient.firstName} ${patient.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    patient.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    patient.phone.toLowerCase().includes(searchQuery.toLowerCase()) ||
     patient.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -334,22 +357,50 @@ export default function Patients() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="patient-temperature">Température (°C)</Label>
+                  <Input
+                    id="patient-temperature"
+                    type="number"
+                    min={30}
+                    max={45}
+                    step={0.1}
+                    value={formData.temperature}
+                    onChange={(e) => handleChange("temperature", e.target.value)}
+                    placeholder="36.5"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="patient-tension">Tension</Label>
+                  <Input
+                    id="patient-tension"
+                    value={formData.tension}
+                    onChange={(e) => handleChange("tension", e.target.value)}
+                    placeholder="120/80"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="patient-saturation">Saturation (%)</Label>
+                  <Input
+                    id="patient-saturation"
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={formData.saturation}
+                    onChange={(e) => handleChange("saturation", e.target.value)}
+                    placeholder="98"
+                  />
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label>Adresse</Label>
                 <Input 
                   value={formData.address}
                   onChange={(e) => handleChange("address", e.target.value)}
                   placeholder="12 Rue de Paris, 75001 Paris"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Allergies (séparées par virgule)</Label>
-                <Textarea 
-                  value={formData.allergies}
-                  onChange={(e) => handleChange("allergies", e.target.value)}
-                  placeholder="Pénicilline, Aspirine..."
-                  rows={2}
                 />
               </div>
 
@@ -420,7 +471,7 @@ export default function Patients() {
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input 
-            placeholder="Rechercher par nom, ID, email..."
+            placeholder="Rechercher par nom, téléphone ou email..."
             className="pl-10"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -447,7 +498,7 @@ export default function Patients() {
                 </div>
                 <div>
                   <h3 className="font-semibold">{patient.firstName} {patient.lastName}</h3>
-                  <p className="text-sm text-muted-foreground">{patient.id}</p>
+                  {patient.email && <p className="text-sm text-muted-foreground">{patient.email}</p>}
                 </div>
               </div>
               <DropdownMenu>
@@ -497,6 +548,13 @@ export default function Patients() {
                   <Badge variant="outline" className="ml-auto">{patient.bloodType}</Badge>
                 )}
               </div>
+              {(patient.temperature != null || patient.tension || patient.saturation != null) && (
+                <div className="flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground">
+                  {patient.temperature != null && <span>Température {patient.temperature.toLocaleString("fr-FR")} °C</span>}
+                  {patient.tension && <span>Tension {patient.tension}</span>}
+                  {patient.saturation != null && <span>Saturation {patient.saturation} %</span>}
+                </div>
+              )}
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Phone className="h-4 w-4" />
                 <span>{patient.phone}</span>

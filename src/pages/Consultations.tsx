@@ -66,6 +66,7 @@ export default function Consultations() {
     doctorId: "",
     diagnosis: "",
     symptoms: "",
+    allergies: "",
     treatment: "",
     prescription: "",
     notes: "",
@@ -117,6 +118,7 @@ export default function Consultations() {
         doctorName: "",
         diagnosis: formData.diagnosis,
         symptoms: formData.symptoms.split(",").map((item) => item.trim()).filter(Boolean),
+        allergies: formData.allergies.split(",").map((item) => item.trim()).filter(Boolean),
         treatment: formData.treatment,
         prescription: formData.prescription || undefined,
         notes: formData.notes || undefined,
@@ -129,6 +131,7 @@ export default function Consultations() {
         doctorId: "",
         diagnosis: "",
         symptoms: "",
+        allergies: "",
         treatment: "",
         prescription: "",
         notes: "",
@@ -235,6 +238,17 @@ export default function Consultations() {
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">Le prix vient du catalogue. Sans tarif, la consultation reste dans le dossier et n'est pas envoyée en facturation.</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="consultation-allergies">Allergies (séparées par virgule)</Label>
+                <Textarea
+                  id="consultation-allergies"
+                  value={formData.allergies}
+                  onChange={(e) => handleChange("allergies", e.target.value)}
+                  placeholder="Pénicilline, Aspirine..."
+                  rows={2}
+                />
               </div>
 
               <div className="space-y-2">
@@ -399,6 +413,16 @@ export default function Consultations() {
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {consultation.allergies && consultation.allergies.length > 0 && (
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Allergies</p>
+                    <div className="flex flex-wrap gap-1">
+                      {consultation.allergies.map((allergy, i) => (
+                        <Badge key={i} variant="destructive" className="text-xs">{allergy}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div className="space-y-1">
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">Symptômes</p>
                   <div className="flex flex-wrap gap-1">

@@ -1,9 +1,8 @@
 import { Outlet, Navigate } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { MobileTabBar } from "./MobileTabBar";
-import { Search } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
+import { PatientSearch } from "@/components/layout/PatientSearch";
 import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
 import { roleLabels } from "@/lib/roles";
 import { ForcePasswordChange } from "@/components/auth/ForcePasswordChange";
@@ -35,13 +34,7 @@ export function DashboardLayout() {
             <p className="truncate text-xs text-muted-foreground">{roleLabels[user?.role || "PATIENT"]}</p>
           </div>
 
-          <div className="relative hidden min-w-0 flex-1 sm:block sm:max-w-md">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Rechercher patients, personnel, RDV..."
-              className="border-transparent bg-secondary/50 pl-10 focus:border-input focus:bg-background"
-            />
-          </div>
+          <PatientSearch />
 
           <div className="ml-auto flex items-center gap-2 sm:gap-4">
             <NotificationDropdown />

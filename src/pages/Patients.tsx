@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { 
   Plus, 
   Search, 
@@ -63,8 +64,10 @@ const bloodTypes = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 
 export default function Patients() {
   const { toast } = useToast();
+  const [params] = useSearchParams();
   const [patients, setPatients] = useState<Patient[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [totals, setTotals] = useState({ total: 0, hospitalized: 0, outpatient: 0, discharged: 0 });
+  const [searchQuery, setSearchQuery] = useState(() => params.get("q") ?? "");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
@@ -86,18 +89,55 @@ export default function Patients() {
     room: ""
   });
 
-  const loadPatients = async () => {
+  const loadPatients = async (search = searchQuery) => {
+    const term = search.trim();
     try {
-      const result = await patientService.getAll({ limit: 100 });
+      const result = await patientService.getAll({ limit: 100, ...(term ? { search: term } : {}) });
       setPatients(result.data);
+      if (!term) {
+        setTotals({
+          total: result.data.length,
+          hospitalized: result.data.filter((patient) => patient.status === "hospitalized").length,
+          outpatient: result.data.filter((patient) => patient.status === "outpatient").length,
+          discharged: result.data.filter((patient) => patient.status === "discharged").length,
+        });
+      }
     } catch (error) {
       toast({ variant: "destructive", title: "Erreur", description: apiMessage(error) });
     }
   };
 
   useEffect(() => {
-    void loadPatients();
-  }, []);
+    setSearchQuery(params.get("q") ?? "");
+  }, [params]);
+
+  useEffect(() => {
+    let active = true;
+    const handle = window.setTimeout(() => {
+      void (async () => {
+        const term = searchQuery.trim();
+        try {
+          const result = await patientService.getAll({ limit: 100, ...(term ? { search: term } : {}) });
+          if (!active) return;
+          setPatients(result.data);
+          if (!term) {
+            setTotals({
+              total: result.data.length,
+              hospitalized: result.data.filter((patient) => patient.status === "hospitalized").length,
+              outpatient: result.data.filter((patient) => patient.status === "outpatient").length,
+              discharged: result.data.filter((patient) => patient.status === "discharged").length,
+            });
+          }
+        } catch (error) {
+          if (active) toast({ variant: "destructive", title: "Erreur", description: apiMessage(error) });
+        }
+      })();
+    }, searchQuery.trim() ? 250 : 0);
+    return () => {
+      active = false;
+      window.clearTimeout(handle);
+    };
+  }, [searchQuery]);
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -247,12 +287,6 @@ export default function Patients() {
       toast({ variant: "destructive", title: "Erreur", description: apiMessage(error) });
     }
   };
-
-  const filteredPatients = patients.filter(patient =>
-    `${patient.firstName} ${patient.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    patient.phone.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    patient.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   const dateFromAge = (years: number) => {
     const date = new Date();
@@ -479,19 +513,19 @@ export default function Patients() {
       <div className="grid grid-cols-2 gap-4 animate-slide-up lg:grid-cols-4" style={{ animationDelay: "100ms" }}>
         <div className="rounded-lg bg-card border border-border p-4">
           <p className="text-sm text-muted-foreground">Total patients</p>
-          <p className="text-2xl font-bold">{patients.length}</p>
+          <p className="text-2xl font-bold">{totals.total}</p>
         </div>
         <div className="rounded-lg bg-warning/10 border border-warning/20 p-4">
           <p className="text-sm text-warning">Hospitalisés</p>
-          <p className="text-2xl font-bold text-warning">{patients.filter(p => p.status === "hospitalized").length}</p>
+          <p className="text-2xl font-bold text-warning">{totals.hospitalized}</p>
         </div>
         <div className="rounded-lg bg-info/10 border border-info/20 p-4">
           <p className="text-sm text-info">Ambulatoires</p>
-          <p className="text-2xl font-bold text-info">{patients.filter(p => p.status === "outpatient").length}</p>
+          <p className="text-2xl font-bold text-info">{totals.outpatient}</p>
         </div>
         <div className="rounded-lg bg-success/10 border border-success/20 p-4">
           <p className="text-sm text-success">Sortis (ce mois)</p>
-          <p className="text-2xl font-bold text-success">{patients.filter(p => p.status === "discharged").length}</p>
+          <p className="text-2xl font-bold text-success">{totals.discharged}</p>
         </div>
       </div>
 
@@ -514,7 +548,12 @@ export default function Patients() {
 
       {/* Patient cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {filteredPatients.map((patient, index) => (
+        {patients.length === 0 && (
+          <p className="text-sm text-muted-foreground sm:col-span-2 lg:col-span-3">
+            {searchQuery.trim() ? "Aucun patient ne correspond à cette recherche." : "Aucun patient enregistré."}
+          </p>
+        )}
+        {patients.map((patient, index) => (
           <Card 
             key={patient.id}
             className="p-5 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 animate-slide-up"

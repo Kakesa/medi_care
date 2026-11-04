@@ -178,11 +178,22 @@ function listFilter(
   }
   if (query.search) {
     const safe = escapeRegex(query.search.trim());
+    const pattern = new RegExp(safe, 'i');
     and.push({
       $or: [
-        { firstName: new RegExp(safe, 'i') },
-        { lastName: new RegExp(safe, 'i') },
-        { email: new RegExp(safe, 'i') },
+        { firstName: pattern },
+        { lastName: pattern },
+        { phone: pattern },
+        { email: pattern },
+        {
+          $expr: {
+            $regexMatch: {
+              input: { $concat: ['$firstName', ' ', '$lastName'] },
+              regex: safe,
+              options: 'i',
+            },
+          },
+        },
       ],
     });
   }

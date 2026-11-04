@@ -21,6 +21,7 @@ const REDACTED_KEYS = new Set([
   'comportementanamnese',
   'examenphysique',
   'conclusion',
+  'recommandationexamens',
 ]);
 
 export function sanitize(value: unknown): unknown {

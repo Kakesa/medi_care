@@ -8,7 +8,6 @@ import {
   User,
   Calendar,
   FileText,
-  Pill,
   Clock,
   CheckCircle
 } from "lucide-react";
@@ -70,12 +69,9 @@ export default function Consultations() {
     comportementAnamnese: "",
     examenPhysique: "",
     conclusion: "",
-    diagnosis: "",
-    symptoms: "",
     allergies: "",
-    treatment: "",
+    recommandationExamens: "",
     prescription: "",
-    notes: "",
     followUpDate: "",
     billableServiceId: ""
   };
@@ -123,8 +119,8 @@ export default function Consultations() {
         patientName: "",
         doctorId: formData.doctorId,
         doctorName: "",
-        diagnosis: formData.diagnosis,
-        symptoms: formData.symptoms.split(",").map((item) => item.trim()).filter(Boolean),
+        diagnosis: "",
+        symptoms: [],
         allergies: formData.allergies.split(",").map((item) => item.trim()).filter(Boolean),
         plainte: formData.plainte.trim() || undefined,
         histoireMaladie: formData.histoireMaladie.trim() || undefined,
@@ -132,9 +128,9 @@ export default function Consultations() {
         comportementAnamnese: formData.comportementAnamnese.trim() || undefined,
         examenPhysique: formData.examenPhysique.trim() || undefined,
         conclusion: formData.conclusion.trim() || undefined,
-        treatment: formData.treatment,
+        recommandationExamens: formData.recommandationExamens.trim() || undefined,
+        treatment: "",
         prescription: formData.prescription || undefined,
-        notes: formData.notes || undefined,
         followUpDate: formData.followUpDate || undefined,
         billableServiceId: formData.billableServiceId || undefined,
       });
@@ -168,9 +164,9 @@ export default function Consultations() {
   const filteredConsultations = consultations.filter(c =>
     c.patientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
     c.doctorName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.diagnosis.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (c.plainte ?? "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (c.conclusion ?? "").toLowerCase().includes(searchQuery.toLowerCase())
+    (c.conclusion ?? "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (c.recommandationExamens ?? "").toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -317,30 +313,13 @@ export default function Consultations() {
               </div>
 
               <div className="space-y-2">
-                <Label>Symptômes (séparés par virgule)</Label>
-                <Input 
-                  value={formData.symptoms}
-                  onChange={(e) => handleChange("symptoms", e.target.value)}
-                  placeholder="Fièvre, toux, fatigue..."
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Diagnostic *</Label>
-                <Input 
-                  value={formData.diagnosis}
-                  onChange={(e) => handleChange("diagnosis", e.target.value)}
-                  placeholder="Diagnostic médical"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Traitement *</Label>
-                <Textarea 
-                  value={formData.treatment}
-                  onChange={(e) => handleChange("treatment", e.target.value)}
-                  placeholder="Description du traitement"
-                  rows={2}
+                <Label htmlFor="consultation-recommandation">Recommandation des examens</Label>
+                <Textarea
+                  id="consultation-recommandation"
+                  value={formData.recommandationExamens}
+                  onChange={(e) => handleChange("recommandationExamens", e.target.value)}
+                  placeholder="Examens à réaliser"
+                  rows={3}
                 />
               </div>
 
@@ -350,16 +329,6 @@ export default function Consultations() {
                   value={formData.prescription}
                   onChange={(e) => handleChange("prescription", e.target.value)}
                   placeholder="Médicaments prescrits..."
-                  rows={2}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Notes additionnelles</Label>
-                <Textarea 
-                  value={formData.notes}
-                  onChange={(e) => handleChange("notes", e.target.value)}
-                  placeholder="Notes pour le dossier..."
                   rows={2}
                 />
               </div>
@@ -407,7 +376,7 @@ export default function Consultations() {
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input 
-            placeholder="Rechercher par patient, médecin, diagnostic..."
+            placeholder="Rechercher par patient, médecin ou plainte..."
             className="pl-10"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -435,7 +404,7 @@ export default function Consultations() {
                     <Stethoscope className="h-6 w-6 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-lg">{consultation.diagnosis || consultation.plainte || "Consultation"}</h3>
+                    <h3 className="font-semibold text-lg">{consultation.plainte || "Consultation"}</h3>
                     <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <User className="h-4 w-4" />
@@ -513,21 +482,15 @@ export default function Consultations() {
                     </div>
                   </div>
                 )}
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Symptômes</p>
-                  <div className="flex flex-wrap gap-1">
-                    {consultation.symptoms.map((symptom, i) => (
-                      <Badge key={i} variant="secondary" className="text-xs">{symptom}</Badge>
-                    ))}
+                {consultation.recommandationExamens && (
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                      <FileText className="h-3 w-3" />
+                      Recommandation des examens
+                    </p>
+                    <p className="whitespace-pre-wrap text-sm">{consultation.recommandationExamens}</p>
                   </div>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-                    <Pill className="h-3 w-3" />
-                    Traitement
-                  </p>
-                  <p className="text-sm">{consultation.treatment}</p>
-                </div>
+                )}
                 {consultation.prescription && (
                   <div className="space-y-1">
                     <p className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1">

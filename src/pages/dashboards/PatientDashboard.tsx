@@ -295,8 +295,8 @@ export default function PatientDashboard() {
                     <p className="font-medium">{cons.doctorName}</p>
                     <span className="text-sm text-muted-foreground">{cons.date}</span>
                   </div>
-                  <p className="text-sm font-medium text-primary">{cons.diagnosis}</p>
-                  <p className="text-sm text-muted-foreground mt-1">{cons.treatment}</p>
+                  <p className="text-sm font-medium text-primary">{cons.plainte || "Consultation"}</p>
+                  {cons.recommandationExamens && <p className="text-sm text-muted-foreground mt-1">{cons.recommandationExamens}</p>}
                   {cons.prescription && (
                     <div className="mt-2 p-2 rounded bg-secondary/50">
                       <p className="text-xs font-medium flex items-center gap-1">

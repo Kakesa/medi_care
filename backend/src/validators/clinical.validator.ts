@@ -126,6 +126,7 @@ const consultationWrite = {
   comportementAnamnese: clinicalNote,
   examenPhysique: clinicalNote,
   conclusion: clinicalNote,
+  recommandationExamens: clinicalNote,
   treatment: z.string().max(4000).optional().default(''),
   prescription: optionalText,
   notes: optionalText,

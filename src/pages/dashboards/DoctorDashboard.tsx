@@ -198,7 +198,7 @@ export default function DoctorDashboard() {
                     <div>
                       <p className="font-medium">{cons.patientName}</p>
                       <p className="text-sm text-muted-foreground">
-                        {cons.diagnosis}
+                        {cons.plainte || "Consultation"}
                       </p>
                     </div>
                   </div>

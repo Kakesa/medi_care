@@ -34,6 +34,7 @@ function toConsultationDto(row: {
   comportementAnamnese?: string | null;
   examenPhysique?: string | null;
   conclusion?: string | null;
+  recommandationExamens?: string | null;
   treatment?: string | null;
   prescription?: string | null;
   notes?: string | null;
@@ -57,6 +58,7 @@ function toConsultationDto(row: {
     comportementAnamnese: row.comportementAnamnese || undefined,
     examenPhysique: row.examenPhysique || undefined,
     conclusion: row.conclusion || undefined,
+    recommandationExamens: row.recommandationExamens || undefined,
     treatment: row.treatment || '',
     prescription: row.prescription || undefined,
     notes: row.notes || undefined,
@@ -130,6 +132,7 @@ export async function createConsultation(
     comportementAnamnese?: string;
     examenPhysique?: string;
     conclusion?: string;
+    recommandationExamens?: string;
     treatment?: string;
     prescription?: string;
     notes?: string;
@@ -159,6 +162,7 @@ export async function createConsultation(
     comportementAnamnese: input.comportementAnamnese?.trim(),
     examenPhysique: input.examenPhysique?.trim(),
     conclusion: input.conclusion?.trim(),
+    recommandationExamens: input.recommandationExamens?.trim(),
     treatment: input.treatment?.trim() || '',
     prescription: input.prescription?.trim(),
     notes: input.notes?.trim(),
@@ -211,6 +215,7 @@ export async function updateConsultation(
     comportementAnamnese: string;
     examenPhysique: string;
     conclusion: string;
+    recommandationExamens: string;
     treatment: string;
     prescription: string;
     notes: string;
@@ -246,6 +251,7 @@ export async function updateConsultation(
   if (input.comportementAnamnese !== undefined) row.comportementAnamnese = input.comportementAnamnese.trim();
   if (input.examenPhysique !== undefined) row.examenPhysique = input.examenPhysique.trim();
   if (input.conclusion !== undefined) row.conclusion = input.conclusion.trim();
+  if (input.recommandationExamens !== undefined) row.recommandationExamens = input.recommandationExamens.trim();
   if (input.treatment !== undefined) row.treatment = input.treatment.trim();
   if (input.prescription !== undefined) row.prescription = input.prescription.trim();
   if (input.notes !== undefined) row.notes = input.notes.trim();

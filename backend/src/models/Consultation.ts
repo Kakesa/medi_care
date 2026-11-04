@@ -17,6 +17,7 @@ const consultationSchema = new Schema(
     comportementAnamnese: { type: String, trim: true, maxlength: 4000 },
     examenPhysique: { type: String, trim: true, maxlength: 4000 },
     conclusion: { type: String, trim: true, maxlength: 4000 },
+    recommandationExamens: { type: String, trim: true, maxlength: 4000 },
     diagnosis: { type: String, required: true },
     treatment: { type: String, trim: true },
     prescription: { type: String, trim: true },

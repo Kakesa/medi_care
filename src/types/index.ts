@@ -202,6 +202,7 @@ export interface Consultation {
   comportementAnamnese?: string;
   examenPhysique?: string;
   conclusion?: string;
+  recommandationExamens?: string;
   treatment: string;
   prescription?: string;
   notes?: string;
@@ -224,6 +225,7 @@ export interface CreateConsultationData {
   comportementAnamnese?: string;
   examenPhysique?: string;
   conclusion?: string;
+  recommandationExamens?: string;
   treatment: string;
   prescription?: string;
   notes?: string;

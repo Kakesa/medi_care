@@ -16,6 +16,16 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -26,7 +36,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -38,6 +47,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { consultationService } from "@/services/consultationService";
 import { examService, type ExamCatalogItem } from "@/services/examService";
@@ -53,6 +63,9 @@ const statusConfig = {
 
 export default function Consultations() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const canWrite = user?.role === "HOSPITAL_ADMIN" || user?.role === "DOCTOR";
+  const canDelete = user?.role === "HOSPITAL_ADMIN";
   const [consultations, setConsultations] = useState<Consultation[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [doctors, setDoctors] = useState<Personnel[]>([]);
@@ -60,7 +73,9 @@ export default function Consultations() {
   const [examQuery, setExamQuery] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedConsultation, setSelectedConsultation] = useState<Consultation | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Consultation | null>(null);
   
   const emptyForm = {
     patientId: "",
@@ -104,6 +119,48 @@ export default function Consultations() {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  const recommendationText = () => examCatalog
+    .filter((item) => formData.recommandationExamens.includes(item.id))
+    .map((item) => item.name)
+    .join("\n");
+
+  const closeForm = () => {
+    setIsDialogOpen(false);
+    setEditingId(null);
+    setExamQuery("");
+    setFormData(emptyForm);
+  };
+
+  const openCreate = () => {
+    setEditingId(null);
+    setExamQuery("");
+    setFormData(emptyForm);
+    setIsDialogOpen(true);
+  };
+
+  const openEdit = (consultation: Consultation) => {
+    const names = new Set(
+      (consultation.recommandationExamens ?? "").split("\n").map((name) => name.trim()).filter(Boolean)
+    );
+    setEditingId(consultation.id);
+    setExamQuery("");
+    setFormData({
+      patientId: consultation.patientId,
+      doctorId: consultation.doctorId,
+      plainte: consultation.plainte ?? "",
+      histoireMaladie: consultation.histoireMaladie ?? "",
+      antecedent: consultation.antecedent ?? "",
+      comportementAnamnese: consultation.comportementAnamnese ?? "",
+      examenPhysique: consultation.examenPhysique ?? "",
+      conclusion: consultation.conclusion ?? "",
+      allergies: (consultation.allergies ?? []).join(", "),
+      recommandationExamens: examCatalog.filter((item) => names.has(item.name)).map((item) => item.id),
+      prescription: consultation.prescription ?? "",
+      followUpDate: consultation.followUpDate ?? "",
+    });
+    setIsDialogOpen(true);
+  };
+
   const handleSubmit = async () => {
     if (!formData.patientId || !formData.doctorId) {
       toast({
@@ -114,39 +171,66 @@ export default function Consultations() {
       return;
     }
 
+    const clinical = {
+      allergies: formData.allergies.split(",").map((item) => item.trim()).filter(Boolean),
+      plainte: formData.plainte.trim(),
+      histoireMaladie: formData.histoireMaladie.trim(),
+      antecedent: formData.antecedent.trim(),
+      comportementAnamnese: formData.comportementAnamnese.trim(),
+      examenPhysique: formData.examenPhysique.trim(),
+      conclusion: formData.conclusion.trim(),
+      recommandationExamens: recommendationText(),
+      prescription: formData.prescription.trim(),
+      followUpDate: formData.followUpDate,
+    };
+
     try {
-      await consultationService.create({
-        patientId: formData.patientId,
-        patientName: "",
-        doctorId: formData.doctorId,
-        doctorName: "",
-        diagnosis: "",
-        symptoms: [],
-        allergies: formData.allergies.split(",").map((item) => item.trim()).filter(Boolean),
-        plainte: formData.plainte.trim() || undefined,
-        histoireMaladie: formData.histoireMaladie.trim() || undefined,
-        antecedent: formData.antecedent.trim() || undefined,
-        comportementAnamnese: formData.comportementAnamnese.trim() || undefined,
-        examenPhysique: formData.examenPhysique.trim() || undefined,
-        conclusion: formData.conclusion.trim() || undefined,
-        recommandationExamens: examCatalog
-          .filter((item) => formData.recommandationExamens.includes(item.id))
-          .map((item) => item.name)
-          .join("\n") || undefined,
-        treatment: "",
-        prescription: formData.prescription || undefined,
-        followUpDate: formData.followUpDate || undefined,
-      });
-      setIsDialogOpen(false);
-      setExamQuery("");
-      setFormData(emptyForm);
-      toast({
-        title: "Consultation créée",
-        description: "La consultation a été enregistrée avec succès",
-      });
+      if (editingId) {
+        await consultationService.update(editingId, {
+          patientId: formData.patientId,
+          doctorId: formData.doctorId,
+          ...clinical,
+        });
+        toast({ title: "Consultation modifiée", description: "Les modifications ont été enregistrées." });
+      } else {
+        await consultationService.create({
+          patientId: formData.patientId,
+          patientName: "",
+          doctorId: formData.doctorId,
+          doctorName: "",
+          diagnosis: "",
+          symptoms: [],
+          treatment: "",
+          ...clinical,
+          plainte: clinical.plainte || undefined,
+          histoireMaladie: clinical.histoireMaladie || undefined,
+          antecedent: clinical.antecedent || undefined,
+          comportementAnamnese: clinical.comportementAnamnese || undefined,
+          examenPhysique: clinical.examenPhysique || undefined,
+          conclusion: clinical.conclusion || undefined,
+          recommandationExamens: clinical.recommandationExamens || undefined,
+          prescription: clinical.prescription || undefined,
+          followUpDate: clinical.followUpDate || undefined,
+        });
+        toast({ title: "Consultation créée", description: "La consultation a été enregistrée avec succès" });
+      }
+      closeForm();
       await loadConsultations();
     } catch (error) {
       toast({ variant: "destructive", title: "Erreur", description: apiMessage(error) });
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!pendingDelete) return;
+    try {
+      await consultationService.delete(pendingDelete.id);
+      toast({ title: "Consultation supprimée", description: "La consultation a été retirée du dossier." });
+      setPendingDelete(null);
+      if (selectedConsultation?.id === pendingDelete.id) setSelectedConsultation(null);
+      await loadConsultations();
+    } catch (error) {
+      toast({ variant: "destructive", title: "Suppression impossible", description: apiMessage(error) });
     }
   };
 
@@ -186,16 +270,16 @@ export default function Consultations() {
             Gestion des consultations et diagnostics
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button variant="hero" size="lg">
-              <Plus className="h-5 w-5 mr-2" />
-              Nouvelle consultation
-            </Button>
-          </DialogTrigger>
+        {canWrite && (
+          <Button variant="hero" size="lg" onClick={openCreate}>
+            <Plus className="h-5 w-5 mr-2" />
+            Nouvelle consultation
+          </Button>
+        )}
+        <Dialog open={isDialogOpen} onOpenChange={(open) => { if (!open) closeForm(); }}>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Nouvelle consultation</DialogTitle>
+              <DialogTitle>{editingId ? "Modifier la consultation" : "Nouvelle consultation"}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="grid grid-cols-2 gap-4">
@@ -368,11 +452,11 @@ export default function Consultations() {
               </div>
 
               <div className="flex gap-3 pt-4">
-                <Button variant="outline" className="flex-1" onClick={() => setIsDialogOpen(false)}>
+                <Button variant="outline" className="flex-1" onClick={closeForm}>
                   Annuler
                 </Button>
                 <Button variant="hero" className="flex-1" onClick={handleSubmit}>
-                  Enregistrer
+                  {editingId ? "Enregistrer les modifications" : "Enregistrer"}
                 </Button>
               </div>
             </div>
@@ -415,6 +499,9 @@ export default function Consultations() {
 
       {/* Consultations list */}
       <div className="space-y-4">
+        {filteredConsultations.length === 0 && (
+          <p className="py-8 text-center text-muted-foreground">Aucune consultation enregistrée.</p>
+        )}
         {filteredConsultations.map((consultation, index) => {
           const StatusIcon = statusConfig[consultation.status].icon;
           return (
@@ -458,14 +545,24 @@ export default function Consultations() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem>Voir les détails</DropdownMenuItem>
-                      <DropdownMenuItem>Modifier</DropdownMenuItem>
-                      {consultation.status === "in_progress" && (
+                      <DropdownMenuItem onClick={() => setSelectedConsultation(consultation)}>
+                        Voir les détails
+                      </DropdownMenuItem>
+                      {canWrite && (
+                        <DropdownMenuItem onClick={() => openEdit(consultation)}>
+                          Modifier
+                        </DropdownMenuItem>
+                      )}
+                      {canWrite && consultation.status === "in_progress" && (
                         <DropdownMenuItem onClick={() => handleComplete(consultation.id)}>
                           Marquer comme terminée
                         </DropdownMenuItem>
                       )}
-                      <DropdownMenuItem>Imprimer</DropdownMenuItem>
+                      {canDelete && (
+                        <DropdownMenuItem className="text-destructive" onClick={() => setPendingDelete(consultation)}>
+                          Supprimer
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -539,6 +636,74 @@ export default function Consultations() {
           );
         })}
       </div>
+
+      <Dialog open={!!selectedConsultation} onOpenChange={(open) => { if (!open) setSelectedConsultation(null); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{selectedConsultation?.plainte || "Consultation"}</DialogTitle>
+          </DialogHeader>
+          {selectedConsultation && (
+            <div className="space-y-4 py-2">
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                <span>{selectedConsultation.patientName}</span>
+                <span>{selectedConsultation.doctorName}</span>
+                <span>{selectedConsultation.date}</span>
+                <span>{statusConfig[selectedConsultation.status].label}</span>
+              </div>
+              {([
+                ["Plainte", selectedConsultation.plainte],
+                ["Histoire de la maladie", selectedConsultation.histoireMaladie],
+                ["Antécédent", selectedConsultation.antecedent],
+                ["Comportement Anamnèse", selectedConsultation.comportementAnamnese],
+                ["Examen physique", selectedConsultation.examenPhysique],
+                ["Conclusion", selectedConsultation.conclusion],
+                ["Recommandation des examens", selectedConsultation.recommandationExamens],
+                ["Prescription", selectedConsultation.prescription],
+              ] as const).filter(([, value]) => value).map(([label, value]) => (
+                <div key={label} className="space-y-1">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
+                  <p className="whitespace-pre-wrap text-sm">{value}</p>
+                </div>
+              ))}
+              {selectedConsultation.allergies && selectedConsultation.allergies.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Allergies</p>
+                  <div className="flex flex-wrap gap-1">
+                    {selectedConsultation.allergies.map((allergy) => (
+                      <Badge key={allergy} variant="destructive" className="text-xs">{allergy}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {selectedConsultation.followUpDate && (
+                <p className="text-sm text-muted-foreground">Suivi prévu le {selectedConsultation.followUpDate}</p>
+              )}
+              {canWrite && (
+                <Button variant="outline" onClick={() => { const current = selectedConsultation; setSelectedConsultation(null); openEdit(current); }}>
+                  Modifier
+                </Button>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!pendingDelete} onOpenChange={(open) => { if (!open) setPendingDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer cette consultation ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              La consultation de {pendingDelete?.patientName} sera retirée du dossier. Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

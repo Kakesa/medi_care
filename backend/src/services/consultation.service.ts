@@ -255,7 +255,7 @@ export async function updateConsultation(
   if (input.treatment !== undefined) row.treatment = input.treatment.trim();
   if (input.prescription !== undefined) row.prescription = input.prescription.trim();
   if (input.notes !== undefined) row.notes = input.notes.trim();
-  if (input.followUpDate !== undefined) row.followUpDate = cleanDate(input.followUpDate);
+  if (input.followUpDate !== undefined) row.set('followUpDate', cleanDate(input.followUpDate) ?? null);
   if (input.status) row.status = input.status;
   await row.save();
   if (row.status === 'completed') {

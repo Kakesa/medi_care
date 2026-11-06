@@ -82,6 +82,7 @@ describe('Module de soins infirmiers', () => {
     };
     const thresholds = await request(app).patch('/api/nursing/settings').set(bearer(hospital.admin.token)).send(updatedThresholds);
     expect(thresholds.status).toBe(200);
+    expect(thresholds.body.systolicMin).toBe(110);
     const response = await request(app).post('/api/nursing/vitals').set(bearer(hospital.nurse.token)).send({
       patientId: hospital.patientId,
       systolic: 100,
@@ -91,6 +92,7 @@ describe('Module de soins infirmiers', () => {
       oxygenSaturation: 98,
     });
     expect(response.status).toBe(201);
+    expect(response.body.systolic).toBe(100);
     expect(response.body.alerts).toContain('Tension systolique hors seuil');
     expect(response.body.recordedBy).toBe(hospital.nurse.user.id);
     expect(JSON.stringify(response.body)).not.toContain('diagnostic');

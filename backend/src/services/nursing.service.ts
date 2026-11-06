@@ -5,7 +5,7 @@ import { Consultation } from '../models/Consultation.js';
 import { Exam } from '../models/Exam.js';
 import { NursingCare } from '../models/NursingCare.js';
 import { NursingObservation } from '../models/NursingObservation.js';
-import { Organization } from '../models/Organization.js';
+import { NursingSettings } from '../models/NursingSettings.js';
 import { Patient } from '../models/Patient.js';
 import { Prescription } from '../models/Prescription.js';
 import { User } from '../models/User.js';
@@ -102,9 +102,10 @@ function mapVitals(row: InstanceType<typeof VitalSigns>, thresholds: VitalThresh
 }
 
 async function thresholdsFor(organizationId: string): Promise<VitalThresholds> {
-  const organization = await Organization.findById(organizationId).select('nursingVitalThresholds');
-  if (!organization) throw new ApiError(404, 'Établissement introuvable', 'NOT_FOUND');
-  return { ...defaultThresholds, ...(organization.nursingVitalThresholds ?? {}) };
+  const settings = await NursingSettings.findOne({ organizationId })
+    .select(Object.keys(defaultThresholds).join(' '))
+    .lean();
+  return { ...defaultThresholds, ...(settings ?? {}) };
 }
 
 async function doctorPatientIds(actor: AuthContext, organizationId: string) {
@@ -141,33 +142,53 @@ async function patientFilter(actor: AuthContext, organizationId: string, search?
   return { $and: clauses };
 }
 
-async function patientDto(patient: InstanceType<typeof Patient>, organizationId: string, latest?: ReturnType<typeof mapVitals>) {
-  const [doctor, stay, nextCare] = await Promise.all([
-    patient.primaryDoctorId ? User.findById(patient.primaryDoctorId).select('firstName lastName') : null,
-    BedStay.findOne({ organizationId, patientId: patient._id, status: 'active' }).select('wardName bedNumber'),
-    NursingCare.findOne({ organizationId, patientId: patient._id, status: { $in: ['pending', 'in_progress'] }, scheduledAt: { $gte: new Date() } })
-      .sort({ scheduledAt: 1 }).select('type description scheduledAt status'),
+async function patientDtos(patients: InstanceType<typeof Patient>[], organizationId: string, latest: Map<string, ReturnType<typeof mapVitals>>) {
+  if (!patients.length) return [];
+  const patientIds = patients.map((patient) => patient._id);
+  const doctorIds = [...new Set(patients.map((patient) => patient.primaryDoctorId?.toString()).filter((id): id is string => Boolean(id)))];
+  const [doctors, stays, nextCareRows] = await Promise.all([
+    doctorIds.length ? User.find({ _id: { $in: doctorIds }, organizationId }).select('firstName lastName') : [],
+    BedStay.find({ organizationId, patientId: { $in: patientIds }, status: 'active' }).sort({ admissionDate: -1 }).select('patientId wardName bedNumber'),
+    NursingCare.find({ organizationId, patientId: { $in: patientIds }, status: { $in: ['pending', 'in_progress'] } })
+      .sort({ scheduledAt: 1 }).select('patientId type description scheduledAt status'),
   ]);
-  const age = patient.dateOfBirth ? Math.max(0, new Date().getFullYear() - patient.dateOfBirth.getFullYear() - (new Date() < new Date(new Date().getFullYear(), patient.dateOfBirth.getMonth(), patient.dateOfBirth.getDate()) ? 1 : 0)) : undefined;
-  return {
-    id: patient.id ?? patient._id.toString(),
-    recordNumber: patient._id.toString(),
-    firstName: patient.firstName,
-    lastName: patient.lastName,
-    age,
-    status: patient.status,
-    room: stay?.bedNumber ?? patient.room,
-    ward: stay?.wardName,
-    doctor: doctor ? `${doctor.firstName} ${doctor.lastName}` : undefined,
-    primaryDoctorId: idOf(patient.primaryDoctorId),
-    lastVitals: latest ?? (patient.temperature !== undefined || patient.tension || patient.saturation !== undefined
-      ? { temperature: patient.temperature, tension: patient.tension, oxygenSaturation: patient.saturation }
-      : undefined),
-    nextCare: nextCare ? {
-      id: nextCare.id, type: nextCare.type, description: nextCare.description,
-      scheduledAt: nextCare.scheduledAt, status: nextCare.status,
-    } : undefined,
-  };
+  const doctorById = new Map(doctors.map((doctor) => [doctor.id, `${doctor.firstName} ${doctor.lastName}`]));
+  const stayByPatient = new Map<string, (typeof stays)[number]>();
+  for (const stay of stays) {
+    const patientId = stay.patientId?.toString();
+    if (patientId && !stayByPatient.has(patientId)) stayByPatient.set(patientId, stay);
+  }
+  const nextCareByPatient = new Map<string, (typeof nextCareRows)[number]>();
+  for (const care of nextCareRows) if (!nextCareByPatient.has(care.patientId.toString())) nextCareByPatient.set(care.patientId.toString(), care);
+  return patients.map((patient) => {
+    const patientId = patient.id;
+    const stay = stayByPatient.get(patientId);
+    const nextCare = nextCareByPatient.get(patientId);
+    const dateOfBirth = patient.dateOfBirth;
+    const now = new Date();
+    const age = dateOfBirth
+      ? Math.max(0, now.getFullYear() - dateOfBirth.getFullYear() - (now < new Date(now.getFullYear(), dateOfBirth.getMonth(), dateOfBirth.getDate()) ? 1 : 0))
+      : undefined;
+    return {
+      id: patientId,
+      recordNumber: patientId,
+      firstName: patient.firstName,
+      lastName: patient.lastName,
+      age,
+      status: patient.status,
+      room: stay?.bedNumber ?? patient.room,
+      ward: stay?.wardName,
+      doctor: patient.primaryDoctorId ? doctorById.get(patient.primaryDoctorId.toString()) : undefined,
+      primaryDoctorId: idOf(patient.primaryDoctorId),
+      lastVitals: latest.get(patientId) ?? (patient.temperature !== undefined || patient.tension || patient.saturation !== undefined
+        ? { temperature: patient.temperature, tension: patient.tension, oxygenSaturation: patient.saturation }
+        : undefined),
+      nextCare: nextCare ? {
+        id: nextCare.id, type: nextCare.type, description: nextCare.description,
+        scheduledAt: nextCare.scheduledAt, status: nextCare.status,
+      } : undefined,
+    };
+  });
 }
 
 async function latestVitalsForPatients(organizationId: string, patientIds: mongoose.Types.ObjectId[], thresholds: VitalThresholds) {
@@ -189,7 +210,7 @@ export async function listNursingPatients(actor: AuthContext, organizationId: st
     thresholdsFor(organizationId),
   ]);
   const latest = await latestVitalsForPatients(organizationId, patients.map((patient) => patient._id), thresholds);
-  const rows = await Promise.all(patients.map((patient) => patientDto(patient, organizationId, latest.get(patient.id))));
+  const rows = await patientDtos(patients, organizationId, latest);
   return paginated(rows, total, page, limit);
 }
 
@@ -218,8 +239,15 @@ export async function getNursingDashboard(actor: AuthContext, organizationId: st
     ...careScope, status: 'completed', prescriptionId: { $in: deliveredPrescriptions.map((row) => row._id) },
   });
   const latest = await latestVitalsForPatients(organizationId, patients.map((patient) => patient._id), thresholds);
-  const patientRows = await Promise.all(patients.map((patient) => patientDto(patient, organizationId, latest.get(patient.id))));
-  const attentionPatientCount = [...latest.values()].filter((row) => row.alerts.length > 0).length;
+  const patientRows = await patientDtos(patients, organizationId, latest);
+  const monitoringPatients = await NursingCare.distinct('patientId', {
+    ...careScope, type: 'monitoring', status: { $in: ['pending', 'in_progress'] },
+  });
+  const attentionPatientIds = new Set([
+    ...[...latest.entries()].filter(([, row]) => row.alerts.length > 0).map(([id]) => id),
+    ...monitoringPatients.map((id) => id.toString()),
+  ]);
+  const attentionPatientCount = attentionPatientIds.size;
   const dueItems = await NursingCare.find({
     ...careScope, status: { $in: ['pending', 'in_progress'] }, scheduledAt: { $lt: end },
   }).sort({ scheduledAt: 1 }).limit(10);
@@ -464,13 +492,14 @@ export async function getNursingSettings(organizationId: string) {
 export async function updateNursingSettings(
   actor: AuthContext, organizationId: string, thresholds: VitalThresholds, ip?: string
 ) {
-  const organization = await Organization.findByIdAndUpdate(
-    organizationId, { $set: { nursingVitalThresholds: thresholds } }, { new: true, runValidators: true }
-  ).select('nursingVitalThresholds');
-  if (!organization) throw new ApiError(404, 'Établissement introuvable', 'NOT_FOUND');
+  await NursingSettings.findOneAndUpdate(
+    { organizationId },
+    { $set: thresholds, $setOnInsert: { organizationId } },
+    { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
+  );
   await recordAudit({
     actorId: actor.id, actorRole: actor.role, organizationId, action: 'NURSING_THRESHOLDS_UPDATED',
-    resourceType: 'organization', resourceId: organizationId, success: true, ip,
+    resourceType: 'nursing-settings', resourceId: organizationId, success: true, ip,
   });
   return thresholdsFor(organizationId);
 }

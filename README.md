@@ -55,7 +55,6 @@ This project is built with:
 
 Les fondations de l'API sont dans `backend/`. Voir `backend/README.md` pour MongoDB, le superadmin et les variables d'environnement. Le frontend appelle `VITE_API_URL` (par défaut `http://localhost:3001/api`).
 
-Les écrans cliniques historiques restent en données de démonstration tant qu'ils ne sont pas branchés à l'API.
+Les écrans cliniques historiques restent en données de démonstration tant qu'ils ne sont pas branchés à l'API. Le module **Soins infirmiers** est relié au backend et aux dossiers patients existants.
 
 ## How can I deploy this project?
-

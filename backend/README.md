@@ -78,10 +78,30 @@ Préfixe `/api`.
 
 Les réponses utilisateur ne contiennent ni hash ni mot de passe. Les journaux d'audit masquent les mots de passe et les champs cliniques.
 
+## Soins infirmiers
+
+Le module réutilise `Patient`, `User`, `Consultation`, `Prescription`, `Exam`, `BedStay` et `Ward`. Il ajoute `NursingCare`, `VitalSigns`, `NursingObservation` et `NursingSettings`. Les patients en observation sont les patients ambulatoires existants; aucun dossier patient parallèle n'est créé.
+
+| Méthode | Chemin | Rôle |
+|---|---|---|
+| GET | `/nursing/dashboard` | HOSPITAL_ADMIN, DOCTOR, NURSE |
+| GET | `/nursing/patients`, `/nursing/patients/:patientId` | HOSPITAL_ADMIN, DOCTOR autorisé, NURSE |
+| GET, POST | `/nursing/care` | Lecture : admin, médecin autorisé, infirmier. Création : NURSE |
+| PATCH | `/nursing/care/:id/status` | NURSE, transitions de statut contrôlées |
+| POST | `/nursing/care/:id/corrections` | NURSE, justification obligatoire et historique conservé |
+| GET, POST | `/nursing/vitals` | Lecture : admin, médecin autorisé, infirmier. Création : NURSE |
+| POST | `/nursing/observations` | NURSE |
+| GET, PATCH | `/nursing/settings` | Lecture clinique; modification HOSPITAL_ADMIN |
+| GET | `/nursing/reports` | HOSPITAL_ADMIN, DOCTOR autorisé, NURSE |
+
+Il n'existe pas de route de suppression pour les soins, les constantes ou les observations. Les prescriptions ne sont jamais modifiées par une route infirmière. Un soin médicamenteux copie l'identifiant, le médicament, la dose et la voie depuis une ligne d'une prescription validée; la voie doit être renseignée par le prescripteur. Les nouveaux formulaires médicaux demandent la voie d'administration.
+
+Les seuils sont configurables par établissement par un administrateur. Les dépassements produisent des alertes informatives, pas un diagnostic. Les opérations infirmières écrivent une trace d'audit sans ajouter de contenu clinique aux journaux techniques.
+
 ## Tests
 
 ```sh
 npm test
 ```
 
-Les tests vérifient l'isolation entre deux hôpitaux, l'accès médecin, l'impossibilité de s'attribuer un rôle, les jetons forgés et la suspension d'un établissement.
+Les tests vérifient aussi les permissions infirmières, l'immutabilité des prescriptions et l'historisation des soins, les constantes et les seuils, ainsi que l'isolation entre établissements.

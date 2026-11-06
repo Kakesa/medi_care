@@ -29,7 +29,13 @@ export interface NursingCare {
   status: NursingCareStatus;
   observations?: string;
   notDoneReason?: string;
-  history: Array<{ actorId: string; action: string; at: string; reason?: string }>;
+  history: Array<{
+    actorId: string;
+    action: string;
+    at: string;
+    reason?: string;
+    changes?: Record<string, { from: unknown; to: unknown }>;
+  }>;
 }
 
 export interface NursingVitalSigns {

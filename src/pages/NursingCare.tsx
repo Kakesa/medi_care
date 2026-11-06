@@ -154,7 +154,12 @@ function CareTable({ care, canUpdate, onUpdate, onCorrect }: {
                 {row.administrationRoute && <p className="text-xs text-muted-foreground">Voie : {row.administrationRoute}</p>}
               </TableCell>
               <TableCell><Badge variant={statusVariants[row.status]}>{statusLabels[row.status]}</Badge></TableCell>
-              <TableCell className="max-w-xs whitespace-normal">{row.notDoneReason ?? row.observations ?? '—'}</TableCell>
+              <TableCell className="max-w-xs whitespace-normal">
+                <p>{row.notDoneReason ?? row.observations ?? '—'}</p>
+                {row.history.map((entry, index) => <p key={`${entry.at}-${index}`} className="mt-1 text-xs text-muted-foreground">
+                  {entry.action.split('_').join(' ')} · {displayDate(entry.at)}{entry.reason ? ` · ${entry.reason}` : ''}
+                </p>)}
+              </TableCell>
               <TableCell>
                 {canUpdate && (row.status === 'pending' || row.status === 'in_progress') && (
                   <div className="flex gap-2">
@@ -173,6 +178,32 @@ function CareTable({ care, canUpdate, onUpdate, onCorrect }: {
   );
 }
 
+function VitalTrend({ data, dataKey, label, color }: {
+  data: Array<{ time: string; temperature?: number; heartRate?: number; oxygenSaturation?: number }>;
+  dataKey: 'temperature' | 'heartRate' | 'oxygenSaturation';
+  label: string;
+  color: string;
+}) {
+  return (
+    <Card>
+      <CardHeader><CardTitle className="text-base">{label}</CardTitle></CardHeader>
+      <CardContent>
+        <div className="h-52">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={data}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="time" />
+              <YAxis />
+              <Tooltip />
+              <Line type="monotone" dataKey={dataKey} name={label} stroke={color} connectNulls />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function NursingCarePage() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -186,6 +217,7 @@ export default function NursingCarePage() {
   const [report, setReport] = useState<NursingReport | null>(null);
   const [thresholds, setThresholds] = useState<NursingThresholds | null>(null);
   const [selectedDate, setSelectedDate] = useState(localDate());
+  const [patientSearch, setPatientSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [error, setError] = useState('');
@@ -205,7 +237,7 @@ export default function NursingCarePage() {
         nursingService.getCare({ date: selectedDate }),
         nursingService.getReport(),
       ]);
-      const page = await nursingService.getPatients();
+      const page = await nursingService.getPatients(patientSearch);
       setDashboard(overview);
       setPatients(page.data);
       setCare(carePage.data);
@@ -216,7 +248,7 @@ export default function NursingCarePage() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedDate]);
+  }, [patientSearch, selectedDate]);
 
   useEffect(() => { void reload(); }, [reload]);
 
@@ -374,13 +406,30 @@ export default function NursingCarePage() {
         <TabsContent value="overview">
           <Card>
             <CardHeader><CardTitle>Patients hospitalisés et en observation</CardTitle></CardHeader>
-            <CardContent><PatientTable patients={patients} selectedId={selectedId} onSelect={setSelectedId} /></CardContent>
+            <CardContent className="space-y-3">
+              <Input aria-label="Rechercher un patient" placeholder="Rechercher par nom ou chambre" value={patientSearch} onChange={(event) => setPatientSearch(event.target.value)} />
+              <PatientTable patients={patients} selectedId={selectedId} onSelect={setSelectedId} />
+            </CardContent>
+          </Card>
+          <Card className="mt-4">
+            <CardHeader><CardTitle>Soins programmés et en retard</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              {dashboard?.dueItems.map((item) => {
+                const patient = patients.find((row) => row.id === item.patientId);
+                const overdue = new Date(item.scheduledAt).getTime() < Date.now() && (item.status === 'pending' || item.status === 'in_progress');
+                return <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 border-b pb-3 last:border-0">
+                  <div><p className="font-medium">{displayDate(item.scheduledAt)} · {item.description}</p><p className="text-sm text-muted-foreground">{patient ? `${patient.firstName} ${patient.lastName}` : `Dossier ${item.patientId.slice(-8)}`}</p></div>
+                  <Badge variant={overdue ? 'destructive' : statusVariants[item.status]}>{overdue ? 'En retard' : statusLabels[item.status]}</Badge>
+                </div>;
+              })}
+              {!dashboard?.dueItems.length && <p className="text-sm text-muted-foreground">Aucun soin en attente aujourd’hui.</p>}
+            </CardContent>
           </Card>
           {dashboard && <p className="text-xs text-muted-foreground">{dashboard.alertDisclaimer}</p>}
         </TabsContent>
 
         <TabsContent value="patients" className="space-y-4">
-          <Card><CardHeader><CardTitle>Patients autorisés</CardTitle></CardHeader><CardContent><PatientTable patients={patients} selectedId={selectedId} onSelect={setSelectedId} /></CardContent></Card>
+          <Card><CardHeader><CardTitle>Patients autorisés</CardTitle></CardHeader><CardContent className="space-y-3"><Input aria-label="Rechercher un patient" placeholder="Rechercher par nom ou chambre" value={patientSearch} onChange={(event) => setPatientSearch(event.target.value)} /><PatientTable patients={patients} selectedId={selectedId} onSelect={setSelectedId} /></CardContent></Card>
           {selectedPatient && (
             <Card>
               <CardHeader>
@@ -462,18 +511,10 @@ export default function NursingCarePage() {
           {selectedPatient && <Card>
             <CardHeader><CardTitle>Évolution des constantes · {selectedPatient.firstName} {selectedPatient.lastName}</CardTitle></CardHeader>
             <CardContent>
-              <div className="h-72 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="time" />
-                    <YAxis />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="temperature" name="Température (°C)" stroke="hsl(var(--primary))" connectNulls />
-                    <Line type="monotone" dataKey="heartRate" name="FC (bpm)" stroke="#ef4444" connectNulls />
-                    <Line type="monotone" dataKey="oxygenSaturation" name="SpO₂ (%)" stroke="#0ea5e9" connectNulls />
-                  </LineChart>
-                </ResponsiveContainer>
+              <div className="grid gap-3 lg:grid-cols-3">
+                <VitalTrend data={chartData} dataKey="temperature" label="Température (°C)" color="hsl(var(--primary))" />
+                <VitalTrend data={chartData} dataKey="heartRate" label="Fréquence cardiaque (bpm)" color="#ef4444" />
+                <VitalTrend data={chartData} dataKey="oxygenSaturation" label="SpO₂ (%)" color="#0ea5e9" />
               </div>
               {detail?.vitals.map((row) => <div key={row.id} className="border-t py-3 text-sm">
                 <div className="flex flex-wrap justify-between gap-2"><strong>{displayDate(row.measuredAt)}</strong><span>TA {row.systolic ?? '—'}/{row.diastolic ?? '—'} · T° {row.temperature ?? '—'} · FC {row.heartRate ?? '—'} · FR {row.respiratoryRate ?? '—'} · SpO₂ {row.oxygenSaturation ?? '—'}%</span></div>

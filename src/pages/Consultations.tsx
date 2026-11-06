@@ -364,7 +364,7 @@ export default function Consultations() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="consultation-anamnese">Comportement Anamnèse</Label>
+                <Label htmlFor="consultation-anamnese">Complement Anamnèse</Label>
                 <Textarea
                   id="consultation-anamnese"
                   value={formData.comportementAnamnese}
@@ -396,17 +396,7 @@ export default function Consultations() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="consultation-allergies">Allergies (séparées par virgule)</Label>
-                <Textarea
-                  id="consultation-allergies"
-                  value={formData.allergies}
-                  onChange={(e) => handleChange("allergies", e.target.value)}
-                  placeholder="Pénicilline, Aspirine..."
-                  rows={2}
-                />
-              </div>
-
+              
               <div className="space-y-2">
                 <Label htmlFor="consultation-exam-search">Recommandation des examens</Label>
                 <Input
@@ -602,7 +592,7 @@ export default function Consultations() {
                 ["Plainte", selectedConsultation.plainte],
                 ["Histoire de la maladie", selectedConsultation.histoireMaladie],
                 ["Antécédent", selectedConsultation.antecedent],
-                ["Comportement Anamnèse", selectedConsultation.comportementAnamnese],
+                ["Complement Anamnèse", selectedConsultation.comportementAnamnese],
                 ["Examen physique", selectedConsultation.examenPhysique],
                 ["Conclusion", selectedConsultation.conclusion],
                 ["Recommandation des examens", selectedConsultation.recommandationExamens],

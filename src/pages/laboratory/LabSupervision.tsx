@@ -4,6 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useAckExamResults } from "@/contexts/WorkBadgeContext";
@@ -13,12 +21,14 @@ import { labService, labStatusLabels, type LabExam, type LabStatus } from "@/ser
 import { userAdminService } from "@/services/userAdminService";
 
 const groups: LabStatus[] = ["EN_ATTENTE_VALIDATION", "EN_COURS", "BROUILLON", "CORRECTION_DEMANDEE", "REJETE", "VALIDE", "EN_ATTENTE"];
+const patientsPerPage = 10;
 
 export default function LabSupervision() {
   const { toast } = useToast();
   const [rows, setRows] = useState<LabExam[]>([]);
   const [selected, setSelected] = useState<LabExam | null>(null);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
   useAckExamResults(
     selected && (selected.results || selected.draftResults || selected.official || selected.versions.length > 0)
       ? [selected.id]
@@ -86,6 +96,15 @@ export default function LabSupervision() {
     if (aIsEspoir !== bIsEspoir) return aIsEspoir ? -1 : 1;
     return a.name.localeCompare(b.name, "fr", { sensitivity: "base" });
   });
+  const pageCount = Math.ceil(patients.length / patientsPerPage);
+  const activePage = Math.min(currentPage, Math.max(pageCount, 1));
+  const pagePatients = patients.slice((activePage - 1) * patientsPerPage, activePage * patientsPerPage);
+
+  const changePage = (page: number) => {
+    setCurrentPage(page);
+    setSelectedPatientId(null);
+    setSelected(null);
+  };
 
   return (
     <div className="space-y-6">
@@ -117,7 +136,7 @@ export default function LabSupervision() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {patients.map((patient, index) => {
+              {pagePatients.map((patient, index) => {
                 const patientExams = rows.filter((row) => row.patientId === patient.id);
                 const isExpanded = selectedPatientId === patient.id;
 
@@ -126,7 +145,7 @@ export default function LabSupervision() {
                     <TableRow className={isExpanded ? "bg-muted/30" : ""}>
                       <TableCell>
                         <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-                          {index + 1}
+                          {(activePage - 1) * patientsPerPage + index + 1}
                         </span>
                       </TableCell>
                       <TableCell>
@@ -191,6 +210,57 @@ export default function LabSupervision() {
               })}
             </TableBody>
           </Table>
+          {patients.length > 0 && (
+            <div className="flex flex-col items-center justify-between gap-3 border-t px-4 py-3 sm:flex-row">
+              <p className="text-sm text-muted-foreground">
+                Patients {(activePage - 1) * patientsPerPage + 1} à {Math.min(activePage * patientsPerPage, patients.length)} sur {patients.length}
+              </p>
+              {pageCount > 1 && (
+                <Pagination className="mx-0 w-auto">
+                  <PaginationContent className="flex-wrap justify-center">
+                    <PaginationItem>
+                      <PaginationPrevious
+                        href="#"
+                        aria-disabled={activePage === 1}
+                        className={activePage === 1 ? "pointer-events-none opacity-50" : ""}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          if (activePage > 1) changePage(activePage - 1);
+                        }}
+                      />
+                    </PaginationItem>
+                    {Array.from({ length: pageCount }, (_, index) => index + 1).map((page) => (
+                      <PaginationItem key={page}>
+                        <PaginationLink
+                          href="#"
+                          size="icon"
+                          isActive={page === activePage}
+                          aria-label={`Page ${page}`}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            changePage(page);
+                          }}
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    ))}
+                    <PaginationItem>
+                      <PaginationNext
+                        href="#"
+                        aria-disabled={activePage === pageCount}
+                        className={activePage === pageCount ? "pointer-events-none opacity-50" : ""}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          if (activePage < pageCount) changePage(activePage + 1);
+                        }}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              )}
+            </div>
+          )}
         </Card>
         {selected ? (
           <Card>

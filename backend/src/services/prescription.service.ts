@@ -17,6 +17,7 @@ type Item = {
   medication: string;
   dosage: string;
   posology: string;
+  administrationRoute?: string;
   duration: string;
   instructions?: string;
   quantityPrescribed: number;
@@ -64,6 +65,7 @@ function toDto(source: object) {
       medication: item.medication,
       dosage: item.dosage,
       posology: item.posology,
+      administrationRoute: item.administrationRoute,
       duration: item.duration,
       instructions: item.instructions || '',
       quantityPrescribed: item.quantityPrescribed,
@@ -100,7 +102,7 @@ export async function createPrescription(
   input: {
     patientId: string;
     examId?: string;
-    items: Array<{ medication: string; dosage: string; posology: string; duration: string; instructions?: string; quantityPrescribed: number }>;
+    items: Array<{ medication: string; dosage: string; posology: string; administrationRoute?: string; duration: string; instructions?: string; quantityPrescribed: number }>;
   },
   ip?: string
 ) {

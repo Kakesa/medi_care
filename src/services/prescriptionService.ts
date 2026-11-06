@@ -5,6 +5,7 @@ export interface PrescriptionItem {
   medication: string;
   dosage: string;
   posology: string;
+  administrationRoute?: string;
   duration: string;
   instructions: string;
   quantityPrescribed: number;
@@ -42,7 +43,7 @@ class PrescriptionService {
   create(data: {
     patientId: string;
     examId?: string;
-    items: Array<{ medication: string; dosage: string; posology: string; duration: string; instructions?: string; quantityPrescribed: number }>;
+    items: Array<{ medication: string; dosage: string; posology: string; administrationRoute?: string; duration: string; instructions?: string; quantityPrescribed: number }>;
   }) {
     return httpClient.post<PrescriptionRecord>('/prescriptions', data);
   }

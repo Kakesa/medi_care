@@ -12,6 +12,7 @@ const item = z.object({
   medication: z.string().trim().min(1).max(160),
   dosage: z.string().trim().min(1).max(80),
   posology: z.string().trim().min(1).max(160),
+  administrationRoute: z.string().trim().min(2).max(80).optional(),
   duration: z.string().trim().min(1).max(80),
   instructions: z.string().trim().max(500).optional(),
   quantityPrescribed: z.coerce.number().int().min(1).max(999),

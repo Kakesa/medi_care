@@ -5,6 +5,7 @@ const itemSchema = new Schema(
     medication: { type: String, required: true, trim: true },
     dosage: { type: String, required: true, trim: true },
     posology: { type: String, required: true, trim: true },
+    administrationRoute: { type: String, trim: true, maxlength: 80 },
     duration: { type: String, required: true, trim: true },
     instructions: { type: String, trim: true, default: '' },
     quantityPrescribed: { type: Number, required: true, min: 1 },

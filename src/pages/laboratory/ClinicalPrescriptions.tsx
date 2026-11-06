@@ -10,7 +10,7 @@ import { apiMessage } from "@/lib/apiError";
 import { labService, type LabExam } from "@/services/labService";
 import { pharmacyStatusLabels, prescriptionService, type PrescriptionRecord } from "@/services/prescriptionService";
 
-const emptyItem = { medication: "", dosage: "", posology: "", duration: "", instructions: "", quantityPrescribed: "1" };
+const emptyItem = { medication: "", dosage: "", posology: "", administrationRoute: "", duration: "", instructions: "", quantityPrescribed: "1" };
 
 export default function ClinicalPrescriptions() {
   const { toast } = useToast();
@@ -77,11 +77,12 @@ export default function ClinicalPrescriptions() {
             <Input placeholder="Médicament" value={item.medication} onChange={(event) => setItem({ ...item, medication: event.target.value })} />
             <Input placeholder="Dosage" value={item.dosage} onChange={(event) => setItem({ ...item, dosage: event.target.value })} />
             <Input placeholder="Posologie" value={item.posology} onChange={(event) => setItem({ ...item, posology: event.target.value })} />
+            <Input placeholder="Voie d’administration" value={item.administrationRoute} onChange={(event) => setItem({ ...item, administrationRoute: event.target.value })} />
             <Input placeholder="Durée" value={item.duration} onChange={(event) => setItem({ ...item, duration: event.target.value })} />
             <Input placeholder="Instructions" value={item.instructions} onChange={(event) => setItem({ ...item, instructions: event.target.value })} />
             <Input type="number" min={1} value={item.quantityPrescribed} onChange={(event) => setItem({ ...item, quantityPrescribed: event.target.value })} />
           </div>
-          <Button disabled={!examId || !item.medication || !item.dosage || !item.posology || !item.duration} onClick={() => void create()}>Enregistrer l'ordonnance</Button>
+          <Button disabled={!examId || !item.medication || !item.dosage || !item.posology || !item.administrationRoute || !item.duration} onClick={() => void create()}>Enregistrer l'ordonnance</Button>
         </CardContent>
       </Card>
       <div className="space-y-3">

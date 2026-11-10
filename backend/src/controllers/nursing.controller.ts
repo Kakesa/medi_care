@@ -62,6 +62,26 @@ export const createObservation = asyncHandler(async (req: Request, res: Response
   res.status(201).json(await nursing.createNursingObservation(actor, organizationId, req.body, req.ip));
 });
 
+export const administrations = asyncHandler(async (req: Request, res: Response) => {
+  const { actor, organizationId } = context(req);
+  res.json(await nursing.getMedicationAdministrationSheet(actor, organizationId, req.query as unknown as { patientId: string; date: string }));
+});
+
+export const confirmAdministration = asyncHandler(async (req: Request, res: Response) => {
+  const { actor, organizationId } = context(req);
+  res.json(await nursing.confirmMedicationAdministration(actor, organizationId, req.params.id, req.body, req.ip));
+});
+
+export const markAdministrationMissed = asyncHandler(async (req: Request, res: Response) => {
+  const { actor, organizationId } = context(req);
+  res.json(await nursing.markMedicationAdministrationMissed(actor, organizationId, req.params.id, req.body, req.ip));
+});
+
+export const correctAdministration = asyncHandler(async (req: Request, res: Response) => {
+  const { actor, organizationId } = context(req);
+  res.json(await nursing.correctMedicationAdministration(actor, organizationId, req.params.id, req.body, req.ip));
+});
+
 export const settings = asyncHandler(async (req: Request, res: Response) => {
   const { organizationId } = context(req);
   res.json(await nursing.getNursingSettings(organizationId));

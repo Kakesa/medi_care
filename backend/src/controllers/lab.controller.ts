@@ -46,6 +46,9 @@ export const createPrescription = asyncHandler(async (req: Request, res: Respons
 export const validatePrescription = asyncHandler(async (req: Request, res: Response) => {
   res.json(await prescriptions.validatePrescription(auth(req), org(req), req.params.id, req.ip));
 });
+export const updatePrescriptionItemStatus = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await prescriptions.updatePrescriptionItemStatus(auth(req), org(req), req.params.id, req.params.itemId, req.body, req.ip));
+});
 export const preparePrescription = asyncHandler(async (req: Request, res: Response) => {
   res.json(await prescriptions.preparePrescription(auth(req), org(req), req.params.id, req.ip));
 });

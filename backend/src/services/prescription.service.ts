@@ -1,5 +1,7 @@
+import mongoose from 'mongoose';
 import { ROLES } from '../config/permissions.js';
 import { PharmacyProduct } from '../models/PharmacyProduct.js';
+import { MedicationAdministration } from '../models/MedicationAdministration.js';
 import { Prescription } from '../models/Prescription.js';
 import { User } from '../models/User.js';
 import { ApiError } from '../utils/ApiError.js';
@@ -19,6 +21,11 @@ type Item = {
   posology: string;
   administrationRoute?: string;
   duration: string;
+  treatmentStartDate?: string;
+  treatmentEndDate?: string;
+  administrationTimes?: string[];
+  treatmentStatus?: 'active' | 'suspended' | 'completed' | 'interrupted';
+  treatmentStatusHistory?: Array<{ status: string; changedAt: Date; changedBy: { toString(): string }; reason: string }>;
   instructions?: string;
   quantityPrescribed: number;
   quantityDispensed: number;
@@ -67,6 +74,12 @@ function toDto(source: object) {
       posology: item.posology,
       administrationRoute: item.administrationRoute,
       duration: item.duration,
+      treatmentStartDate: item.treatmentStartDate,
+      treatmentEndDate: item.treatmentEndDate,
+      administrationTimes: item.administrationTimes ?? [],
+      treatmentStatus: item.treatmentStatus ?? 'active',
+      treatmentStatusHistory: item.treatmentStatusHistory ?? [],
+      actualTreatmentEndAt: item.treatmentStatusHistory?.findLast((change) => change.status === 'completed' || change.status === 'interrupted')?.changedAt,
       instructions: item.instructions || '',
       quantityPrescribed: item.quantityPrescribed,
       quantityDispensed: item.quantityDispensed,
@@ -102,7 +115,7 @@ export async function createPrescription(
   input: {
     patientId: string;
     examId?: string;
-    items: Array<{ medication: string; dosage: string; posology: string; administrationRoute?: string; duration: string; instructions?: string; quantityPrescribed: number }>;
+    items: Array<{ medication: string; dosage: string; posology: string; administrationRoute?: string; duration: string; treatmentStartDate?: string; treatmentEndDate?: string; administrationTimes?: string[]; instructions?: string; quantityPrescribed: number }>;
   },
   ip?: string
 ) {
@@ -141,6 +154,63 @@ export async function validatePrescription(actor: AuthContext, organizationId: s
   });
   await recordAudit({ actorId: actor.id, actorRole: actor.role, organizationId, action: 'PRESCRIPTION_VALIDATED', resourceType: 'prescription', resourceId: row.id, success: true, ip });
   return toDto(row);
+}
+
+export async function updatePrescriptionItemStatus(
+  actor: AuthContext,
+  organizationId: string,
+  prescriptionId: string,
+  itemId: string,
+  input: { status: 'active' | 'suspended' | 'completed' | 'interrupted'; reason: string },
+  ip?: string
+) {
+  const prescription = await Prescription.findOne({ _id: prescriptionId, organizationId, status: 'validated' });
+  if (!prescription) throw new ApiError(404, 'Prescription validée introuvable', 'PRESCRIPTION_NOT_FOUND');
+  await requireVisiblePatient(actor, organizationId, prescription.patientId.toString(), ip);
+  const item = prescription.items.find((candidate) => candidate.id === itemId);
+  if (!item) throw new ApiError(404, 'Ligne de prescription introuvable', 'PRESCRIPTION_ITEM_NOT_FOUND');
+  const currentStatus = item.treatmentStatus ?? 'active';
+  if (currentStatus === input.status) return toDto(prescription);
+  if (currentStatus === 'completed' || currentStatus === 'interrupted') {
+    throw new ApiError(409, 'Un traitement terminé ou interrompu ne peut pas être réactivé', 'TREATMENT_CLOSED');
+  }
+  const now = new Date();
+  item.treatmentStatus = input.status;
+  item.treatmentStatusHistory.push({ status: input.status, changedAt: now, changedBy: new mongoose.Types.ObjectId(actor.id), reason: input.reason });
+  prescription.history = [...(prescription.history || []), {
+    at: now,
+    userName: await actorName(actor),
+    action: `TRAITEMENT_${input.status.toUpperCase()}`,
+    comment: `${item.medication} · ${input.reason}`,
+  }];
+  await prescription.save();
+
+  const futureFilter = {
+    organizationId,
+    prescriptionId: prescription._id,
+    prescriptionItemId: item._id,
+    scheduledAt: { $gte: now },
+  };
+  if (input.status === 'active') {
+    await MedicationAdministration.updateMany({ ...futureFilter, status: 'suspended' }, {
+      $set: { status: 'pending' },
+      $push: { history: { actorId: actor.id, action: 'TREATMENT_RESUMED', at: now, reason: input.reason } },
+    });
+  } else {
+    const nextDoseStatus = input.status === 'suspended'
+      ? 'suspended'
+      : input.status === 'completed' ? 'treatment_completed' : 'treatment_interrupted';
+    await MedicationAdministration.updateMany({ ...futureFilter, status: { $in: ['pending', 'suspended'] } }, {
+      $set: { status: nextDoseStatus },
+      $push: { history: { actorId: actor.id, action: `TREATMENT_${input.status.toUpperCase()}`, at: now, reason: input.reason } },
+    });
+  }
+  await recordAudit({
+    actorId: actor.id, actorRole: actor.role, organizationId, action: 'PRESCRIPTION_ITEM_STATUS_CHANGED',
+    resourceType: 'prescription', resourceId: prescription.id, success: true, ip,
+    metadata: { itemId, from: currentStatus, to: input.status },
+  });
+  return toDto(prescription);
 }
 
 function refreshStatus(row: { items: Item[]; pharmacyStatus: string; set: (path: string, value: unknown) => unknown }) {

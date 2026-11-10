@@ -1,5 +1,5 @@
 import { httpClient } from './httpClient';
-import type { NursingPage, NursingPatient, NursingCare, NursingDashboard, NursingPatientDetail, NursingReport, NursingThresholds, NursingVitalSigns } from '@/types/nursing';
+import type { MedicationAdministration, MedicationAdministrationSheet, NursingPage, NursingPatient, NursingCare, NursingDashboard, NursingPatientDetail, NursingReport, NursingThresholds, NursingVitalSigns } from '@/types/nursing';
 
 class NursingService {
   private readonly basePath = '/nursing';
@@ -64,6 +64,26 @@ class NursingService {
 
   createObservation(input: { patientId: string; content: string }) {
     return httpClient.post<NursingPatientDetail['observations'][number]>(`${this.basePath}/observations`, input);
+  }
+
+  getAdministrations(patientId: string, date: string) {
+    return httpClient.get<MedicationAdministrationSheet>(`${this.basePath}/administrations`, { patientId, date });
+  }
+
+  confirmAdministration(id: string, observations?: string) {
+    return httpClient.post<MedicationAdministration>(`${this.basePath}/administrations/${id}/confirm`, { observations });
+  }
+
+  markAdministrationMissed(id: string, input: {
+    reasonType: 'patient_absent' | 'patient_refused' | 'unavailable' | 'other';
+    reason: string;
+    observations?: string;
+  }) {
+    return httpClient.post<MedicationAdministration>(`${this.basePath}/administrations/${id}/not-administered`, input);
+  }
+
+  correctAdministration(id: string, input: { reason: string; observations?: string }) {
+    return httpClient.post<MedicationAdministration>(`${this.basePath}/administrations/${id}/corrections`, input);
   }
 
   getSettings() {

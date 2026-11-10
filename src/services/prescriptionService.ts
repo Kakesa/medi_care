@@ -7,6 +7,12 @@ export interface PrescriptionItem {
   posology: string;
   administrationRoute?: string;
   duration: string;
+  treatmentStartDate?: string;
+  treatmentEndDate?: string;
+  administrationTimes: string[];
+  treatmentStatus: 'active' | 'suspended' | 'completed' | 'interrupted';
+  treatmentStatusHistory: Array<{ status: string; changedAt: string; changedBy: string; reason: string }>;
+  actualTreatmentEndAt?: string;
   instructions: string;
   quantityPrescribed: number;
   quantityDispensed: number;
@@ -43,13 +49,17 @@ class PrescriptionService {
   create(data: {
     patientId: string;
     examId?: string;
-    items: Array<{ medication: string; dosage: string; posology: string; administrationRoute?: string; duration: string; instructions?: string; quantityPrescribed: number }>;
+    items: Array<{ medication: string; dosage: string; posology: string; administrationRoute?: string; duration: string; treatmentStartDate?: string; treatmentEndDate?: string; administrationTimes?: string[]; instructions?: string; quantityPrescribed: number }>;
   }) {
     return httpClient.post<PrescriptionRecord>('/prescriptions', data);
   }
 
   validate(id: string) {
     return httpClient.post<PrescriptionRecord>(`/prescriptions/${id}/validate`, {});
+  }
+
+  updateItemStatus(id: string, itemId: string, data: { status: 'active' | 'suspended' | 'completed' | 'interrupted'; reason: string }) {
+    return httpClient.patch<PrescriptionRecord>(`/prescriptions/${id}/items/${itemId}/status`, data);
   }
 
   prepare(id: string) {

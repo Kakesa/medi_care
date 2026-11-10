@@ -3,6 +3,10 @@ import { objectIdSchema, paginationSchema } from './common.js';
 
 const empty = z.object({}).optional().default({});
 const paramsId = z.object({ id: objectIdSchema });
+const calendarDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+});
 
 function envelope(body: z.ZodTypeAny, query: z.ZodTypeAny = empty, params: z.ZodTypeAny = empty) {
   return z.object({ body, query, params });
@@ -78,6 +82,32 @@ export const nursingVitalsListSchema = envelope(empty, z.object({
   limit: z.coerce.number().int().positive().max(100).optional(),
   patientId: objectIdSchema,
 }));
+
+export const nursingAdministrationListSchema = envelope(empty, z.object({
+  patientId: objectIdSchema,
+  date: calendarDate,
+}));
+
+export const nursingAdministrationParamsSchema = envelope(empty, empty, paramsId);
+
+export const nursingAdministrationConfirmSchema = envelope(z.object({
+  observations: z.string().trim().max(2000).optional(),
+}), empty, paramsId);
+
+export const nursingAdministrationMissedSchema = envelope(z.object({
+  reasonType: z.enum(['patient_absent', 'patient_refused', 'unavailable', 'other']),
+  reason: z.string().trim().min(3).max(500),
+  observations: z.string().trim().max(2000).optional(),
+}), empty, paramsId);
+
+export const nursingAdministrationCorrectionSchema = envelope(z.object({
+  reason: z.string().trim().min(3).max(500),
+  administeredAt: z.coerce.date().optional(),
+  observations: z.string().trim().max(2000).optional(),
+  notDoneReason: z.string().trim().max(500).optional(),
+}).refine((data) => data.administeredAt !== undefined || data.observations !== undefined || data.notDoneReason !== undefined, {
+  message: 'Aucune correction à enregistrer',
+}), empty, paramsId);
 
 export const nursingObservationSchema = envelope(z.object({
   patientId: objectIdSchema,

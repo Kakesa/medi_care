@@ -20,6 +20,7 @@ import { apiMessage } from '@/lib/apiError';
 import { useToast } from '@/hooks/use-toast';
 import { nursingService } from '@/services/nursingService';
 import type {
+  MedicationAdministration, MedicationAdministrationSheet,
   NursingCare, NursingCareStatus, NursingCareType, NursingDashboard, NursingPatient,
   NursingPatientDetail, NursingReport, NursingThresholds,
 } from '@/types/nursing';
@@ -52,12 +53,38 @@ const statusVariants: Record<NursingCareStatus, 'default' | 'secondary' | 'destr
   cancelled: 'outline',
 };
 
+const administrationStatusLabels = {
+  pending: 'En attente',
+  administered_on_time: 'Administré à l’heure',
+  administered_late: 'Administré en retard',
+  not_administered: 'Non administré',
+  patient_refused: 'Refus du patient',
+  suspended: 'Suspendu par le médecin',
+  treatment_completed: 'Traitement terminé',
+  treatment_interrupted: 'Traitement interrompu',
+} as const;
+
+const administrationStatusStyles = {
+  pending: 'border-muted text-muted-foreground',
+  administered_on_time: 'border-green-600 bg-green-50 text-green-800',
+  administered_late: 'border-amber-500 bg-amber-50 text-amber-800',
+  not_administered: 'border-red-600 bg-red-50 text-red-800',
+  patient_refused: 'border-red-600 bg-red-50 text-red-800',
+  suspended: 'border-muted bg-muted text-muted-foreground',
+  treatment_completed: 'border-muted bg-muted text-muted-foreground',
+  treatment_interrupted: 'border-muted bg-muted text-muted-foreground',
+} as const;
+
 const localDate = (date = new Date()) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
+
+const facilityDate = () => new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Africa/Kinshasa', year: 'numeric', month: '2-digit', day: '2-digit',
+}).format(new Date());
 
 const localDateTime = (date = new Date()) => {
   const value = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
@@ -67,6 +94,26 @@ const localDateTime = (date = new Date()) => {
 const displayDate = (value?: string) => value
   ? new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value))
   : '—';
+
+const displayMedicationDate = (value: string, timeZone: string) => new Intl.DateTimeFormat('fr-FR', {
+  dateStyle: 'short', timeStyle: 'short', timeZone,
+}).format(new Date(value));
+
+const displayFacilityDate = (value?: string) => value
+  ? new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeZone: 'Africa/Kinshasa' }).format(new Date(value))
+  : '—';
+
+const treatmentProgress = (startDate?: string, endDate?: string) => {
+  if (!startDate || !endDate) return 'Dates de traitement non structurées';
+  const start = Date.parse(`${startDate}T00:00:00.000Z`);
+  const end = Date.parse(`${endDate}T00:00:00.000Z`);
+  const today = Date.parse(`${facilityDate()}T00:00:00.000Z`);
+  if (Number.isNaN(start) || Number.isNaN(end) || end < start) return 'Dates de traitement invalides';
+  const totalDays = Math.floor((end - start) / 86_400_000) + 1;
+  if (today < start) return `${totalDays} jour(s) prescrits · début le ${displayFacilityDate(startDate)}`;
+  const elapsedDays = Math.min(totalDays, Math.floor((today - start) / 86_400_000) + 1);
+  return `${elapsedDays} jour(s) écoulé(s) · ${Math.max(0, totalDays - elapsedDays)} restant(s)`;
+};
 
 function MetricCard({ title, value, icon: Icon, tone = 'text-primary' }: {
   title: string; value: number; icon: typeof Activity; tone?: string;
@@ -214,9 +261,12 @@ export default function NursingCarePage() {
   const [selectedId, setSelectedId] = useState('');
   const [detail, setDetail] = useState<NursingPatientDetail | null>(null);
   const [care, setCare] = useState<NursingCare[]>([]);
+  const [administrationSheet, setAdministrationSheet] = useState<MedicationAdministrationSheet | null>(null);
+  const [missingReasons, setMissingReasons] = useState<Record<string, { reasonType: 'patient_absent' | 'patient_refused' | 'unavailable' | 'other'; reason: string }>>({});
   const [report, setReport] = useState<NursingReport | null>(null);
   const [thresholds, setThresholds] = useState<NursingThresholds | null>(null);
   const [selectedDate, setSelectedDate] = useState(localDate());
+  const [medicationDate, setMedicationDate] = useState(facilityDate());
   const [patientSearch, setPatientSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
@@ -267,11 +317,34 @@ export default function NursingCarePage() {
   }, [selectedId]);
 
   useEffect(() => {
+    if (!selectedId) {
+      setAdministrationSheet(null);
+      return;
+    }
+    let active = true;
+    nursingService.getAdministrations(selectedId, medicationDate)
+      .then((sheet) => { if (active) setAdministrationSheet(sheet); })
+      .catch((reason) => { if (active) setError(apiMessage(reason)); });
+    return () => { active = false; };
+  }, [selectedId, medicationDate]);
+
+  useEffect(() => {
     if (!canConfigure) return;
     nursingService.getSettings().then(setThresholds).catch((reason) => setError(apiMessage(reason)));
   }, [canConfigure]);
 
   const selectedPatient = useMemo(() => patients.find((patient) => patient.id === selectedId), [patients, selectedId]);
+  const medicationMetrics = useMemo(() => {
+    const doses = administrationSheet?.doses ?? [];
+    const now = Date.now();
+    return {
+      upcoming: doses.filter((dose) => dose.status === 'pending' && new Date(dose.scheduledAt).getTime() > now && new Date(dose.scheduledAt).getTime() <= now + 2 * 60 * 60_000).length,
+      onTime: doses.filter((dose) => dose.status === 'administered_on_time').length,
+      late: doses.filter((dose) => dose.status === 'administered_late').length,
+      missed: doses.filter((dose) => dose.status === 'not_administered' || dose.status === 'patient_refused').length,
+      suspended: doses.filter((dose) => dose.status === 'suspended').length,
+    };
+  }, [administrationSheet]);
   const chartData = useMemo(() => [...(detail?.vitals ?? [])].reverse().map((row) => ({
     time: new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(row.measuredAt)),
     temperature: row.temperature,
@@ -357,6 +430,46 @@ export default function NursingCarePage() {
     } catch (reason) { notifyError(reason); }
   };
 
+  const refreshAdministrationSheet = async () => {
+    if (selectedId) setAdministrationSheet(await nursingService.getAdministrations(selectedId, medicationDate));
+  };
+
+  const confirmAdministration = async (row: MedicationAdministration) => {
+    const observations = window.prompt('Observation (facultative)');
+    if (observations === null) return;
+    try {
+      await nursingService.confirmAdministration(row.id, observations.trim() || undefined);
+      toast({ title: 'Administration enregistrée' });
+      await refreshAdministrationSheet();
+      await reload();
+    } catch (reason) { notifyError(reason); }
+  };
+
+  const markAdministrationMissed = async (row: MedicationAdministration) => {
+    const reasonType = missingReasons[row.id]?.reasonType;
+    const reason = missingReasons[row.id]?.reason.trim();
+    if (!reason) return;
+    if (!reasonType) return;
+    try {
+      await nursingService.markAdministrationMissed(row.id, { reasonType, reason });
+      toast({ title: 'Prise clôturée', description: 'Le motif a été conservé dans l’historique.' });
+      await refreshAdministrationSheet();
+      await reload();
+    } catch (reasonError) { notifyError(reasonError); }
+  };
+
+  const correctAdministration = async (row: MedicationAdministration) => {
+    const reason = window.prompt('Justification de la correction (obligatoire)')?.trim();
+    if (!reason) return;
+    const observations = window.prompt('Observations corrigées', row.observations ?? '');
+    if (observations === null) return;
+    try {
+      await nursingService.correctAdministration(row.id, { reason, observations });
+      toast({ title: 'Correction tracée' });
+      await refreshAdministrationSheet();
+    } catch (reasonError) { notifyError(reasonError); }
+  };
+
   const saveThresholds = async () => {
     if (!thresholds) return;
     try {
@@ -397,6 +510,7 @@ export default function NursingCarePage() {
           <TabsTrigger value="overview">Vue d’ensemble</TabsTrigger>
           <TabsTrigger value="patients">Patients et dossier</TabsTrigger>
           <TabsTrigger value="care">Soins</TabsTrigger>
+          <TabsTrigger value="medications">Médicaments</TabsTrigger>
           <TabsTrigger value="vitals">Constantes</TabsTrigger>
           <TabsTrigger value="schedule">Planning</TabsTrigger>
           <TabsTrigger value="history">Historique</TabsTrigger>
@@ -434,22 +548,30 @@ export default function NursingCarePage() {
             <Card>
               <CardHeader>
                 <CardTitle>{selectedPatient.firstName} {selectedPatient.lastName}</CardTitle>
-                <p className="text-sm text-muted-foreground">Dossier {selectedPatient.recordNumber} · {selectedPatient.ward ?? 'Service non renseigné'} · Chambre {selectedPatient.room ?? '—'} · Médecin : {selectedPatient.doctor ?? '—'}</p>
+                <p className="text-sm text-muted-foreground">Dossier {selectedPatient.recordNumber} · {detail?.patient.gender === 'F' ? 'Femme' : detail?.patient.gender === 'M' ? 'Homme' : 'Sexe non renseigné'} · {selectedPatient.age !== undefined ? `${selectedPatient.age} ans` : 'Âge non renseigné'} · {detail?.patient.dateOfBirth ? `Née le ${new Intl.DateTimeFormat('fr-FR').format(new Date(detail.patient.dateOfBirth))}` : 'Date de naissance non renseignée'} · {selectedPatient.ward ?? 'Service non renseigné'} · Chambre {selectedPatient.room ?? '—'} · Médecin : {selectedPatient.doctor ?? '—'}</p>
               </CardHeader>
               <CardContent className="grid gap-4 lg:grid-cols-2">
                 {isDetailLoading ? <p>Chargement du dossier…</p> : detail && <>
                   <section className="space-y-2">
-                    <h3 className="font-semibold">Prescriptions médicales validées</h3>
+                    <h3 className="font-semibold">Séjour hospitalier</h3>
+                    {detail.hospitalization ? <div className="grid gap-2 rounded-md border p-3 text-sm sm:grid-cols-2">
+                      <p>Admission : <strong>{displayDate(detail.hospitalization.admittedAt)}</strong></p>
+                      <p>Durée : <strong>{detail.hospitalization.durationDays} jour(s)</strong></p>
+                      <p>Service / chambre : <strong>{detail.hospitalization.ward ?? '—'} · {detail.hospitalization.room ?? '—'}</strong></p>
+                      <p>Sortie prévue : <strong>{displayFacilityDate(detail.hospitalization.expectedDischargeAt)}</strong></p>
+                      <p>Sortie réelle : <strong>{detail.hospitalization.dischargedAt ? displayMedicationDate(detail.hospitalization.dischargedAt, 'Africa/Kinshasa') : '—'}</strong></p>
+                    </div> : <p className="text-sm text-muted-foreground">Aucun séjour hospitalier enregistré.</p>}
+                    <h3 className="pt-2 font-semibold">Prescriptions médicales validées</h3>
                     {detail.prescriptions.length ? detail.prescriptions.map((prescription) => (
                       <div key={prescription.id} className="rounded-lg border p-3 text-sm">
                         <p className="font-medium">{prescription.prescriberName} · {prescription.pharmacyStatus}</p>
-                        {prescription.items.map((item) => <p key={item.id} className="text-muted-foreground">{item.medication} · {item.dosage} · {item.posology}</p>)}
+                        {prescription.items.map((item) => <p key={item.id} className="text-muted-foreground">{item.medication} · {item.dosage} · {item.posology} · {item.duration} · {treatmentProgress(item.treatmentStartDate, item.treatmentEndDate)}{item.actualTreatmentEndAt ? ` · fin réelle ${displayMedicationDate(item.actualTreatmentEndAt, 'Africa/Kinshasa')}` : ''}{item.administrationTimes?.length ? ` · ${item.administrationTimes.join(', ')}` : ''}{item.instructions ? ` · ${item.instructions}` : ''}</p>)}
                       </div>
                     )) : <p className="text-sm text-muted-foreground">Aucune prescription validée.</p>}
                     <h3 className="pt-2 font-semibold">Examens demandés</h3>
                     {detail.exams.map((exam) => <p key={exam.id} className="text-sm">{exam.name} · {exam.status} · {displayDate(exam.date)}</p>)}
                     <h3 className="pt-2 font-semibold">Dernières consultations</h3>
-                    {detail.consultations.map((consultation, index) => <p key={`${consultation.date}-${index}`} className="text-sm">{displayDate(consultation.date)} · {consultation.doctorName} · {consultation.status}</p>)}
+                    {detail.consultations.map((consultation, index) => <p key={`${consultation.date}-${index}`} className="text-sm">{displayDate(consultation.date)} · {consultation.doctorName} · {consultation.diagnosis || consultation.status}</p>)}
                   </section>
                   <section className="space-y-2">
                     <h3 className="font-semibold">Observations infirmières</h3>
@@ -485,6 +607,65 @@ export default function NursingCarePage() {
             </CardContent>
           </Card>}
           <Card><CardHeader><CardTitle>Soins programmés pour le {new Intl.DateTimeFormat('fr-FR').format(new Date(`${selectedDate}T12:00:00`))}</CardTitle></CardHeader><CardContent><CareTable care={care} canUpdate={canWrite} onUpdate={(row, status) => void updateCare(row, status)} onCorrect={(row) => void correctCare(row)} /></CardContent></Card>
+        </TabsContent>
+
+        <TabsContent value="medications" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Feuille quotidienne d’administration des médicaments</CardTitle>
+              <p className="text-sm text-muted-foreground">Horaires prescrits en {administrationSheet?.timeZone ?? 'Africa/Kinshasa'} · Une prise non administrée devient clôturable après {administrationSheet?.lateWindowMinutes ?? 60} minutes.</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2"><Label>Patient</Label><Select value={selectedId} onValueChange={setSelectedId}><SelectTrigger><SelectValue placeholder="Sélectionner un patient" /></SelectTrigger><SelectContent>{patients.map((patient) => <SelectItem key={patient.id} value={patient.id}>{patient.firstName} {patient.lastName}</SelectItem>)}</SelectContent></Select></div>
+                <div className="space-y-2"><Label>Date de la feuille</Label><Input type="date" value={medicationDate} onChange={(event) => setMedicationDate(event.target.value)} /></div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                <MetricCard title="À administrer bientôt" value={medicationMetrics.upcoming} icon={Clock3} />
+                <MetricCard title="Administrés à l’heure" value={medicationMetrics.onTime} icon={CheckCircle2} tone="text-green-600" />
+                <MetricCard title="Administrés en retard" value={medicationMetrics.late} icon={Clock3} tone="text-amber-600" />
+                <MetricCard title="Non administrés / refus" value={medicationMetrics.missed} icon={XCircle} tone="text-destructive" />
+                <MetricCard title="Suspendus" value={medicationMetrics.suspended} icon={FileText} />
+              </div>
+              {administrationSheet?.unconfiguredItems.map((item, index) => <p key={`${item.prescriptionId}-${item.medication}-${index}`} className="text-sm text-amber-700">{item.medication} : {item.reason}. Aucune prise n’est générée.</p>)}
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader><TableRow><TableHead>Horaire</TableHead><TableHead>Médicament / dose</TableHead><TableHead>Voie et consignes</TableHead><TableHead>Statut</TableHead><TableHead>Administration</TableHead><TableHead>Traçabilité</TableHead></TableRow></TableHeader>
+                  <TableBody>
+                    {(administrationSheet?.doses ?? []).map((row) => {
+                      const future = new Date(row.scheduledAt).getTime() > Date.now();
+                      return <TableRow key={row.id}>
+                        <TableCell className="whitespace-nowrap">{displayDate(row.scheduledAt)}</TableCell>
+                        <TableCell><p className="font-medium">{row.medication}</p><p className="text-xs text-muted-foreground">{row.prescribedDose} · {row.posology}</p></TableCell>
+                        <TableCell><p>{row.administrationRoute}</p><p className="max-w-xs whitespace-normal text-xs text-muted-foreground">{row.instructions || '—'}</p></TableCell>
+                        <TableCell><Badge className={administrationStatusStyles[row.status]} variant="outline">{administrationStatusLabels[row.status]}</Badge></TableCell>
+                        <TableCell className="min-w-52">
+                          {canWrite && (row.status === 'pending' || row.status === 'not_administered') && <Button size="sm" variant="outline" disabled={future} aria-label={`Confirmer ${row.medication}`} onClick={() => void confirmAdministration(row)}><CheckCircle2 className="mr-2 h-4 w-4" />Administré</Button>}
+                          {canWrite && (row.status === 'not_administered' || (row.status === 'pending' && !future)) && <div className="space-y-2">
+                            <Select value={missingReasons[row.id]?.reasonType ?? ''} onValueChange={(value) => setMissingReasons((current) => ({ ...current, [row.id]: { reasonType: value as 'patient_absent' | 'patient_refused' | 'unavailable' | 'other', reason: current[row.id]?.reason ?? '' } }))}>
+                              <SelectTrigger aria-label="Motif de non-administration"><SelectValue placeholder="Choisir un motif" /></SelectTrigger>
+                              <SelectContent><SelectItem value="patient_absent">Patient absent</SelectItem><SelectItem value="patient_refused">Refus du patient</SelectItem><SelectItem value="unavailable">Médicament indisponible</SelectItem><SelectItem value="other">Autre motif</SelectItem></SelectContent>
+                            </Select>
+                            <Input aria-label="Détail du motif obligatoire" placeholder="Préciser le motif" value={missingReasons[row.id]?.reason ?? ''} onChange={(event) => setMissingReasons((current) => ({ ...current, [row.id]: { reasonType: current[row.id]?.reasonType ?? 'other', reason: event.target.value } }))} />
+                            <Button size="sm" variant="destructive" disabled={!missingReasons[row.id]?.reasonType || !missingReasons[row.id]?.reason.trim() || (row.status === 'pending' && Date.now() <= new Date(row.scheduledAt).getTime() + (administrationSheet?.lateWindowMinutes ?? 60) * 60_000 && missingReasons[row.id]?.reasonType !== 'patient_refused')} onClick={() => void markAdministrationMissed(row)}>Enregistrer le motif</Button>
+                          </div>}
+                          {!canWrite && row.administeredAt && <p className="text-sm">{displayMedicationDate(row.administeredAt, administrationSheet?.timeZone ?? 'Africa/Kinshasa')}</p>}
+                        </TableCell>
+                        <TableCell className="min-w-48 text-sm">
+                          {row.administeredByName && <p>{row.administeredByName}</p>}
+                          {row.notDoneReason && <p className="text-destructive">{row.notDoneReason}</p>}
+                          {row.observations && <p className="text-muted-foreground">{row.observations}</p>}
+                          {row.history.map((entry, index) => <p key={`${entry.at}-${index}`} className="text-xs text-muted-foreground">{entry.action.split('_').join(' ')} · {displayMedicationDate(entry.at, administrationSheet?.timeZone ?? 'Africa/Kinshasa')}{entry.reason ? ` · ${entry.reason}` : ''}</p>)}
+                          {canWrite && row.status !== 'pending' && <Button className="mt-1" size="sm" variant="ghost" onClick={() => void correctAdministration(row)}><Pencil className="mr-1 h-3 w-3" />Corriger</Button>}
+                        </TableCell>
+                      </TableRow>;
+                    })}
+                    {!administrationSheet?.doses.length && <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Aucune prise structurée prescrite pour cette date.</TableCell></TableRow>}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="vitals" className="space-y-4">

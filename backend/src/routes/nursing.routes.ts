@@ -7,6 +7,11 @@ import { requireTenant } from '../middlewares/tenant.middleware.js';
 import { validate } from '../middlewares/validate.middleware.js';
 import {
   nursingCorrectionSchema,
+  nursingAdministrationConfirmSchema,
+  nursingAdministrationCorrectionSchema,
+  nursingAdministrationListSchema,
+  nursingAdministrationMissedSchema,
+  nursingAdministrationParamsSchema,
   nursingCreateCareSchema,
   nursingListSchema,
   nursingObservationSchema,
@@ -33,6 +38,10 @@ router.post('/care/:id/corrections', requireRoles(ROLES.NURSE), validate(nursing
 router.get('/vitals', requireRoles(...readers), validate(nursingVitalsListSchema), nursing.vitals);
 router.post('/vitals', requireRoles(ROLES.NURSE), validate(nursingVitalsSchema), nursing.createVitals);
 router.post('/observations', requireRoles(ROLES.NURSE), validate(nursingObservationSchema), nursing.createObservation);
+router.get('/administrations', requireRoles(...readers), validate(nursingAdministrationListSchema), nursing.administrations);
+router.post('/administrations/:id/confirm', requireRoles(ROLES.NURSE), validate(nursingAdministrationConfirmSchema), nursing.confirmAdministration);
+router.post('/administrations/:id/not-administered', requireRoles(ROLES.NURSE), validate(nursingAdministrationMissedSchema), nursing.markAdministrationMissed);
+router.post('/administrations/:id/corrections', requireRoles(ROLES.NURSE), validate(nursingAdministrationCorrectionSchema), nursing.correctAdministration);
 router.get('/settings', requireRoles(...readers), nursing.settings);
 router.patch('/settings', requireRoles(ROLES.HOSPITAL_ADMIN), validate(nursingThresholdsSchema), nursing.updateSettings);
 router.get('/reports', requireRoles(...readers), validate(nursingReportSchema), nursing.report);

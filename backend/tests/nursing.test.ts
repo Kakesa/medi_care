@@ -3,11 +3,22 @@ import request from 'supertest';
 import type { Express } from 'express';
 import { createApp } from '../src/app.js';
 import { AuditLog } from '../src/models/AuditLog.js';
+import { BedStay } from '../src/models/BedStay.js';
+import { MedicationAdministration } from '../src/models/MedicationAdministration.js';
 import { NursingCare } from '../src/models/NursingCare.js';
 import { VitalSigns } from '../src/models/VitalSigns.js';
 import { bearer, createOrganization, createUser } from './helpers.js';
 
 let app: Express;
+
+function kinshasaDate(offsetDays = 0) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Africa/Kinshasa', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const date = new Date(Date.UTC(Number(values.year), Number(values.month) - 1, Number(values.day) + offsetDays));
+  return date.toISOString().slice(0, 10);
+}
 
 beforeAll(() => {
   app = createApp();
@@ -32,6 +43,33 @@ async function setupHospital() {
 }
 
 describe('Module de soins infirmiers', () => {
+  it('retourne le séjour actif et calcule les jours depuis l’admission', async () => {
+    const hospital = await setupHospital();
+    const today = new Date();
+    const admissionDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - 5));
+    await BedStay.create({
+      organizationId: hospital.organization.id,
+      bedId: new (await import('mongoose')).default.Types.ObjectId(),
+      bedNumber: '12A',
+      wardName: 'Médecine',
+      patientId: hospital.patientId,
+      patientName: 'Nora Patient',
+      admissionDate,
+      status: 'active',
+    });
+
+    const response = await request(app).get(`/api/nursing/patients/${hospital.patientId}`).set(bearer(hospital.nurse.token));
+
+    expect(response.status).toBe(200);
+    expect(response.body.hospitalization).toMatchObject({
+      status: 'active',
+      durationDays: 5,
+      ward: 'Médecine',
+      room: '12A',
+    });
+    expect(response.body.hospitalization.admittedAt).toBe(admissionDate.toISOString());
+  });
+
   it('limite les écritures au rôle infirmier et conserve l’historique sans suppression', async () => {
     const hospital = await setupHospital();
     const nurseHeaders = bearer(hospital.nurse.token);
@@ -135,6 +173,118 @@ describe('Module de soins infirmiers', () => {
     expect(care.body.medication).toBe('Paracétamol');
     expect(care.body.prescribedDose).toBe('500 mg');
     expect(care.body.administrationRoute).toBe('orale');
+  });
+
+  it('génère la feuille quotidienne et trace confirmations, prises manquées et corrections', async () => {
+    const hospital = await setupHospital();
+    const prescription = await request(app).post('/api/prescriptions').set(bearer(hospital.doctor.token)).send({
+      patientId: hospital.patientId,
+      items: [{
+        medication: 'Paracétamol', dosage: '1 comprimé', posology: '3 fois par jour',
+        administrationRoute: 'orale', duration: '3 jours', quantityPrescribed: 9,
+        treatmentStartDate: kinshasaDate(-1), treatmentEndDate: kinshasaDate(1),
+        administrationTimes: ['00:01', '08:00', '23:59'],
+      }],
+    });
+    expect(prescription.status).toBe(201);
+    const validated = await request(app).post(`/api/prescriptions/${prescription.body.id}/validate`).set(bearer(hospital.doctor.token));
+    expect(validated.status).toBe(200);
+
+    const sheet = await request(app).get('/api/nursing/administrations')
+      .query({ patientId: hospital.patientId, date: kinshasaDate() })
+      .set(bearer(hospital.nurse.token));
+    expect(sheet.status, JSON.stringify(sheet.body)).toBe(200);
+    expect(sheet.body.timeZone).toBe('Africa/Kinshasa');
+    expect(sheet.body.lateWindowMinutes).toBe(60);
+    expect(sheet.body.doses).toHaveLength(3);
+    expect(sheet.body.doses[0]).toMatchObject({ medication: 'Paracétamol', prescribedDose: '1 comprimé', status: 'not_administered' });
+    expect(sheet.body.doses[2].status).toBe('pending');
+    expect(await MedicationAdministration.countDocuments({ patientId: hospital.patientId })).toBe(3);
+    const repeatedSheet = await request(app).get('/api/nursing/administrations')
+      .query({ patientId: hospital.patientId, date: kinshasaDate() })
+      .set(bearer(hospital.nurse.token));
+    expect(repeatedSheet.body.doses.map((dose: { id: string }) => dose.id)).toEqual(sheet.body.doses.map((dose: { id: string }) => dose.id));
+    expect(await MedicationAdministration.countDocuments({ patientId: hospital.patientId })).toBe(3);
+
+    const lateDose = sheet.body.doses[0];
+    const lateConfirmation = await request(app).post(`/api/nursing/administrations/${lateDose.id}/confirm`)
+      .set(bearer(hospital.nurse.token)).send({ observations: 'Administration observée' });
+    expect(lateConfirmation.status).toBe(200);
+    expect(lateConfirmation.body.status).toBe('administered_late');
+    expect(lateConfirmation.body.administeredBy).toBe(hospital.nurse.user.id);
+    expect(lateConfirmation.body.administeredAt).toBeTruthy();
+
+    const missedDose = sheet.body.doses[1];
+    const missed = await request(app).post(`/api/nursing/administrations/${missedDose.id}/not-administered`)
+      .set(bearer(hospital.nurse.token)).send({ reasonType: 'patient_refused', reason: 'Refus confirmé par le patient' });
+    expect(missed.status).toBe(200);
+    expect(missed.body.status).toBe('patient_refused');
+    expect(missed.body.notDoneReason).toBe('Refus confirmé par le patient');
+
+    const correction = await request(app).post(`/api/nursing/administrations/${missedDose.id}/corrections`)
+      .set(bearer(hospital.nurse.token)).send({ reason: 'Précision au dossier', observations: 'Médecin informé' });
+    expect(correction.status).toBe(200);
+    expect(correction.body.history).toHaveLength(2);
+    expect(correction.body.history[1].reason).toBe('Précision au dossier');
+
+    const forbiddenWrite = await request(app).post(`/api/nursing/administrations/${sheet.body.doses[2].id}/confirm`)
+      .set(bearer(hospital.doctor.token)).send({});
+    expect(forbiddenWrite.status).toBe(403);
+    const earlyMissed = await request(app).post(`/api/nursing/administrations/${sheet.body.doses[2].id}/not-administered`)
+      .set(bearer(hospital.nurse.token)).send({ reasonType: 'other', reason: 'Tentative prématurée' });
+    expect(earlyMissed.status).toBe(409);
+    const missingReason = await request(app).post(`/api/nursing/administrations/${sheet.body.doses[2].id}/not-administered`)
+      .set(bearer(hospital.nurse.token)).send({ reasonType: 'other', reason: '' });
+    expect(missingReason.status).toBe(400);
+  });
+
+  it('suspend et reprend un traitement côté médecin sans marquer les prises comme manquées', async () => {
+    const hospital = await setupHospital();
+    const prescription = await request(app).post('/api/prescriptions').set(bearer(hospital.doctor.token)).send({
+      patientId: hospital.patientId,
+      items: [{
+        medication: 'Antibiotique', dosage: '1 comprimé', posology: '2 fois par jour',
+        administrationRoute: 'orale', duration: '3 jours', quantityPrescribed: 6,
+        treatmentStartDate: kinshasaDate(-1), treatmentEndDate: kinshasaDate(1),
+        administrationTimes: ['08:00', '23:59'],
+      }],
+    });
+    const prescriptionId = prescription.body.id as string;
+    const itemId = prescription.body.items[0].id as string;
+    await request(app).post(`/api/prescriptions/${prescriptionId}/validate`).set(bearer(hospital.doctor.token));
+
+    const firstSheet = await request(app).get('/api/nursing/administrations')
+      .query({ patientId: hospital.patientId, date: kinshasaDate() })
+      .set(bearer(hospital.nurse.token));
+    expect(firstSheet.status).toBe(200);
+    const futureDose = firstSheet.body.doses.find((dose: { scheduledAt: string }) => new Date(dose.scheduledAt) > new Date());
+    expect(futureDose).toBeTruthy();
+
+    const suspended = await request(app).patch(`/api/prescriptions/${prescriptionId}/items/${itemId}/status`)
+      .set(bearer(hospital.doctor.token)).send({ status: 'suspended', reason: 'Surveillance médicale' });
+    expect(suspended.status).toBe(200);
+    expect(suspended.body.items[0].treatmentStatus).toBe('suspended');
+
+    const nurseCannotSuspend = await request(app).patch(`/api/prescriptions/${prescriptionId}/items/${itemId}/status`)
+      .set(bearer(hospital.nurse.token)).send({ status: 'active', reason: 'Reprise demandée' });
+    expect(nurseCannotSuspend.status).toBe(403);
+
+    const suspendedSheet = await request(app).get('/api/nursing/administrations')
+      .query({ patientId: hospital.patientId, date: kinshasaDate() })
+      .set(bearer(hospital.nurse.token));
+    const suspendedDose = suspendedSheet.body.doses.find((dose: { id: string }) => dose.id === futureDose.id);
+    expect(suspendedDose.status).toBe('suspended');
+    const cannotMarkSuspendedMissed = await request(app).post(`/api/nursing/administrations/${futureDose.id}/not-administered`)
+      .set(bearer(hospital.nurse.token)).send({ reasonType: 'other', reason: 'Dose suspendue' });
+    expect(cannotMarkSuspendedMissed.status).toBe(409);
+
+    const resumed = await request(app).patch(`/api/prescriptions/${prescriptionId}/items/${itemId}/status`)
+      .set(bearer(hospital.doctor.token)).send({ status: 'active', reason: 'Reprise autorisée' });
+    expect(resumed.status).toBe(200);
+    const resumedSheet = await request(app).get('/api/nursing/administrations')
+      .query({ patientId: hospital.patientId, date: kinshasaDate() })
+      .set(bearer(hospital.nurse.token));
+    expect(resumedSheet.body.doses.find((dose: { id: string }) => dose.id === futureDose.id).status).toBe('pending');
   });
 
   it('isole les patients entre établissements et autorise la lecture infirmière des patients de son établissement', async () => {

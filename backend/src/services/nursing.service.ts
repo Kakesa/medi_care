@@ -1,8 +1,10 @@
 import mongoose, { type FilterQuery } from 'mongoose';
 import { ROLES } from '../config/permissions.js';
+import { Bed } from '../models/Bed.js';
 import { BedStay } from '../models/BedStay.js';
 import { Consultation } from '../models/Consultation.js';
 import { Exam } from '../models/Exam.js';
+import { MedicationAdministration } from '../models/MedicationAdministration.js';
 import { NursingCare } from '../models/NursingCare.js';
 import { NursingObservation } from '../models/NursingObservation.js';
 import { NursingSettings } from '../models/NursingSettings.js';
@@ -34,6 +36,9 @@ const defaultThresholds: VitalThresholds = {
   glucoseMin: 70, glucoseMax: 180,
 };
 
+const medicationLateWindowMs = 60 * 60 * 1000;
+const medicationTimeZone = 'Africa/Kinshasa';
+
 type VitalValues = {
   systolic?: number; diastolic?: number; temperature?: number; heartRate?: number;
   respiratoryRate?: number; oxygenSaturation?: number; weight?: number; height?: number; glucose?: number;
@@ -56,6 +61,64 @@ function alertsFor(values: {
 
 function idOf(value: { toString(): string } | null | undefined) {
   return value?.toString();
+}
+
+function stayDurationDays(admissionDate: Date, endDate: Date) {
+  const admissionDay = Date.UTC(admissionDate.getUTCFullYear(), admissionDate.getUTCMonth(), admissionDate.getUTCDate());
+  const endDay = Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate());
+  return Math.max(0, Math.round((endDay - admissionDay) / 86_400_000));
+}
+
+function scheduledInstant(date: string, time: string) {
+  const [year, month, day] = date.split('-').map(Number);
+  const [hour, minute] = time.split(':').map(Number);
+  const localAsUtc = Date.UTC(year, month - 1, day, hour, minute);
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: medicationTimeZone,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).formatToParts(new Date(localAsUtc));
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const representedAsUtc = Date.UTC(
+    Number(values.year), Number(values.month) - 1, Number(values.day), Number(values.hour), Number(values.minute)
+  );
+  return new Date(localAsUtc - (representedAsUtc - localAsUtc));
+}
+
+function localDayBounds(date: string) {
+  const [year, month, day] = date.split('-').map(Number);
+  const nextDate = new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
+  return { start: scheduledInstant(date, '00:00'), end: scheduledInstant(nextDate, '00:00') };
+}
+
+function treatmentStatusAt(item: {
+  treatmentStatusHistory?: Array<{ status: 'active' | 'suspended' | 'completed' | 'interrupted'; changedAt: Date }>;
+}, scheduledAt: Date) {
+  const changes = item.treatmentStatusHistory ?? [];
+  const latest = changes.filter((change) => change.changedAt <= scheduledAt).at(-1);
+  return latest?.status ?? 'active';
+}
+
+function mapAdministration(row: InstanceType<typeof MedicationAdministration>, now = new Date()) {
+  const overdue = row.status === 'pending' && now.getTime() > row.scheduledAt.getTime() + medicationLateWindowMs;
+  return {
+    id: row.id,
+    patientId: row.patientId.toString(),
+    prescriptionId: row.prescriptionId.toString(),
+    prescriptionItemId: row.prescriptionItemId.toString(),
+    medication: row.medication,
+    prescribedDose: row.prescribedDose,
+    administrationRoute: row.administrationRoute,
+    posology: row.posology,
+    instructions: row.instructions,
+    scheduledAt: row.scheduledAt,
+    administeredAt: row.administeredAt,
+    administeredBy: idOf(row.administeredBy),
+    status: overdue ? 'not_administered' : row.status,
+    observations: row.observations,
+    notDoneReason: row.notDoneReason,
+    history: row.history ?? [],
+  };
 }
 
 function mapCare(row: InstanceType<typeof NursingCare>) {
@@ -335,6 +398,222 @@ export async function createNursingCare(
   return mapCare(row);
 }
 
+export async function getMedicationAdministrationSheet(
+  actor: AuthContext,
+  organizationId: string,
+  query: { patientId: string; date: string }
+) {
+  await requireVisiblePatient(actor, organizationId, query.patientId);
+  const { start, end } = localDayBounds(query.date);
+  const prescriptions = await Prescription.find({
+    organizationId,
+    patientId: query.patientId,
+    status: 'validated',
+  }).select('items');
+  const scheduled = [] as Array<{
+    prescriptionId: mongoose.Types.ObjectId;
+    prescriptionItemId: mongoose.Types.ObjectId;
+    medication: string;
+    prescribedDose: string;
+    administrationRoute: string;
+    posology: string;
+    instructions: string;
+    scheduledAt: Date;
+    status: 'pending' | 'suspended' | 'treatment_completed' | 'treatment_interrupted';
+  }>;
+  const unconfiguredItems: Array<{ prescriptionId: string; medication: string; reason: string }> = [];
+
+  for (const prescription of prescriptions) {
+    for (const item of prescription.items) {
+      if (!item.treatmentStartDate || !item.treatmentEndDate || !item.administrationTimes?.length) {
+        unconfiguredItems.push({ prescriptionId: prescription.id, medication: item.medication, reason: 'Dates ou heures quotidiennes non définies par le prescripteur' });
+        continue;
+      }
+      if (query.date < item.treatmentStartDate || query.date > item.treatmentEndDate) continue;
+      if (!item.administrationRoute) {
+        unconfiguredItems.push({ prescriptionId: prescription.id, medication: item.medication, reason: 'Voie d’administration non définie par le prescripteur' });
+        continue;
+      }
+      for (const time of item.administrationTimes) {
+        const scheduledAt = scheduledInstant(query.date, time);
+        const treatmentStatus = treatmentStatusAt(item, scheduledAt);
+        scheduled.push({
+          prescriptionId: prescription._id,
+          prescriptionItemId: item._id,
+          medication: item.medication,
+          prescribedDose: item.dosage,
+          administrationRoute: item.administrationRoute,
+          posology: item.posology,
+          instructions: item.instructions ?? '',
+          scheduledAt,
+          status: treatmentStatus === 'suspended' ? 'suspended'
+            : treatmentStatus === 'completed' ? 'treatment_completed'
+              : treatmentStatus === 'interrupted' ? 'treatment_interrupted'
+                : 'pending',
+        });
+      }
+    }
+  }
+
+  if (scheduled.length) {
+    await MedicationAdministration.bulkWrite(scheduled.map((dose) => ({
+      updateOne: {
+        filter: {
+          organizationId,
+          prescriptionId: dose.prescriptionId,
+          prescriptionItemId: dose.prescriptionItemId,
+          scheduledAt: dose.scheduledAt,
+        },
+        update: {
+          $setOnInsert: {
+            organizationId,
+            patientId: query.patientId,
+            ...dose,
+            status: dose.status,
+          },
+        },
+        upsert: true,
+      },
+    })));
+  }
+
+  const rows = await MedicationAdministration.find({
+    organizationId,
+    patientId: query.patientId,
+    scheduledAt: { $gte: start, $lt: end },
+  }).sort({ scheduledAt: 1 });
+  const nurseIds = [...new Set(rows.map((row) => row.administeredBy?.toString()).filter((id): id is string => Boolean(id)))];
+  const nurses = nurseIds.length
+    ? await User.find({ _id: { $in: nurseIds }, organizationId }).select('firstName lastName')
+    : [];
+  const nurseNameById = new Map(nurses.map((nurse) => [nurse.id, `${nurse.firstName} ${nurse.lastName}`]));
+  return {
+    patientId: query.patientId,
+    date: query.date,
+    timeZone: medicationTimeZone,
+    lateWindowMinutes: medicationLateWindowMs / 60_000,
+    doses: rows.map((row) => ({
+      ...mapAdministration(row),
+      administeredByName: row.administeredBy ? nurseNameById.get(row.administeredBy.toString()) : undefined,
+    })),
+    unconfiguredItems,
+  };
+}
+
+export async function confirmMedicationAdministration(
+  actor: AuthContext,
+  organizationId: string,
+  id: string,
+  input: { observations?: string },
+  ip?: string
+) {
+  const row = await MedicationAdministration.findOne({ _id: id, organizationId });
+  if (!row) throw new ApiError(404, 'Prise planifiée introuvable', 'NOT_FOUND');
+  await requireVisiblePatient(actor, organizationId, row.patientId.toString(), ip);
+  if (row.status !== 'pending') throw new ApiError(409, 'Cette prise a déjà été clôturée', 'ADMINISTRATION_CLOSED');
+  const administeredAt = new Date();
+  if (administeredAt < row.scheduledAt) throw new ApiError(409, 'Cette prise est prévue ultérieurement', 'ADMINISTRATION_NOT_DUE');
+  const status = administeredAt.getTime() <= row.scheduledAt.getTime()
+    ? 'administered_on_time'
+    : 'administered_late';
+  const updated = await MedicationAdministration.findOneAndUpdate(
+    { _id: id, organizationId, status: 'pending' },
+    {
+      $set: { status, administeredAt, administeredBy: actor.id, observations: input.observations },
+      $push: { history: { actorId: actor.id, action: 'ADMINISTERED', at: administeredAt, changes: { status: { from: 'pending', to: status } } } },
+    },
+    { new: true, runValidators: true }
+  );
+  if (!updated) throw new ApiError(409, 'Cette prise a déjà été clôturée', 'ADMINISTRATION_CLOSED');
+  await recordAudit({
+    actorId: actor.id, actorRole: actor.role, organizationId, action: 'MEDICATION_ADMINISTERED',
+    resourceType: 'medication-administration', resourceId: updated.id, success: true, ip,
+    metadata: { patientId: updated.patientId.toString(), status },
+  });
+  return mapAdministration(updated);
+}
+
+export async function markMedicationAdministrationMissed(
+  actor: AuthContext,
+  organizationId: string,
+  id: string,
+  input: { reasonType: 'patient_absent' | 'patient_refused' | 'unavailable' | 'other'; reason: string; observations?: string },
+  ip?: string
+) {
+  const row = await MedicationAdministration.findOne({ _id: id, organizationId });
+  if (!row) throw new ApiError(404, 'Prise planifiée introuvable', 'NOT_FOUND');
+  await requireVisiblePatient(actor, organizationId, row.patientId.toString(), ip);
+  if (row.status !== 'pending') throw new ApiError(409, 'Cette prise a déjà été clôturée', 'ADMINISTRATION_CLOSED');
+  if (Date.now() < row.scheduledAt.getTime()) {
+    throw new ApiError(409, 'Cette prise est prévue ultérieurement', 'ADMINISTRATION_NOT_DUE');
+  }
+  if (input.reasonType !== 'patient_refused' && Date.now() <= row.scheduledAt.getTime() + medicationLateWindowMs) {
+    throw new ApiError(409, 'Le délai autorisé n’est pas encore écoulé', 'ADMINISTRATION_GRACE_PERIOD');
+  }
+  const status = input.reasonType === 'patient_refused' ? 'patient_refused' : 'not_administered';
+  const at = new Date();
+  const updated = await MedicationAdministration.findOneAndUpdate(
+    { _id: id, organizationId, status: 'pending' },
+    {
+      $set: { status, notDoneReason: input.reason, observations: input.observations },
+      $push: { history: { actorId: actor.id, action: 'NOT_ADMINISTERED', at, reason: input.reason, changes: { status: { from: 'pending', to: status }, reasonType: input.reasonType } } },
+    },
+    { new: true, runValidators: true }
+  );
+  if (!updated) throw new ApiError(409, 'Cette prise a déjà été clôturée', 'ADMINISTRATION_CLOSED');
+  await recordAudit({
+    actorId: actor.id, actorRole: actor.role, organizationId, action: 'MEDICATION_NOT_ADMINISTERED',
+    resourceType: 'medication-administration', resourceId: updated.id, success: true, ip,
+    metadata: { patientId: updated.patientId.toString(), status, reasonType: input.reasonType },
+  });
+  return mapAdministration(updated);
+}
+
+export async function correctMedicationAdministration(
+  actor: AuthContext,
+  organizationId: string,
+  id: string,
+  input: { reason: string; administeredAt?: Date; observations?: string; notDoneReason?: string },
+  ip?: string
+) {
+  const row = await MedicationAdministration.findOne({ _id: id, organizationId });
+  if (!row) throw new ApiError(404, 'Prise planifiée introuvable', 'NOT_FOUND');
+  await requireVisiblePatient(actor, organizationId, row.patientId.toString(), ip);
+  if (row.status === 'pending') throw new ApiError(409, 'Une prise en attente ne peut pas être corrigée', 'ADMINISTRATION_PENDING');
+  const changes: Record<string, { from: unknown; to: unknown }> = {};
+  if (input.administeredAt && input.administeredAt.getTime() !== row.administeredAt?.getTime()) {
+    if (input.administeredAt > new Date()) throw new ApiError(400, 'L’heure réelle ne peut pas être dans le futur', 'INVALID_ADMINISTRATION_TIME');
+    const previousStatus = row.status;
+    changes.administeredAt = { from: row.administeredAt, to: input.administeredAt };
+    row.administeredAt = input.administeredAt;
+    if (!row.administeredBy) {
+      changes.administeredBy = { from: undefined, to: actor.id };
+      row.administeredBy = new mongoose.Types.ObjectId(actor.id);
+    }
+    row.status = input.administeredAt.getTime() <= row.scheduledAt.getTime()
+      ? 'administered_on_time'
+      : 'administered_late';
+    changes.status = { from: previousStatus, to: row.status };
+  }
+  if (input.observations !== undefined && input.observations !== row.observations) {
+    changes.observations = { from: row.observations, to: input.observations };
+    row.observations = input.observations;
+  }
+  if (input.notDoneReason !== undefined && input.notDoneReason !== row.notDoneReason) {
+    changes.notDoneReason = { from: row.notDoneReason, to: input.notDoneReason };
+    row.notDoneReason = input.notDoneReason;
+  }
+  if (!Object.keys(changes).length) throw new ApiError(400, 'La correction ne modifie aucune donnée', 'NO_CORRECTION');
+  row.history.push({ actorId: new mongoose.Types.ObjectId(actor.id), action: 'CORRECTED', at: new Date(), reason: input.reason, changes });
+  await row.save();
+  await recordAudit({
+    actorId: actor.id, actorRole: actor.role, organizationId, action: 'MEDICATION_ADMINISTRATION_CORRECTED',
+    resourceType: 'medication-administration', resourceId: row.id, success: true, ip,
+    metadata: { patientId: row.patientId.toString(), fields: Object.keys(changes) },
+  });
+  return mapAdministration(row);
+}
+
 export async function updateNursingCare(
   actor: AuthContext, organizationId: string, id: string,
   input: { status: string; observations?: string; notDoneReason?: string }, ip?: string
@@ -455,7 +734,7 @@ export async function createNursingObservation(
 export async function getNursingPatient(actor: AuthContext, organizationId: string, patientId: string, ip?: string) {
   const patient = await requireVisiblePatient(actor, organizationId, patientId, ip);
   const [consultations, prescriptions, exams, care, observations, vitals, thresholds, stay, doctor] = await Promise.all([
-    Consultation.find({ organizationId, patientId }).sort({ date: -1 }).limit(20).select('date doctorName status'),
+    Consultation.find({ organizationId, patientId }).sort({ date: -1 }).limit(20).select('date doctorName diagnosis status'),
     Prescription.find({ organizationId, patientId, status: 'validated' }).sort({ createdAt: -1 }).limit(50)
       .select('prescriberName items status pharmacyStatus validatedAt createdAt'),
     Exam.find({ organizationId, patientId }).sort({ date: -1 }).limit(50).select('name type date status'),
@@ -463,9 +742,14 @@ export async function getNursingPatient(actor: AuthContext, organizationId: stri
     NursingObservation.find({ organizationId, patientId }).sort({ observedAt: -1 }).limit(100),
     VitalSigns.find({ organizationId, patientId }).sort({ measuredAt: -1 }).limit(100),
     thresholdsFor(organizationId),
-    BedStay.findOne({ organizationId, patientId, status: 'active' }).select('wardName bedNumber'),
+    BedStay.findOne({ organizationId, patientId }).sort({ admissionDate: -1 })
+      .select('bedId wardName bedNumber admissionDate dischargeDate status'),
     patient.primaryDoctorId ? User.findById(patient.primaryDoctorId).select('firstName lastName') : null,
   ]);
+  const activeBed = stay?.status === 'active'
+    ? await Bed.findOne({ _id: stay.bedId, organizationId }).select('expectedDischarge')
+    : null;
+  const stayEnd = stay?.dischargeDate ?? new Date();
   return {
     patient: {
       id: patient.id, recordNumber: patient.id,
@@ -474,6 +758,22 @@ export async function getNursingPatient(actor: AuthContext, organizationId: stri
       bloodType: patient.bloodType, status: patient.status, room: stay?.bedNumber ?? patient.room,
       ward: stay?.wardName, doctor: doctor ? `${doctor.firstName} ${doctor.lastName}` : undefined,
     },
+    hospitalization: stay ? {
+      status: stay.status,
+      admittedAt: stay.admissionDate,
+      dischargedAt: stay.dischargeDate,
+      expectedDischargeAt: activeBed?.expectedDischarge,
+      durationDays: stayDurationDays(stay.admissionDate, stayEnd),
+      ward: stay.wardName,
+      room: stay.bedNumber,
+    } : patient.admissionDate ? {
+      status: patient.status === 'discharged' ? 'completed' : 'active',
+      admittedAt: patient.admissionDate,
+      dischargedAt: patient.dischargeDate,
+      durationDays: stayDurationDays(patient.admissionDate, patient.dischargeDate ?? new Date()),
+      ward: undefined,
+      room: patient.room,
+    } : undefined,
     consultations,
     prescriptions,
     exams,

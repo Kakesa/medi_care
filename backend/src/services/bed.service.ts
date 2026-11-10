@@ -355,6 +355,7 @@ export async function assignBed(
   }
 
   const admission = todayStamp();
+  const admittedAt = new Date();
   const ward = wardOf(bed.wardId);
   bed.set('status', 'occupied');
   bed.set('patientId', patient._id);
@@ -370,7 +371,7 @@ export async function assignBed(
     wardName: ward?.name ?? '',
     patientId: patient._id,
     patientName: `${patient.firstName} ${patient.lastName}`,
-    admissionDate: asDate(admission),
+    admissionDate: admittedAt,
     status: 'active',
   });
   await recordStayIfTariff(actor, organizationId, { patientId: patient.id, stayId: stay.id }, ip);
@@ -403,6 +404,7 @@ export async function releaseBed(actor: AuthContext, organizationId: string, id:
   const patientId = bed.patientId?.toString();
   const number = bed.number;
   const discharge = todayStamp();
+  const dischargedAt = new Date();
   const activeStays = await BedStay.find({ organizationId, bedId: bed._id, status: 'active' });
 
   await Bed.updateOne(
@@ -415,7 +417,7 @@ export async function releaseBed(actor: AuthContext, organizationId: string, id:
 
   await BedStay.updateMany(
     { organizationId, bedId: bed._id, status: 'active' },
-    { status: 'completed', dischargeDate: asDate(discharge) }
+    { status: 'completed', dischargeDate: dischargedAt }
   );
   for (const stay of activeStays) {
     await syncStayQuantity(actor, organizationId, stay.id, Math.max(1, dayCount(stay.admissionDate, asDate(discharge))), ip);

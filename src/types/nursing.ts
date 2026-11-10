@@ -99,11 +99,25 @@ export interface NursingPatientDetail {
     allergies?: string[];
     bloodType?: string;
   };
-  consultations: Array<{ date: string; doctorName: string; status: string }>;
+  hospitalization?: {
+    status: 'active' | 'completed';
+    admittedAt: string;
+    dischargedAt?: string;
+    expectedDischargeAt?: string;
+    durationDays: number;
+    ward?: string;
+    room?: string;
+  };
+  consultations: Array<{ date: string; doctorName: string; diagnosis?: string; status: string }>;
   prescriptions: Array<{
     id: string;
     prescriberName: string;
-    items: Array<{ id: string; medication: string; dosage: string; posology: string; administrationRoute?: string; instructions?: string }>;
+    items: Array<{
+      id: string; medication: string; dosage: string; posology: string;
+      administrationRoute?: string; duration: string; treatmentStartDate?: string;
+      treatmentEndDate?: string; administrationTimes?: string[]; instructions?: string;
+      treatmentStatus?: 'active' | 'suspended' | 'completed' | 'interrupted'; actualTreatmentEndAt?: string;
+    }>;
     pharmacyStatus: string;
     validatedAt?: string;
   }>;
@@ -111,6 +125,45 @@ export interface NursingPatientDetail {
   care: NursingCare[];
   observations: NursingObservation[];
   vitals: NursingVitalSigns[];
+}
+
+export type MedicationAdministrationStatus =
+  | 'pending'
+  | 'administered_on_time'
+  | 'administered_late'
+  | 'not_administered'
+  | 'patient_refused'
+  | 'suspended'
+  | 'treatment_completed'
+  | 'treatment_interrupted';
+
+export interface MedicationAdministration {
+  id: string;
+  patientId: string;
+  prescriptionId: string;
+  prescriptionItemId: string;
+  medication: string;
+  prescribedDose: string;
+  administrationRoute: string;
+  posology: string;
+  instructions: string;
+  scheduledAt: string;
+  administeredAt?: string;
+  administeredBy?: string;
+  administeredByName?: string;
+  status: MedicationAdministrationStatus;
+  observations?: string;
+  notDoneReason?: string;
+  history: Array<{ actorId: string; action: string; at: string; reason?: string }>;
+}
+
+export interface MedicationAdministrationSheet {
+  patientId: string;
+  date: string;
+  timeZone: string;
+  lateWindowMinutes: number;
+  doses: MedicationAdministration[];
+  unconfiguredItems: Array<{ prescriptionId: string; medication: string; reason: string }>;
 }
 
 export type NursingThresholds = {

@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,7 +12,6 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useAckExamResults } from "@/contexts/WorkBadgeContext";
 import { useToast } from "@/hooks/use-toast";
@@ -22,6 +21,14 @@ import { userAdminService } from "@/services/userAdminService";
 
 const groups: LabStatus[] = ["EN_ATTENTE_VALIDATION", "EN_COURS", "BROUILLON", "CORRECTION_DEMANDEE", "REJETE", "VALIDE", "EN_ATTENTE"];
 const patientsPerPage = 10;
+const paymentLabels: Record<string, string> = {
+  unbilled: "Sans facture",
+  draft: "Brouillon",
+  pending: "À payer",
+  paid: "Payé",
+  overdue: "En retard",
+  cancelled: "Annulé",
+};
 
 export default function LabSupervision() {
   const { toast } = useToast();
@@ -126,90 +133,51 @@ export default function LabSupervision() {
         </CardContent>
       </Card>
       <div className="grid gap-4 lg:grid-cols-[1fr_1.1fr]">
-        <Card className="overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50 hover:bg-muted/50">
-                <TableHead className="w-16">N°</TableHead>
-                <TableHead>Patient</TableHead>
-                <TableHead className="text-right">Examens</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {pagePatients.map((patient, index) => {
-                const patientExams = rows.filter((row) => row.patientId === patient.id);
-                const isExpanded = selectedPatientId === patient.id;
-
-                return (
-                  <Fragment key={patient.id}>
-                    <TableRow className={isExpanded ? "bg-muted/30" : ""}>
-                      <TableCell>
-                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-                          {(activePage - 1) * patientsPerPage + index + 1}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <button
-                          type="button"
-                          aria-expanded={isExpanded}
-                          className="w-full text-left font-semibold hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                          onClick={() => {
-                            setSelectedPatientId(isExpanded ? null : patient.id);
-                            setSelected(null);
-                          }}
-                        >
-                          {patient.name}
-                        </button>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Badge variant={isExpanded ? "default" : "secondary"}>
-                          {patientExams.length} examen{patientExams.length > 1 ? "s" : ""}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
+        <div className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            {pagePatients.map((patient) => {
+              const patientExams = rows.filter((row) => row.patientId === patient.id);
+              const isExpanded = selectedPatientId === patient.id;
+              return (
+                <Card key={patient.id} className={isExpanded ? "border-primary sm:col-span-2" : ""}>
+                  <CardContent className="p-4">
+                    <button
+                      type="button"
+                      aria-expanded={isExpanded}
+                      className="flex w-full items-center justify-between gap-3 text-left"
+                      onClick={() => {
+                        setSelectedPatientId(isExpanded ? null : patient.id);
+                        setSelected(null);
+                      }}
+                    >
+                      <span className="font-semibold">{patient.name}</span>
+                      <Badge variant={isExpanded ? "default" : "secondary"}>
+                        {patientExams.length} examen{patientExams.length > 1 ? "s" : ""}
+                      </Badge>
+                    </button>
                     {isExpanded && (
-                      <TableRow className="bg-muted/20 hover:bg-muted/20">
-                        <TableCell colSpan={3} className="p-3 sm:p-4">
-                          <Table>
-                            <TableHeader>
-                              <TableRow className="border-muted">
-                                <TableHead className="w-16">N°</TableHead>
-                                <TableHead>Examen</TableHead>
-                                <TableHead>Statut</TableHead>
-                                <TableHead>Paiement</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {patientExams.map((exam, examIndex) => (
-                                <TableRow key={exam.id}>
-                                  <TableCell className="text-muted-foreground">{examIndex + 1}</TableCell>
-                                  <TableCell>
-                                    <button
-                                      type="button"
-                                      className="text-left font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                      onClick={() => void open(exam.id)}
-                                    >
-                                      {exam.name}
-                                    </button>
-                                  </TableCell>
-                                  <TableCell>
-                                    <Badge variant={exam.labStatus === "VALIDE" ? "default" : "secondary"}>
-                                      {labStatusLabels[exam.labStatus]}
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell className="text-muted-foreground">{exam.paymentStatus}</TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </TableCell>
-                      </TableRow>
+                      <div className="mt-4 space-y-2">
+                        {patientExams.map((exam) => (
+                          <button
+                            key={exam.id}
+                            type="button"
+                            className="flex w-full flex-col gap-2 rounded-lg border p-3 text-left hover:bg-muted/40 sm:flex-row sm:items-center sm:justify-between"
+                            onClick={() => void open(exam.id)}
+                          >
+                            <span className="font-medium">{exam.name}</span>
+                            <span className="flex flex-wrap items-center gap-2">
+                              <Badge variant={exam.labStatus === "VALIDE" ? "default" : "secondary"}>{labStatusLabels[exam.labStatus]}</Badge>
+                              <span className="text-xs text-muted-foreground">{paymentLabels[exam.paymentStatus] || exam.paymentStatus}</span>
+                            </span>
+                          </button>
+                        ))}
+                      </div>
                     )}
-                  </Fragment>
-                );
-              })}
-            </TableBody>
-          </Table>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
           {patients.length > 0 && (
             <div className="flex flex-col items-center justify-between gap-3 border-t px-4 py-3 sm:flex-row">
               <p className="text-sm text-muted-foreground">
@@ -261,7 +229,7 @@ export default function LabSupervision() {
               )}
             </div>
           )}
-        </Card>
+        </div>
         {selected ? (
           <Card>
             <CardContent className="space-y-3 p-4">

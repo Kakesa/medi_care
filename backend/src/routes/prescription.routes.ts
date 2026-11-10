@@ -9,6 +9,7 @@ import {
   createPrescriptionSchema,
   dispenseSchema,
   listPrescriptionsSchema,
+  prescriptionItemStatusSchema,
   prescriptionParamsSchema,
   unavailableSchema,
 } from '../validators/prescription.validator.js';
@@ -22,6 +23,7 @@ router.use(authenticate, requireTenant);
 router.get('/', requireRoles(...readers), validate(listPrescriptionsSchema), lab.listPrescriptions);
 router.post('/', requireRoles(...prescribers), validate(createPrescriptionSchema), lab.createPrescription);
 router.post('/:id/validate', requireRoles(...prescribers), validate(prescriptionParamsSchema), lab.validatePrescription);
+router.patch('/:id/items/:itemId/status', requireRoles(...prescribers), validate(prescriptionItemStatusSchema), lab.updatePrescriptionItemStatus);
 router.post('/:id/prepare', requireRoles(...pharmacy), validate(prescriptionParamsSchema), lab.preparePrescription);
 router.post('/:id/dispense', requireRoles(...pharmacy), validate(dispenseSchema), lab.dispensePrescription);
 router.post('/:id/unavailable', requireRoles(...pharmacy), validate(unavailableSchema), lab.unavailablePrescription);

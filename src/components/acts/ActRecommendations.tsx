@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PatientSelect } from "@/components/patients/PatientSelect";
 
 const realizationLabel: Record<RealizationStatus, string> = {
   recommended: "Recommandé",
@@ -142,14 +142,7 @@ export function ActRecommendations({ leading }: { leading?: ReactNode }) {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div className="space-y-2">
             <Label>Patient</Label>
-            <Select value={patientId || undefined} onValueChange={setPatientId}>
-              <SelectTrigger className="w-full sm:w-72"><SelectValue placeholder="Choisir un patient" /></SelectTrigger>
-              <SelectContent>
-                {patients.map((patient) => (
-                  <SelectItem key={patient.id} value={patient.id}>{patient.firstName} {patient.lastName}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <PatientSelect className="w-full sm:w-72" patients={patients} value={patientId} onValueChange={setPatientId} placeholder="Choisir un patient" />
           </div>
           <Button variant="hero" onClick={() => setOpen(true)} disabled={!patientId}>
             <Plus className="mr-2 h-4 w-4" />Recommander des actes

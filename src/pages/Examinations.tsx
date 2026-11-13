@@ -46,6 +46,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { examCategories } from "@/data/mockData";
+import { PatientSelect } from "@/components/patients/PatientSelect";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAckExamResults } from "@/contexts/WorkBadgeContext";
 import { chargeService, type CatalogOption, type PatientChargeRecord } from "@/services/chargeService";
@@ -684,14 +685,7 @@ export default function Examinations() {
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label>Patient</Label>
-                <Select value={formData.patientId} onValueChange={(v) => setFormData({...formData, patientId: v})}>
-                  <SelectTrigger><SelectValue placeholder="Sélectionner un patient" /></SelectTrigger>
-                  <SelectContent>
-                    {patients.map(p => (
-                      <SelectItem key={p.id} value={p.id}>{p.firstName} {p.lastName}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <PatientSelect patients={patients} value={formData.patientId} onValueChange={(v) => setFormData({...formData, patientId: v})} />
               </div>
               <div className="space-y-2">
                 <Label>Médecin prescripteur</Label>
@@ -922,22 +916,17 @@ export default function Examinations() {
 
         <TabsContent value="somme" className="space-y-4">
           {patients.length > 0 && (
-            <Select
-              value={sumPatientId || "none"}
-              onValueChange={(value) => {
-                const patientId = value === "none" ? "" : value;
+            <PatientSelect
+              className="w-full sm:w-72"
+              patients={patients}
+              value={sumPatientId}
+              placeholder="Patient"
+              clearLabel={user?.role !== "DOCTOR" ? "Tous les patients visibles" : undefined}
+              onValueChange={(patientId) => {
                 setSumPatientId(patientId);
                 void loadCharges(patientId || undefined);
               }}
-            >
-              <SelectTrigger className="w-full sm:w-72"><SelectValue placeholder="Patient" /></SelectTrigger>
-              <SelectContent>
-                {user?.role !== "DOCTOR" && <SelectItem value="none">Tous les patients visibles</SelectItem>}
-                {patients.map((patient) => (
-                  <SelectItem key={patient.id} value={patient.id}>{patient.firstName} {patient.lastName}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            />
           )}
           {user?.role === "DOCTOR" && !sumPatientId ? (
             <p className="text-sm text-muted-foreground">Choisissez un patient pour voir la somme de ses examens.</p>

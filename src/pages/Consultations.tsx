@@ -47,6 +47,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PatientSelect } from "@/components/patients/PatientSelect";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { consultationService } from "@/services/consultationService";
@@ -300,18 +301,7 @@ export default function Consultations() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Patient *</Label>
-                  <Select value={formData.patientId} onValueChange={(v) => handleChange("patientId", v)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {patients.map(p => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.firstName} {p.lastName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <PatientSelect patients={patients} value={formData.patientId} onValueChange={(v) => handleChange("patientId", v)} />
                 </div>
                 <div className="space-y-2">
                   <Label>Médecin *</Label>

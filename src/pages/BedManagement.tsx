@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { PatientSelect } from "@/components/patients/PatientSelect";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -606,14 +607,7 @@ export default function BedManagement() {
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
               <Label>Patient</Label>
-              <Select key={assignDialog.bedId ?? "none"} onValueChange={(patientId) => setAssignDialog({ ...assignDialog, patientId })}>
-                <SelectTrigger><SelectValue placeholder="Sélectionner un patient" /></SelectTrigger>
-                <SelectContent>
-                  {patients.map((patient) => (
-                    <SelectItem key={patient.id} value={patient.id}>{patient.firstName} {patient.lastName}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <PatientSelect key={assignDialog.bedId ?? "none"} patients={patients} value={assignDialog.patientId} onValueChange={(patientId) => setAssignDialog({ ...assignDialog, patientId })} />
             </div>
             <div className="space-y-2">
               <Label>Sortie prévue</Label>

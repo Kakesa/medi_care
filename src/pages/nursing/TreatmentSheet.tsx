@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { apiMessage } from '@/lib/apiError';
 import { useToast } from '@/hooks/use-toast';
+import { PatientSelect } from '@/components/patients/PatientSelect';
 import { nursingService } from '@/services/nursingService';
 import type { MedicationAdministration, MedicationAdministrationSheet, NursingPatient, NursingPatientDetail } from '@/types/nursing';
 
@@ -425,10 +426,7 @@ export function TreatmentSheet({
         <div className="grid gap-3 md:grid-cols-3">
           <div className="space-y-2">
             <Label>Patient</Label>
-            <Select value={selectedId || undefined} onValueChange={onSelectPatient}>
-              <SelectTrigger><SelectValue placeholder="Sélectionner un patient" /></SelectTrigger>
-              <SelectContent>{patients.map((item) => <SelectItem key={item.id} value={item.id}>{item.firstName} {item.lastName}</SelectItem>)}</SelectContent>
-            </Select>
+            <PatientSelect patients={patients} value={selectedId} onValueChange={onSelectPatient} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="treatment-week">Premier jour (J1)</Label>

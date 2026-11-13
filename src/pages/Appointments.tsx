@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { PatientSelect } from "@/components/patients/PatientSelect";
 import { appointmentService } from "@/services/appointmentService";
 import { patientService } from "@/services/patientService";
 import { personnelService } from "@/services/personnelService";
@@ -295,14 +296,7 @@ export default function Appointments() {
           <fieldset disabled={saving} className="min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
             <div className="space-y-2">
               <Label>Patient</Label>
-              <Select value={form.patientId} onValueChange={(value) => setForm({ ...form, patientId: value })} disabled={saving}>
-                <SelectTrigger><SelectValue placeholder="Sélectionner un patient" /></SelectTrigger>
-                <SelectContent>
-                  {patients.map((patient) => (
-                    <SelectItem key={patient.id} value={patient.id}>{patient.firstName} {patient.lastName}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <PatientSelect patients={patients} value={form.patientId} onValueChange={(value) => setForm({ ...form, patientId: value })} disabled={saving} />
             </div>
             <div className="space-y-2">
               <Label>Médecin</Label>

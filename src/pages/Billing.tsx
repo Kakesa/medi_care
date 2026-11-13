@@ -19,6 +19,7 @@ import type { Invoice, InvoiceStatus, PaymentMethod } from "@/types";
 import { apiMessage } from "@/lib/apiError";
 import { categoryLabel, DEFAULT_CATEGORIES, type BillingCategory } from "@/lib/billingCategories";
 import { formatMoney, type BillingCurrency } from "@/lib/money";
+import { PatientSelect } from "@/components/patients/PatientSelect";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAckInvoices } from "@/contexts/WorkBadgeContext";
 
@@ -345,14 +346,7 @@ export default function Billing() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2 sm:col-span-2">
                   <Label>Patient</Label>
-                  <Select value={newInvoice.patientId} onValueChange={(patientId) => setNewInvoice({ ...newInvoice, patientId })} disabled={saving}>
-                    <SelectTrigger><SelectValue placeholder="Sélectionner un patient" /></SelectTrigger>
-                    <SelectContent>
-                      {patients.map(patient => (
-                        <SelectItem key={patient.id} value={patient.id}>{patient.firstName} {patient.lastName}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <PatientSelect patients={patients} value={newInvoice.patientId} onValueChange={(patientId) => setNewInvoice({ ...newInvoice, patientId })} disabled={saving} />
                   {patients.length === 0 && <p className="text-xs text-muted-foreground">Aucun patient enregistré.</p>}
                   {patientActs.length > 0 && (
                     <div className="space-y-1 rounded-lg bg-secondary/50 p-2 text-xs text-muted-foreground">

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PatientSelect } from '@/components/patients/PatientSelect';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { apiMessage } from '@/lib/apiError';
@@ -140,10 +140,7 @@ export function SurveillanceSheet({
             <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-2 sm:col-span-2">
                 <Label>Patient</Label>
-                <Select value={selectedId || undefined} onValueChange={onSelectPatient}>
-                  <SelectTrigger><SelectValue placeholder="Sélectionner un patient" /></SelectTrigger>
-                  <SelectContent>{patients.map((item) => <SelectItem key={item.id} value={item.id}>{item.firstName} {item.lastName}</SelectItem>)}</SelectContent>
-                </Select>
+                <PatientSelect patients={patients} value={selectedId} onValueChange={onSelectPatient} />
               </div>
               <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="surveillance-time">Date et heure</Label>

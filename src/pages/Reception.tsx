@@ -11,6 +11,7 @@ import {
   UserPlus,
   ArrowRight
 } from "lucide-react";
+import { PatientSelect } from "@/components/patients/PatientSelect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -250,18 +251,7 @@ export default function ReceptionPage() {
               ) : (
                 <div className="space-y-2">
                   <Label>Sélectionner un patient *</Label>
-                  <Select value={formData.patientId} onValueChange={(v) => handleChange("patientId", v)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Rechercher un patient" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {patients.map(p => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.firstName} {p.lastName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <PatientSelect patients={patients} value={formData.patientId} onValueChange={(v) => handleChange("patientId", v)} />
                 </div>
               )}
 

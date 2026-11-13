@@ -17,6 +17,7 @@ import { apiMessage } from '@/lib/apiError';
 import { useToast } from '@/hooks/use-toast';
 import { SurveillanceSheet } from '@/pages/nursing/SurveillanceSheet';
 import { TreatmentSheet } from '@/pages/nursing/TreatmentSheet';
+import { PatientSelect } from '@/components/patients/PatientSelect';
 import { nursingService } from '@/services/nursingService';
 import type {
   NursingCare, NursingCareStatus, NursingCareType, NursingDashboard, NursingPatient,
@@ -595,7 +596,7 @@ export default function NursingCarePage() {
             <CardHeader><CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5" />Programmer un soin</CardTitle></CardHeader>
             <CardContent>
               <form onSubmit={submitCare} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <div className="space-y-2"><Label>Patient</Label><Select value={selectedId} onValueChange={setSelectedId}><SelectTrigger><SelectValue placeholder="Sélectionner un patient" /></SelectTrigger><SelectContent>{patients.map((patient) => <SelectItem key={patient.id} value={patient.id}>{patient.firstName} {patient.lastName}</SelectItem>)}</SelectContent></Select></div>
+                <div className="space-y-2"><Label>Patient</Label><PatientSelect patients={patients} value={selectedId} onValueChange={setSelectedId} /></div>
                 <div className="space-y-2"><Label>Type de soin</Label><Select value={careType} onValueChange={(value) => setCareType(value as NursingCareType)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.entries(careLabels).filter(([key]) => key !== 'medication').map(([key, label]) => <SelectItem key={key} value={key}>{label}</SelectItem>)}</SelectContent></Select></div>
                 <div className="space-y-2"><Label>Date et heure prévues</Label><Input type="datetime-local" value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} required /></div>
                 <div className="space-y-2 sm:col-span-2"><Label>Description</Label><Input value={careDescription} onChange={(event) => setCareDescription(event.target.value)} required maxLength={2000} /></div>

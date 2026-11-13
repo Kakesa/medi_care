@@ -47,6 +47,10 @@ function dayLabel(date: string) {
 
 const administrationRoutes = ['Orale', 'Intraveineuse', 'Intramusculaire', 'Sous-cutanée', 'Rectale', 'Inhalation'] as const;
 
+function lineId(item: { id?: string; _id?: string }) {
+  return item.id || item._id || '';
+}
+
 function frequencyLabel(times: string[]) {
   if (times.length === 1) return '1 fois / jour';
   if (times.length > 1) return `${times.length} fois / jour`;
@@ -146,13 +150,14 @@ export function TreatmentSheet({
     }
     for (const prescription of detail?.prescriptions ?? []) {
       for (const item of prescription.items) {
-        if (grouped.has(item.id) || !item.administrationTimes?.length) continue;
+        const id = lineId(item);
+        if (!id || grouped.has(id) || !item.administrationTimes?.length) continue;
         const start = item.treatmentStartDate;
         const end = item.treatmentEndDate;
         const overlaps = !start || !end || !(end < days[0] || start > days[6]);
         if (!overlaps) continue;
-        grouped.set(item.id, {
-          id: item.id,
+        grouped.set(id, {
+          id,
           prescriptionId: prescription.id,
           medication: item.medication,
           dose: item.dosage,

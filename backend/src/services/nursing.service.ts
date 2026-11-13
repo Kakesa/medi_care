@@ -872,6 +872,31 @@ export async function getNursingPatient(actor: AuthContext, organizationId: stri
     : null;
   const stayEnd = stay?.dischargeDate ?? new Date();
   const mappedVitals = vitals.map((row) => mapVitals(row, thresholds));
+  const mappedPrescriptions = prescriptions.map((row) => ({
+    id: row.id,
+    prescriberName: row.prescriberName,
+    status: row.status,
+    pharmacyStatus: row.pharmacyStatus,
+    validatedAt: row.validatedAt,
+    items: row.items.map((item) => {
+      const closing = [...(item.treatmentStatusHistory ?? [])].reverse()
+        .find((change) => change.status === 'completed' || change.status === 'interrupted');
+      return {
+        id: item.id,
+        medication: item.medication,
+        dosage: item.dosage,
+        posology: item.posology,
+        administrationRoute: item.administrationRoute,
+        duration: item.duration,
+        treatmentStartDate: item.treatmentStartDate,
+        treatmentEndDate: item.treatmentEndDate,
+        administrationTimes: item.administrationTimes ?? [],
+        instructions: item.instructions ?? '',
+        treatmentStatus: item.treatmentStatus,
+        actualTreatmentEndAt: closing?.changedAt,
+      };
+    }),
+  }));
     const names = await namesById(organizationId, [
       ...mappedVitals.map((row) => row.recordedBy),
       ...observations.map((row) => row.nurseId.toString()),
@@ -901,7 +926,7 @@ export async function getNursingPatient(actor: AuthContext, organizationId: stri
       room: patient.room,
     } : undefined,
     consultations,
-    prescriptions,
+    prescriptions: mappedPrescriptions,
     exams,
     care: care.map(mapCare),
     observations: observations.map((row) => ({

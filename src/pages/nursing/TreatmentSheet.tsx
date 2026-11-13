@@ -146,7 +146,7 @@ export function TreatmentSheet({
     }
     for (const prescription of detail?.prescriptions ?? []) {
       for (const item of prescription.items) {
-        if (grouped.has(item.id)) continue;
+        if (grouped.has(item.id) || !item.administrationTimes?.length) continue;
         const start = item.treatmentStartDate;
         const end = item.treatmentEndDate;
         const overlaps = !start || !end || !(end < days[0] || start > days[6]);
@@ -165,16 +165,6 @@ export function TreatmentSheet({
     }
     return [...grouped.values()].sort((a, b) => a.medication.localeCompare(b.medication, 'fr'));
   }, [doses, detail?.prescriptions, days]);
-
-  const unconfigured = useMemo(() => {
-    const seen = new Set<string>();
-    return sheets.flatMap((sheet) => sheet.unconfiguredItems).filter((item) => {
-      const key = `${item.prescriptionId}:${item.medication}:${item.reason}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  }, [sheets]);
 
   const counts = useMemo(() => ({
     done: doses.filter((dose) => dose.status === 'administered_on_time' || dose.status === 'administered_late').length,
@@ -363,9 +353,6 @@ export function TreatmentSheet({
           <Badge variant="outline" className="border-amber-500 text-amber-800"><Clock3 className="mr-1 h-3 w-3" />{counts.late} en retard</Badge>
           <Badge variant="outline" className="border-red-600 text-red-800"><XCircle className="mr-1 h-3 w-3" />{counts.missed} non effectué(s)</Badge>
         </div>
-        {unconfigured.length > 0 && canWrite && (
-          <p className="text-sm text-amber-700">Choisissez la fréquence et la voie. Une prise par jour affiche une case, deux prises en affichent deux, et ainsi de suite.</p>
-        )}
         <div className="overflow-x-auto rounded-lg border">
           <table className="w-full min-w-[980px] border-collapse text-sm">
             <thead className="bg-muted/60">

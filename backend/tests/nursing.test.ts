@@ -207,10 +207,14 @@ describe('Module de soins infirmiers', () => {
     expect(await MedicationAdministration.countDocuments({ patientId: hospital.patientId })).toBe(3);
 
     const lateDose = sheet.body.doses[0];
+    const lateWithoutReason = await request(app).post(`/api/nursing/administrations/${lateDose.id}/confirm`)
+      .set(bearer(hospital.nurse.token)).send({});
+    expect(lateWithoutReason.status).toBe(400);
     const lateConfirmation = await request(app).post(`/api/nursing/administrations/${lateDose.id}/confirm`)
-      .set(bearer(hospital.nurse.token)).send({ observations: 'Administration observée' });
+      .set(bearer(hospital.nurse.token)).send({ reason: 'Patient encore au bloc' });
     expect(lateConfirmation.status).toBe(200);
     expect(lateConfirmation.body.status).toBe('administered_late');
+    expect(lateConfirmation.body.observations).toBe('Patient encore au bloc');
     expect(lateConfirmation.body.administeredBy).toBe(hospital.nurse.user.id);
     expect(lateConfirmation.body.administeredAt).toBeTruthy();
 

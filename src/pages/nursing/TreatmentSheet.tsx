@@ -3,9 +3,11 @@ import { Check, CheckCircle2, Clock3, Printer, X, XCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { apiMessage } from '@/lib/apiError';
 import { useToast } from '@/hooks/use-toast';
 import { nursingService } from '@/services/nursingService';
@@ -25,6 +27,14 @@ const statusLabels = {
 } as const;
 
 type ReasonType = 'patient_absent' | 'patient_refused' | 'unavailable' | 'other';
+type MotifMode = 'late' | 'missed' | 'correct';
+
+const reasonLabels: Record<ReasonType, string> = {
+  patient_refused: 'Refus du patient',
+  patient_absent: 'Patient absent',
+  unavailable: 'Médicament indisponible',
+  other: 'Autre motif',
+};
 
 function facilityDate() {
   return new Intl.DateTimeFormat('en-CA', {
@@ -79,6 +89,16 @@ function canConfirm(dose: MedicationAdministration) {
   return new Date(dose.scheduledAt).getTime() <= Date.now();
 }
 
+function isLate(dose: MedicationAdministration) {
+  return Date.now() > new Date(dose.scheduledAt).getTime();
+}
+
+function doseMotif(dose: MedicationAdministration) {
+  if (dose.status === 'administered_late') return dose.observations?.trim() || '';
+  if (dose.status === 'not_administered' || dose.status === 'patient_refused') return dose.notDoneReason?.trim() || '';
+  return '';
+}
+
 function escapeHtml(value: string) {
   return value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char] ?? char));
 }
@@ -102,9 +122,11 @@ export function TreatmentSheet({
   const [weekStart, setWeekStart] = useState(facilityDate());
   const [sheets, setSheets] = useState<MedicationAdministrationSheet[]>([]);
   const [loading, setLoading] = useState(false);
-  const [missedId, setMissedId] = useState('');
+  const [motif, setMotif] = useState<{ dose: MedicationAdministration; mode: MotifMode; medication: string } | null>(null);
   const [reasonType, setReasonType] = useState<ReasonType>('patient_refused');
   const [reason, setReason] = useState('');
+  const [savingMotif, setSavingMotif] = useState(false);
+  const [shownMotifs, setShownMotifs] = useState<Record<string, boolean>>({});
   const [drafts, setDrafts] = useState<Record<string, { times: string; route: string }>>({});
   const [schedulingId, setSchedulingId] = useState('');
   const [newMedication, setNewMedication] = useState('');
@@ -183,7 +205,13 @@ export function TreatmentSheet({
     await onChanged();
   };
 
-  const confirm = async (dose: MedicationAdministration) => {
+  const openMotif = (dose: MedicationAdministration, medication: string, mode: MotifMode) => {
+    setReasonType('patient_refused');
+    setReason(mode === 'correct' ? doseMotif(dose) : '');
+    setMotif({ dose, medication, mode });
+  };
+
+  const confirmOnTime = async (dose: MedicationAdministration) => {
     if (!canConfirm(dose)) return;
     try {
       await nursingService.confirmAdministration(dose.id);
@@ -194,30 +222,30 @@ export function TreatmentSheet({
     }
   };
 
-  const markMissed = async (dose: MedicationAdministration) => {
-    if (!reason.trim()) return;
+  const saveMotif = async () => {
+    if (!motif || reason.trim().length < 3) return;
+    const text = reason.trim();
+    setSavingMotif(true);
     try {
-      await nursingService.markAdministrationMissed(dose.id, { reasonType, reason: reason.trim() });
-      setMissedId('');
+      if (motif.mode === 'late' && !isClosed(motif.dose)) {
+        await nursingService.confirmAdministration(motif.dose.id, { reason: text });
+        toast({ title: 'Prise en retard enregistrée', description: 'Le médecin et l’administrateur voient le motif sur la feuille.' });
+      } else if (motif.mode === 'missed') {
+        const full = `${reasonLabels[reasonType]} — ${text}`.slice(0, 500);
+        await nursingService.markAdministrationMissed(motif.dose.id, { reasonType, reason: full });
+        toast({ title: 'Prise non effectuée', description: 'Le médecin et l’administrateur voient le motif sur la feuille.' });
+      } else {
+        const missed = motif.dose.status === 'not_administered' || motif.dose.status === 'patient_refused';
+        await nursingService.correctAdministration(motif.dose.id, missed ? { reason: text, notDoneReason: text } : { reason: text, observations: text });
+        toast({ title: 'Motif enregistré', description: 'La correction reste dans l’historique. Le médecin et l’administrateur voient le motif.' });
+      }
+      setMotif(null);
       setReason('');
-      toast({ title: 'Prise non effectuée', description: 'Le motif est historisé. Une administration validée ne se modifie pas sans correction justifiée.' });
       await reloadSheet();
     } catch (error) {
-      toast({ title: 'Enregistrement impossible', description: apiMessage(error), variant: 'destructive' });
-    }
-  };
-
-  const correct = async (dose: MedicationAdministration) => {
-    const justification = window.prompt('Justification obligatoire. Une administration validée n’est pas modifiée sans trace.')?.trim();
-    if (!justification) return;
-    const observations = window.prompt('Observation corrigée', dose.observations ?? '');
-    if (observations === null) return;
-    try {
-      await nursingService.correctAdministration(dose.id, { reason: justification, observations });
-      toast({ title: 'Correction tracée' });
-      await reloadSheet();
-    } catch (error) {
-      toast({ title: 'Correction impossible', description: apiMessage(error), variant: 'destructive' });
+      toast({ title: 'Motif non enregistré', description: apiMessage(error), variant: 'destructive' });
+    } finally {
+      setSavingMotif(false);
     }
   };
 
@@ -275,7 +303,7 @@ export function TreatmentSheet({
       <td>${escapeHtml(row.medication)}<br><small>${escapeHtml(row.dose)}</small></td>
       <td>${escapeHtml(frequencyLabel(row.times))}</td>
       <td>${escapeHtml(row.route)}</td>
-      ${row.cells.map((cell) => `<td>${cell.map((dose) => `${clock(dose.scheduledAt)} ${escapeHtml(statusLabels[dose.status])}${dose.administeredByName ? ` · ${escapeHtml(dose.administeredByName)}` : ''}`).join('<br>') || '—'}</td>`).join('')}
+      ${row.cells.map((cell) => `<td>${cell.map((dose) => `${clock(dose.scheduledAt)} ${escapeHtml(statusLabels[dose.status])}${dose.administeredByName ? ` · ${escapeHtml(dose.administeredByName)}` : ''}${doseMotif(dose) ? ` · ${escapeHtml(doseMotif(dose))}` : ''}`).join('<br>') || '—'}</td>`).join('')}
     </tr>`).join('');
     const popup = window.open('', '_blank', 'noopener,noreferrer');
     if (!popup) return;
@@ -291,14 +319,14 @@ export function TreatmentSheet({
   };
 
   const exportSheet = () => {
-    const lines = [['Médicament', 'Dose', 'Fréquence', 'Voie', 'Jour', 'Heure', 'Statut', 'Infirmier', 'Heure réelle']];
+    const lines = [['Médicament', 'Dose', 'Fréquence', 'Voie', 'Jour', 'Heure', 'Statut', 'Infirmier', 'Heure réelle', 'Motif']];
     for (const row of rows) {
       row.cells.forEach((cell, index) => {
         for (const dose of cell) {
           lines.push([
             row.medication, row.dose, frequencyLabel(row.times), row.route,
             `J${index + 1} ${days[index]}`, clock(dose.scheduledAt), statusLabels[dose.status],
-            dose.administeredByName ?? '', dose.administeredAt ? clock(dose.administeredAt) : '',
+            dose.administeredByName ?? '', dose.administeredAt ? clock(dose.administeredAt) : '', doseMotif(dose),
           ]);
         }
       });
@@ -427,34 +455,26 @@ export function TreatmentSheet({
                                   aria-label={`${row.medication} ${clock(dose.scheduledAt)} ${days[index]}`}
                                   title={tone === 'green' ? 'Pris à l’heure' : tone === 'yellow' ? 'Pris en retard' : tone === 'red' ? 'Prise ratée' : 'À administrer'}
                                   className={`flex h-6 w-6 shrink-0 items-center justify-center rounded border ${toneClass} disabled:cursor-not-allowed`}
-                                  onClick={() => void confirm(dose)}
+                                  onClick={() => { if (isLate(dose)) openMotif(dose, row.medication, 'late'); else void confirmOnTime(dose); }}
                                 >
                                   {tone === 'red' ? <X className="h-4 w-4" /> : tone === 'open' ? null : <Check className="h-4 w-4" />}
                                 </button>
                                 <span className="text-xs">{clock(dose.scheduledAt)}</span>
                               </div>
                               {dose.administeredByName && <p className="text-[11px] text-muted-foreground">{dose.administeredByName} · {dose.administeredAt ? clock(dose.administeredAt) : ''}</p>}
-                              {dose.notDoneReason && <p className="text-[11px] text-red-700">{dose.notDoneReason}</p>}
+                              {doseMotif(dose) && (
+                                <div>
+                                  <button type="button" className="text-[11px] underline" onClick={() => setShownMotifs((current) => ({ ...current, [dose.id]: !current[dose.id] }))}>
+                                    {shownMotifs[dose.id] ? 'Masquer le motif' : 'Voir le motif'}
+                                  </button>
+                                  {shownMotifs[dose.id] && <p className={`text-[11px] ${dose.status === 'administered_late' ? 'text-amber-800' : 'text-red-700'}`}>{doseMotif(dose)}</p>}
+                                </div>
+                              )}
                               {canWrite && canConfirm(dose) && (
-                                <button type="button" className="text-[11px] text-destructive underline" onClick={() => { setMissedId(dose.id); setReason(''); }}>Non effectué</button>
+                                <button type="button" className="text-[11px] text-destructive underline" onClick={() => openMotif(dose, row.medication, 'missed')}>Non effectué</button>
                               )}
                               {canWrite && closed && (checked || dose.status === 'not_administered' || dose.status === 'patient_refused') && (
-                                <button type="button" className="block text-[11px] text-muted-foreground underline" onClick={() => void correct(dose)}>Corriger avec motif</button>
-                              )}
-                              {missedId === dose.id && (
-                                <div className="space-y-1">
-                                  <Select value={reasonType} onValueChange={(value) => setReasonType(value as ReasonType)}>
-                                    <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="patient_refused">Refus du patient</SelectItem>
-                                      <SelectItem value="patient_absent">Patient absent</SelectItem>
-                                      <SelectItem value="unavailable">Médicament indisponible</SelectItem>
-                                      <SelectItem value="other">Autre motif</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                  <Input className="h-8" placeholder="Motif obligatoire" value={reason} onChange={(event) => setReason(event.target.value)} />
-                                  <Button type="button" size="sm" variant="destructive" disabled={!reason.trim()} onClick={() => void markMissed(dose)}>Enregistrer</Button>
-                                </div>
+                                <button type="button" className="block text-[11px] text-muted-foreground underline" onClick={() => openMotif(dose, row.medication, 'correct')}>Corriger avec motif</button>
                               )}
                             </div>
                           );
@@ -500,7 +520,40 @@ export function TreatmentSheet({
             <Button type="submit" disabled={adding || !newMedication.trim()}>{adding ? 'Ajout...' : 'Ajouter la ligne'}</Button>
           </form>
         )}
-        <p className="text-xs text-muted-foreground">Case verte : pris à l’heure. Case jaune : pris en retard. Case rouge : prise ratée. Une case validée ne se décoche pas sans une correction justifiée.</p>
+        <p className="text-xs text-muted-foreground">Case verte : pris à l’heure. Case jaune : pris en retard, avec un motif. Case rouge : prise ratée, avec un motif. Le médecin et l’administrateur voient ces motifs. Une case validée ne se décoche pas sans une correction justifiée.</p>
+        <Dialog open={motif !== null} onOpenChange={(open) => { if (!open && !savingMotif) { setMotif(null); setReason(''); } }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{motif?.mode === 'missed' ? 'Prise non effectuée' : motif?.mode === 'correct' ? 'Corriger le motif' : 'Motif du retard'}</DialogTitle>
+              <DialogDescription>
+                {motif ? `${motif.medication} · prévu à ${clock(motif.dose.scheduledAt)}. ` : ''}
+                Ce texte reste sur la feuille de traitement. Le médecin et l’administrateur peuvent le lire.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              {motif?.mode === 'missed' && (
+                <div className="space-y-2">
+                  <Label htmlFor="motif-type">Type de motif</Label>
+                  <Select value={reasonType} onValueChange={(value) => setReasonType(value as ReasonType)}>
+                    <SelectTrigger id="motif-type" aria-label="Type de motif"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(reasonLabels) as ReasonType[]).map((key) => <SelectItem key={key} value={key}>{reasonLabels[key]}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="administration-motif">Motif</Label>
+                <Textarea id="administration-motif" value={reason} maxLength={500} rows={4} placeholder={motif?.mode === 'late' ? 'Exemple : le patient était encore au bloc' : 'Décrivez ce qui s’est passé'} onChange={(event) => setReason(event.target.value)} />
+                <p className="text-xs text-muted-foreground">{reason.trim().length}/500 · 3 caractères minimum.</p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" disabled={savingMotif} onClick={() => { setMotif(null); setReason(''); }}>Annuler</Button>
+              <Button type="button" variant={motif?.mode === 'missed' ? 'destructive' : 'default'} disabled={savingMotif || reason.trim().length < 3} onClick={() => void saveMotif()}>{savingMotif ? 'Enregistrement...' : 'Enregistrer le motif'}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );

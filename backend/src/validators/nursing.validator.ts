@@ -92,6 +92,7 @@ export const nursingAdministrationParamsSchema = envelope(empty, empty, paramsId
 
 export const nursingAdministrationConfirmSchema = envelope(z.object({
   observations: z.string().trim().max(2000).optional(),
+  reason: z.string().trim().min(3).max(500).optional(),
 }), empty, paramsId);
 
 export const nursingAdministrationMissedSchema = envelope(z.object({

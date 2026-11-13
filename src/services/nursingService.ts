@@ -93,8 +93,8 @@ class NursingService {
     return httpClient.get<MedicationAdministrationSheet>(`${this.basePath}/administrations`, { patientId, date });
   }
 
-  confirmAdministration(id: string, observations?: string) {
-    return httpClient.post<MedicationAdministration>(`${this.basePath}/administrations/${id}/confirm`, { observations });
+  confirmAdministration(id: string, input?: { observations?: string; reason?: string }) {
+    return httpClient.post<MedicationAdministration>(`${this.basePath}/administrations/${id}/confirm`, input ?? {});
   }
 
   markAdministrationMissed(id: string, input: {
@@ -105,7 +105,7 @@ class NursingService {
     return httpClient.post<MedicationAdministration>(`${this.basePath}/administrations/${id}/not-administered`, input);
   }
 
-  correctAdministration(id: string, input: { reason: string; observations?: string }) {
+  correctAdministration(id: string, input: { reason: string; observations?: string; notDoneReason?: string }) {
     return httpClient.post<MedicationAdministration>(`${this.basePath}/administrations/${id}/corrections`, input);
   }
 

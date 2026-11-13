@@ -619,7 +619,7 @@ export async function confirmMedicationAdministration(
   actor: AuthContext,
   organizationId: string,
   id: string,
-  input: { observations?: string },
+  input: { observations?: string; reason?: string },
   ip?: string
 ) {
   const row = await MedicationAdministration.findOne({ _id: id, organizationId });
@@ -631,11 +631,28 @@ export async function confirmMedicationAdministration(
   const status = administeredAt.getTime() <= row.scheduledAt.getTime()
     ? 'administered_on_time'
     : 'administered_late';
+  const motif = input.reason?.trim();
+  if (status === 'administered_late' && (!motif || motif.length < 3)) {
+    throw new ApiError(400, 'Le motif du retard est obligatoire', 'LATE_REASON_REQUIRED');
+  }
   const updated = await MedicationAdministration.findOneAndUpdate(
     { _id: id, organizationId, status: 'pending' },
     {
-      $set: { status, administeredAt, administeredBy: actor.id, observations: input.observations },
-      $push: { history: { actorId: actor.id, action: 'ADMINISTERED', at: administeredAt, changes: { status: { from: 'pending', to: status } } } },
+      $set: {
+        status,
+        administeredAt,
+        administeredBy: actor.id,
+        observations: status === 'administered_late' ? motif : input.observations,
+      },
+      $push: {
+        history: {
+          actorId: actor.id,
+          action: 'ADMINISTERED',
+          at: administeredAt,
+          reason: motif,
+          changes: { status: { from: 'pending', to: status } },
+        },
+      },
     },
     { new: true, runValidators: true }
   );

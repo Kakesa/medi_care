@@ -21,7 +21,6 @@ const fields = [
   ['respiratoryRate', 'Fréquence respiratoire', '/min', '1', '100'],
   ['oxygenSaturation', 'Saturation (SpO₂)', '%', '0', '100'],
   ['glucose', 'Glycémie', 'mg/dL', '0', '1000'],
-  ['weight', 'Poids', 'kg', '0.1', '500'],
 ] as const;
 
 function localDateTime(date = new Date()) {
@@ -67,7 +66,6 @@ function measurementLines(row: NursingVitalSigns) {
   if (row.respiratoryRate != null) lines.push({ label: 'Fréquence respiratoire', value: String(row.respiratoryRate), unit: '/min' });
   if (row.oxygenSaturation != null) lines.push({ label: 'SpO₂', value: String(row.oxygenSaturation), unit: '%' });
   if (row.glucose != null) lines.push({ label: 'Glycémie', value: String(row.glucose), unit: 'mg/dL' });
-  if (row.weight != null) lines.push({ label: 'Poids', value: String(row.weight), unit: 'kg' });
   if (row.height != null) lines.push({ label: 'Taille', value: String(row.height), unit: 'cm' });
   return lines;
 }

@@ -79,6 +79,25 @@ const displayFacilityDate = (value?: string) => value
   ? new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeZone: 'Africa/Kinshasa' }).format(new Date(value))
   : '—';
 
+const clinicalStatusLabels: Record<string, string> = {
+  completed: 'Terminé',
+  pending: 'En attente',
+  in_progress: 'En cours',
+  cancelled: 'Annulé',
+  scheduled: 'Planifié',
+  confirmed: 'Confirmé',
+};
+
+const pharmacyStatusLabels: Record<string, string> = {
+  new: 'Nouvelle',
+  preparing: 'En préparation',
+  partial: 'Partielle',
+  delivered: 'Délivrée',
+  closed: 'Clôturée',
+};
+
+const clinicalStatus = (status?: string) => clinicalStatusLabels[status ?? ''] ?? status ?? '—';
+
 const treatmentProgress = (startDate?: string, endDate?: string) => {
   if (!startDate || !endDate) return 'Dates de traitement non structurées';
   const start = Date.parse(`${startDate}T00:00:00.000Z`);
@@ -437,38 +456,107 @@ export default function NursingCarePage() {
           <Card><CardHeader><CardTitle>Patients autorisés</CardTitle></CardHeader><CardContent className="space-y-3"><Input aria-label="Rechercher un patient" placeholder="Rechercher par nom ou chambre" value={patientSearch} onChange={(event) => setPatientSearch(event.target.value)} /><PatientTable patients={patients} selectedId={selectedId} onSelect={setSelectedId} /></CardContent></Card>
           {selectedPatient && (
             <Card>
-              <CardHeader>
-                <CardTitle>{selectedPatient.firstName} {selectedPatient.lastName}</CardTitle>
-                <p className="text-sm text-muted-foreground">Dossier {selectedPatient.recordNumber} · {detail?.patient.gender === 'F' ? 'Femme' : detail?.patient.gender === 'M' ? 'Homme' : 'Sexe non renseigné'} · {selectedPatient.age !== undefined ? `${selectedPatient.age} ans` : 'Âge non renseigné'} · {detail?.patient.dateOfBirth ? `Née le ${new Intl.DateTimeFormat('fr-FR').format(new Date(detail.patient.dateOfBirth))}` : 'Date de naissance non renseignée'} · {selectedPatient.ward ?? 'Service non renseigné'} · Chambre {selectedPatient.room ?? '—'} · Médecin : {selectedPatient.doctor ?? '—'}</p>
+              <CardHeader className="space-y-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <CardTitle>{selectedPatient.firstName} {selectedPatient.lastName}</CardTitle>
+                    <p className="mt-1 text-xs text-muted-foreground">Dossier {selectedPatient.recordNumber}</p>
+                  </div>
+                  <Badge variant={selectedPatient.status === 'hospitalized' ? 'default' : 'secondary'}>{selectedPatient.status === 'hospitalized' ? 'Hospitalisé' : 'En observation'}</Badge>
+                </div>
+                <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {[
+                    ['Sexe', detail?.patient.gender === 'F' ? 'Femme' : detail?.patient.gender === 'M' ? 'Homme' : 'Non renseigné'],
+                    ['Âge', selectedPatient.age !== undefined ? `${selectedPatient.age} ans` : 'Non renseigné'],
+                    ['Naissance', detail?.patient.dateOfBirth ? `${detail.patient.gender === 'F' ? 'Née le' : detail.patient.gender === 'M' ? 'Né le' : 'Le'} ${new Intl.DateTimeFormat('fr-FR', { timeZone: 'UTC' }).format(new Date(`${detail.patient.dateOfBirth.slice(0, 10)}T12:00:00.000Z`))}` : 'Non renseignée'],
+                    ['Service', selectedPatient.ward ?? 'Non renseigné'],
+                    ['Chambre', selectedPatient.room ?? '—'],
+                    ['Médecin', selectedPatient.doctor ?? '—'],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-xl bg-muted/50 px-3 py-2">
+                      <dt className="text-xs text-muted-foreground">{label}</dt>
+                      <dd className="text-sm font-medium">{value}</dd>
+                    </div>
+                  ))}
+                </dl>
               </CardHeader>
-              <CardContent className="grid gap-4 lg:grid-cols-2">
+              <CardContent className="space-y-6">
                 {isDetailLoading ? <p>Chargement du dossier…</p> : detail && <>
-                  <section className="space-y-2">
+                  <section className="space-y-3">
                     <h3 className="font-semibold">Séjour hospitalier</h3>
-                    {detail.hospitalization ? <div className="grid gap-2 rounded-md border p-3 text-sm sm:grid-cols-2">
-                      <p>Admission : <strong>{displayDate(detail.hospitalization.admittedAt)}</strong></p>
-                      <p>Durée : <strong>{detail.hospitalization.durationDays} jour(s)</strong></p>
-                      <p>Service / chambre : <strong>{detail.hospitalization.ward ?? '—'} · {detail.hospitalization.room ?? '—'}</strong></p>
-                      <p>Sortie prévue : <strong>{displayFacilityDate(detail.hospitalization.expectedDischargeAt)}</strong></p>
-                      <p>Sortie réelle : <strong>{detail.hospitalization.dischargedAt ? displayMedicationDate(detail.hospitalization.dischargedAt, 'Africa/Kinshasa') : '—'}</strong></p>
-                    </div> : <p className="text-sm text-muted-foreground">Aucun séjour hospitalier enregistré.</p>}
-                    <h3 className="pt-2 font-semibold">Prescriptions médicales validées</h3>
+                    {detail.hospitalization ? (
+                      <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {[
+                          ['Admission', displayDate(detail.hospitalization.admittedAt)],
+                          ['Durée', `${detail.hospitalization.durationDays} jour(s)`],
+                          ['Service', detail.hospitalization.ward ?? '—'],
+                          ['Chambre', detail.hospitalization.room ?? '—'],
+                          ['Sortie prévue', displayFacilityDate(detail.hospitalization.expectedDischargeAt)],
+                          ['Sortie réelle', detail.hospitalization.dischargedAt ? displayMedicationDate(detail.hospitalization.dischargedAt, 'Africa/Kinshasa') : '—'],
+                        ].map(([label, value]) => (
+                          <div key={label} className="rounded-xl border px-3 py-2">
+                            <dt className="text-xs text-muted-foreground">{label}</dt>
+                            <dd className="text-sm font-medium">{value}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    ) : <p className="text-sm text-muted-foreground">Aucun séjour hospitalier enregistré.</p>}
+                  </section>
+                  <section className="space-y-3">
+                    <h3 className="font-semibold">Prescriptions médicales validées</h3>
                     {detail.prescriptions.length ? detail.prescriptions.map((prescription) => (
-                      <div key={prescription.id} className="rounded-lg border p-3 text-sm">
-                        <p className="font-medium">{prescription.prescriberName} · {prescription.pharmacyStatus}</p>
-                        {prescription.items.map((item) => <p key={item.id} className="text-muted-foreground">{item.medication} · {item.dosage} · {item.posology} · {item.duration} · {treatmentProgress(item.treatmentStartDate, item.treatmentEndDate)}{item.actualTreatmentEndAt ? ` · fin réelle ${displayMedicationDate(item.actualTreatmentEndAt, 'Africa/Kinshasa')}` : ''}{item.administrationTimes?.length ? ` · ${item.administrationTimes.join(', ')}` : ''}{item.instructions ? ` · ${item.instructions}` : ''}</p>)}
+                      <div key={prescription.id} className="space-y-2 rounded-xl border p-3">
+                        <p className="text-sm font-medium">{prescription.prescriberName} · {pharmacyStatusLabels[prescription.pharmacyStatus] ?? prescription.pharmacyStatus}</p>
+                        <div className="space-y-2">
+                          {prescription.items.map((item) => item.administrationTimes?.length ? (
+                            <div key={item.id} className="rounded-lg bg-primary/5 px-3 py-2 text-sm">
+                              <p className="font-medium">{item.medication}</p>
+                              <p className="text-muted-foreground">{item.posology} · {item.administrationRoute || 'Voie non précisée'} · {item.administrationTimes.join(', ')}</p>
+                              <p className="text-xs text-muted-foreground">{treatmentProgress(item.treatmentStartDate, item.treatmentEndDate)}</p>
+                            </div>
+                          ) : (
+                            <div key={item.id} className="rounded-lg bg-muted/50 px-3 py-2 text-sm">
+                              <p className="text-xs font-medium text-muted-foreground">Note du prescripteur</p>
+                              <p className="mt-1 whitespace-pre-wrap">{item.medication}</p>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )) : <p className="text-sm text-muted-foreground">Aucune prescription validée.</p>}
-                    <h3 className="pt-2 font-semibold">Examens demandés</h3>
-                    {detail.exams.map((exam) => <p key={exam.id} className="text-sm">{exam.name} · {exam.status} · {displayDate(exam.date)}</p>)}
-                    <h3 className="pt-2 font-semibold">Dernières consultations</h3>
-                    {detail.consultations.map((consultation, index) => <p key={`${consultation.date}-${index}`} className="text-sm">{displayDate(consultation.date)} · {consultation.doctorName} · {consultation.diagnosis || consultation.status}</p>)}
                   </section>
-                  <section className="space-y-2">
+                  <div className="grid gap-6 lg:grid-cols-2">
+                    <section className="space-y-2">
+                      <h3 className="font-semibold">Examens demandés</h3>
+                      {detail.exams.length ? detail.exams.map((exam) => (
+                        <div key={exam.id} className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm">
+                          <div>
+                            <p className="font-medium">{exam.name}</p>
+                            <p className="text-xs text-muted-foreground">{displayDate(exam.date)}</p>
+                          </div>
+                          <Badge variant="outline">{clinicalStatus(exam.status)}</Badge>
+                        </div>
+                      )) : <p className="text-sm text-muted-foreground">Aucun examen demandé.</p>}
+                    </section>
+                    <section className="space-y-2">
+                      <h3 className="font-semibold">Dernières consultations</h3>
+                      {detail.consultations.length ? detail.consultations.map((consultation, index) => (
+                        <div key={`${consultation.date}-${index}`} className="rounded-lg border px-3 py-2 text-sm">
+                          <p className="font-medium">{consultation.doctorName}</p>
+                          <p className="text-xs text-muted-foreground">{displayDate(consultation.date)} · {consultation.diagnosis || clinicalStatus(consultation.status)}</p>
+                        </div>
+                      )) : <p className="text-sm text-muted-foreground">Aucune consultation.</p>}
+                    </section>
+                  </div>
+                  <section className="space-y-3">
                     <h3 className="font-semibold">Observations infirmières</h3>
-                    {detail.observations.map((entry) => <div key={entry.id} className="rounded-lg bg-muted/50 p-3 text-sm"><p>{entry.content}</p><p className="mt-1 text-xs text-muted-foreground">{displayDate(entry.observedAt)}</p></div>)}
-                    {!detail.observations.length && <p className="text-sm text-muted-foreground">Aucune observation enregistrée.</p>}
-                    {canWrite && <form onSubmit={submitObservation} className="space-y-2">
+                    {detail.observations.map((entry) => (
+                      <div key={entry.id} className="rounded-xl border-l-4 border-primary bg-muted/40 p-3 text-sm">
+                        <p>{entry.content}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{entry.nurseName ? `${entry.nurseName} · ` : ''}{displayDate(entry.observedAt)}</p>
+                      </div>
+                    ))}
+                    {!detail.observations.length && <p className="rounded-xl border border-dashed px-3 py-4 text-sm text-muted-foreground">Aucune observation enregistrée.</p>}
+                    {canWrite && <form onSubmit={submitObservation} className="space-y-2 rounded-xl border p-3">
                       <Label htmlFor="nursing-observation">Observation de passage</Label>
                       <Textarea id="nursing-observation" value={observation} onChange={(event) => setObservation(event.target.value)} required maxLength={3000} />
                       <Button type="submit" size="sm">Ajouter à l’historique</Button>
@@ -526,7 +614,7 @@ export default function NursingCarePage() {
           <Card><CardHeader><CardTitle>Historique des soins</CardTitle></CardHeader><CardContent><CareTable care={detail?.care ?? care} canUpdate={canWrite} onUpdate={(row, status) => void updateCare(row, status)} onCorrect={(row) => void correctCare(row)} /></CardContent></Card>
           {detail && <Card><CardHeader><CardTitle>Historique infirmier et événements</CardTitle></CardHeader><CardContent className="space-y-3">
             {detail.observations.map((item) => <div key={item.id} className="flex gap-3 border-b pb-3 text-sm"><Stethoscope className="mt-0.5 h-4 w-4 text-primary" /><div><p>{item.content}</p><p className="text-xs text-muted-foreground">{displayDate(item.observedAt)}</p></div></div>)}
-            {detail.exams.map((item) => <div key={item.id} className="flex gap-3 border-b pb-3 text-sm"><FileText className="mt-0.5 h-4 w-4 text-primary" /><p>Examen {item.name} · {item.status} · {displayDate(item.date)}</p></div>)}
+            {detail.exams.map((item) => <div key={item.id} className="flex gap-3 border-b pb-3 text-sm"><FileText className="mt-0.5 h-4 w-4 text-primary" /><p>Examen {item.name} · {clinicalStatus(item.status)} · {displayDate(item.date)}</p></div>)}
             {!detail.observations.length && !detail.exams.length && <p className="text-sm text-muted-foreground">Aucun événement enregistré pour ce dossier.</p>}
           </CardContent></Card>}
         </TabsContent>

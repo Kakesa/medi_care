@@ -122,21 +122,23 @@ export default function ReceptionDashboard() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <Link to="/dashboard/billing" className="rounded-xl border bg-card p-4">
-          <p className="text-sm text-muted-foreground">À encaisser</p>
-          <p className="text-2xl font-bold">{billing.pendingAmount}</p>
+        <Link to="/dashboard/billing" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/40">
+          <p className="text-sm font-medium text-foreground/80">À encaisser</p>
+          <p className="text-3xl font-bold tabular-nums text-amber-800 dark:text-amber-200">{billing.pendingAmount}</p>
         </Link>
-        <Link to="/dashboard/billing" className="rounded-xl border bg-card p-4">
-          <p className="text-sm text-muted-foreground">En retard</p>
-          <p className="text-2xl font-bold">{billing.overdueAmount}</p>
+        <Link to="/dashboard/billing" className="rounded-2xl border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950/50">
+          <p className="text-sm font-medium text-foreground/80">En retard</p>
+          <p className="text-3xl font-bold tabular-nums text-red-700 dark:text-red-200">{billing.overdueAmount}</p>
         </Link>
-        <Link to="/dashboard/accounting" className="rounded-xl border bg-card p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Factures</p>
-              <p className="text-2xl font-bold">{billing.invoiceCount}</p>
+        <Link to="/dashboard/accounting" className="rounded-2xl border border-primary/25 bg-primary/10 p-4">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+              <FileText className="h-6 w-6" />
             </div>
-            <FileText className="h-5 w-5 text-primary" />
+            <div>
+              <p className="text-sm font-medium text-foreground/80">Factures</p>
+              <p className="text-3xl font-bold tabular-nums text-primary">{billing.invoiceCount}</p>
+            </div>
           </div>
         </Link>
       </div>

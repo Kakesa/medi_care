@@ -156,59 +156,59 @@ export default function PatientDashboard() {
 
       {/* Quick stats */}
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="card-elevated">
+        <Card className="border-primary/25 bg-primary/10">
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-                <Calendar className="h-6 w-6 text-primary" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+                <Calendar className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{upcomingAppointments.length}</p>
-                <p className="text-sm text-muted-foreground">RDV à venir</p>
+                <p className="text-sm font-medium text-foreground/80">RDV à venir</p>
+                <p className="text-3xl font-bold tabular-nums text-primary">{upcomingAppointments.length}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="card-elevated">
+        <Card className="border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/50">
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-success/10">
-                <FileText className="h-6 w-6 text-success" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-600 text-white">
+                <FileText className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{completedConsultations.length}</p>
-                <p className="text-sm text-muted-foreground">Consultations</p>
+                <p className="text-sm font-medium text-foreground/80">Consultations</p>
+                <p className="text-3xl font-bold tabular-nums text-emerald-800 dark:text-emerald-200">{completedConsultations.length}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="card-elevated">
+        <Card className="border-sky-200 bg-sky-50 dark:border-sky-800 dark:bg-sky-950/50">
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-info/10">
-                <FlaskConical className="h-6 w-6 text-info" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-600 text-white">
+                <FlaskConical className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{myExams.length}</p>
-                <p className="text-sm text-muted-foreground">Examens</p>
+                <p className="text-sm font-medium text-foreground/80">Examens</p>
+                <p className="text-3xl font-bold tabular-nums text-sky-800 dark:text-sky-200">{myExams.length}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="card-elevated">
+        <Card className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40">
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-warning/10">
-                <Pill className="h-6 w-6 text-warning" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500 text-amber-950">
+                <Pill className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-2xl font-bold">
+                <p className="text-sm font-medium text-foreground/80">Ordonnances</p>
+                <p className="text-3xl font-bold tabular-nums text-amber-800 dark:text-amber-200">
                   {myConsultations.filter(c => c.prescription).length}
                 </p>
-                <p className="text-sm text-muted-foreground">Ordonnances</p>
               </div>
             </div>
           </CardContent>

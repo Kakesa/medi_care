@@ -99,6 +99,69 @@ function doseMotif(dose: MedicationAdministration) {
   return '';
 }
 
+function DoseControls({
+  dose,
+  medication,
+  day,
+  canWrite,
+  shown,
+  onToggle,
+  onOpen,
+  onConfirm,
+}: {
+  dose: MedicationAdministration;
+  medication: string;
+  day: string;
+  canWrite: boolean;
+  shown: boolean;
+  onToggle: () => void;
+  onOpen: (mode: MotifMode) => void;
+  onConfirm: () => void;
+}) {
+  const closed = isClosed(dose);
+  const checked = dose.status === 'administered_on_time' || dose.status === 'administered_late';
+  const tone = doseTone(dose);
+  const toneClass = tone === 'green'
+    ? 'border-green-700 bg-green-600 text-white'
+    : tone === 'yellow'
+      ? 'border-amber-600 bg-amber-400 text-amber-950'
+      : tone === 'red'
+        ? 'border-red-700 bg-red-600 text-white'
+        : 'border-slate-400 bg-white text-transparent';
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          disabled={!canWrite || !canConfirm(dose)}
+          aria-label={`${medication} ${clock(dose.scheduledAt)} ${day}`}
+          title={tone === 'green' ? 'Pris à l’heure' : tone === 'yellow' ? 'Pris en retard' : tone === 'red' ? 'Prise ratée' : 'À administrer'}
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded border sm:h-6 sm:w-6 ${toneClass} disabled:cursor-not-allowed`}
+          onClick={() => { if (isLate(dose)) onOpen('late'); else onConfirm(); }}
+        >
+          {tone === 'red' ? <X className="h-4 w-4" /> : tone === 'open' ? null : <Check className="h-4 w-4" />}
+        </button>
+        <span className="text-sm sm:text-xs">{clock(dose.scheduledAt)}</span>
+      </div>
+      {dose.administeredByName && <p className="text-xs text-muted-foreground sm:text-[11px]">{dose.administeredByName} · {dose.administeredAt ? clock(dose.administeredAt) : ''}</p>}
+      {doseMotif(dose) && (
+        <div>
+          <button type="button" className="text-xs underline sm:text-[11px]" onClick={onToggle}>
+            {shown ? 'Masquer le motif' : 'Voir le motif'}
+          </button>
+          {shown && <p className={`text-xs sm:text-[11px] ${dose.status === 'administered_late' ? 'text-amber-800' : 'text-red-700'}`}>{doseMotif(dose)}</p>}
+        </div>
+      )}
+      {canWrite && canConfirm(dose) && (
+        <button type="button" className="text-xs text-destructive underline sm:text-[11px]" onClick={() => onOpen('missed')}>Non effectué</button>
+      )}
+      {canWrite && closed && (checked || dose.status === 'not_administered' || dose.status === 'patient_refused') && (
+        <button type="button" className="block text-xs text-muted-foreground underline sm:text-[11px]" onClick={() => onOpen('correct')}>Corriger avec motif</button>
+      )}
+    </div>
+  );
+}
+
 function escapeHtml(value: string) {
   return value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char] ?? char));
 }
@@ -136,6 +199,7 @@ export function TreatmentSheet({
   const addFormRef = useRef<HTMLFormElement>(null);
 
   const days = useMemo(() => Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)), [weekStart]);
+  const todayIndex = days.indexOf(facilityDate());
 
   useEffect(() => {
     if (!selectedId) {
@@ -345,19 +409,19 @@ export function TreatmentSheet({
 
   return (
     <Card>
-      <CardHeader className="gap-3">
+      <CardHeader className="gap-3 p-4 sm:p-6">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <CardTitle>Feuille de traitement</CardTitle>
             <p className="mt-1 text-sm text-muted-foreground">Prescriptions validées du dossier. Chaque case confirme une administration et conserve l’infirmier, la date et l’heure.</p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
             <Button type="button" variant="outline" onClick={printSheet} disabled={!rows.length}><Printer className="mr-2 h-4 w-4" />Imprimer</Button>
             <Button type="button" variant="outline" onClick={exportSheet} disabled={!rows.length}>Exporter</Button>
           </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 p-4 pt-0 sm:p-6 sm:pt-0">
         <div className="grid gap-3 md:grid-cols-3">
           <div className="space-y-2">
             <Label>Patient</Label>
@@ -370,15 +434,18 @@ export function TreatmentSheet({
             <Label htmlFor="treatment-week">Premier jour (J1)</Label>
             <Input id="treatment-week" type="date" value={weekStart} onChange={(event) => setWeekStart(event.target.value)} />
           </div>
-          <div className="flex items-end gap-2 text-sm text-muted-foreground">
+          <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
             <Button type="button" variant="outline" onClick={() => setWeekStart(addDays(weekStart, -7))}>Semaine précédente</Button>
             <Button type="button" variant="outline" onClick={() => setWeekStart(addDays(weekStart, 7))}>Semaine suivante</Button>
           </div>
         </div>
         {patient && (
-          <p className="text-sm text-muted-foreground">
-            {patient.firstName} {patient.lastName}{patient.age !== undefined ? ` · ${patient.age} ans` : ''} · {patient.ward ?? 'Service non renseigné'} · Chambre {patient.room ?? '—'} · {patient.doctor ?? 'Médecin non renseigné'}
-            {detail?.patient.allergies?.length ? ` · Allergies : ${detail.patient.allergies.join(', ')}` : ''}
+          <p className="flex flex-wrap gap-x-2 gap-y-1 text-sm text-muted-foreground">
+            <span>{patient.firstName} {patient.lastName}{patient.age !== undefined ? ` · ${patient.age} ans` : ''}</span>
+            <span>{patient.ward ?? 'Service non renseigné'}</span>
+            <span>Chambre {patient.room ?? '—'}</span>
+            <span>{patient.doctor ?? 'Médecin non renseigné'}</span>
+            {detail?.patient.allergies?.length ? <span>Allergies : {detail.patient.allergies.join(', ')}</span> : null}
           </p>
         )}
         <div className="flex flex-wrap gap-2 text-sm">
@@ -386,7 +453,43 @@ export function TreatmentSheet({
           <Badge variant="outline" className="border-amber-500 text-amber-800"><Clock3 className="mr-1 h-3 w-3" />{counts.late} en retard</Badge>
           <Badge variant="outline" className="border-red-600 text-red-800"><XCircle className="mr-1 h-3 w-3" />{counts.missed} non effectué(s)</Badge>
         </div>
-        <div className="overflow-x-auto rounded-lg border">
+        {loading && <p className="text-sm text-muted-foreground">Chargement de la feuille…</p>}
+        {!loading && rows.length === 0 && <p className="rounded-lg border px-3 py-8 text-center text-sm text-muted-foreground">Aucune prescription validée pour cette semaine.</p>}
+        <div className="space-y-3 lg:hidden">
+          {rows.length > 0 && todayIndex < 0 && <p className="text-sm text-muted-foreground">Aujourd’hui n’est pas dans la semaine affichée.</p>}
+          {todayIndex >= 0 && rows.map((row) => {
+            const cell = row.cells[todayIndex] ?? [];
+            return (
+              <article key={row.id} className="space-y-3 rounded-lg border p-3">
+                <div>
+                  <p className="font-medium" title={row.medication}>{row.medication}</p>
+                  <p className="text-xs text-muted-foreground">{row.dose}</p>
+                  <p className="mt-1 text-sm">{frequencyLabel(row.times)} · {row.route || '—'}</p>
+                </div>
+                <div className="rounded-md bg-muted/40 p-2">
+                  <p className="mb-2 text-xs font-medium">Aujourd’hui · J{todayIndex + 1} · {dayLabel(days[todayIndex])}</p>
+                  {cell.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
+                  <div className="space-y-2">
+                    {cell.map((dose) => (
+                      <DoseControls
+                        key={dose.id}
+                        dose={dose}
+                        medication={row.medication}
+                        day={days[todayIndex]}
+                        canWrite={canWrite}
+                        shown={Boolean(shownMotifs[dose.id])}
+                        onToggle={() => setShownMotifs((current) => ({ ...current, [dose.id]: !current[dose.id] }))}
+                        onOpen={(mode) => openMotif(dose, row.medication, mode)}
+                        onConfirm={() => void confirmOnTime(dose)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+        <div className="hidden overflow-x-auto rounded-lg border lg:block">
           <table className="w-full min-w-[980px] border-collapse text-sm">
             <thead className="bg-muted/60">
               <tr>
@@ -435,60 +538,25 @@ export function TreatmentSheet({
                   {row.cells.map((cell, index) => (
                     <td key={`${row.id}-${days[index]}`} className="border px-2 py-2">
                       <div className="space-y-2">
-                        {cell.map((dose) => {
-                          const closed = isClosed(dose);
-                          const checked = dose.status === 'administered_on_time' || dose.status === 'administered_late';
-                          const tone = doseTone(dose);
-                          const toneClass = tone === 'green'
-                            ? 'border-green-700 bg-green-600 text-white'
-                            : tone === 'yellow'
-                              ? 'border-amber-600 bg-amber-400 text-amber-950'
-                              : tone === 'red'
-                                ? 'border-red-700 bg-red-600 text-white'
-                                : 'border-slate-400 bg-white text-transparent';
-                          return (
-                            <div key={dose.id} className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  disabled={!canWrite || !canConfirm(dose)}
-                                  aria-label={`${row.medication} ${clock(dose.scheduledAt)} ${days[index]}`}
-                                  title={tone === 'green' ? 'Pris à l’heure' : tone === 'yellow' ? 'Pris en retard' : tone === 'red' ? 'Prise ratée' : 'À administrer'}
-                                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded border ${toneClass} disabled:cursor-not-allowed`}
-                                  onClick={() => { if (isLate(dose)) openMotif(dose, row.medication, 'late'); else void confirmOnTime(dose); }}
-                                >
-                                  {tone === 'red' ? <X className="h-4 w-4" /> : tone === 'open' ? null : <Check className="h-4 w-4" />}
-                                </button>
-                                <span className="text-xs">{clock(dose.scheduledAt)}</span>
-                              </div>
-                              {dose.administeredByName && <p className="text-[11px] text-muted-foreground">{dose.administeredByName} · {dose.administeredAt ? clock(dose.administeredAt) : ''}</p>}
-                              {doseMotif(dose) && (
-                                <div>
-                                  <button type="button" className="text-[11px] underline" onClick={() => setShownMotifs((current) => ({ ...current, [dose.id]: !current[dose.id] }))}>
-                                    {shownMotifs[dose.id] ? 'Masquer le motif' : 'Voir le motif'}
-                                  </button>
-                                  {shownMotifs[dose.id] && <p className={`text-[11px] ${dose.status === 'administered_late' ? 'text-amber-800' : 'text-red-700'}`}>{doseMotif(dose)}</p>}
-                                </div>
-                              )}
-                              {canWrite && canConfirm(dose) && (
-                                <button type="button" className="text-[11px] text-destructive underline" onClick={() => openMotif(dose, row.medication, 'missed')}>Non effectué</button>
-                              )}
-                              {canWrite && closed && (checked || dose.status === 'not_administered' || dose.status === 'patient_refused') && (
-                                <button type="button" className="block text-[11px] text-muted-foreground underline" onClick={() => openMotif(dose, row.medication, 'correct')}>Corriger avec motif</button>
-                              )}
-                            </div>
-                          );
-                        })}
+                        {cell.map((dose) => (
+                          <DoseControls
+                            key={dose.id}
+                            dose={dose}
+                            medication={row.medication}
+                            day={days[index]}
+                            canWrite={canWrite}
+                            shown={Boolean(shownMotifs[dose.id])}
+                            onToggle={() => setShownMotifs((current) => ({ ...current, [dose.id]: !current[dose.id] }))}
+                            onOpen={(mode) => openMotif(dose, row.medication, mode)}
+                            onConfirm={() => void confirmOnTime(dose)}
+                          />
+                        ))}
                         {cell.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
                       </div>
                     </td>
                   ))}
                 </tr>
               ))}
-              {!loading && rows.length === 0 && (
-                <tr><td colSpan={10} className="px-3 py-8 text-center text-muted-foreground">Aucune prescription validée pour cette semaine.</td></tr>
-              )}
-              {loading && <tr><td colSpan={10} className="px-3 py-8 text-center text-muted-foreground">Chargement de la feuille…</td></tr>}
             </tbody>
           </table>
         </div>
@@ -517,7 +585,7 @@ export function TreatmentSheet({
                 <SelectContent>{administrationRoutes.map((route) => <SelectItem key={route} value={route}>{route}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <Button type="submit" disabled={adding || !newMedication.trim()}>{adding ? 'Ajout...' : 'Ajouter la ligne'}</Button>
+            <Button type="submit" className="w-full md:w-auto" disabled={adding || !newMedication.trim()}>{adding ? 'Ajout...' : 'Ajouter la ligne'}</Button>
           </form>
         )}
         <p className="text-xs text-muted-foreground">Case verte : pris à l’heure. Case jaune : pris en retard, avec un motif. Case rouge : prise ratée, avec un motif. Le médecin et l’administrateur voient ces motifs. Une case validée ne se décoche pas sans une correction justifiée.</p>

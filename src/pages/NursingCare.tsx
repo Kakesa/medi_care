@@ -91,17 +91,53 @@ const treatmentProgress = (startDate?: string, endDate?: string) => {
   return `${elapsedDays} jour(s) écoulé(s) · ${Math.max(0, totalDays - elapsedDays)} restant(s)`;
 };
 
-function MetricCard({ title, value, icon: Icon, tone = 'text-primary' }: {
-  title: string; value: number; icon: typeof Activity; tone?: string;
+const metricStyles = {
+  teal: {
+    card: 'border-primary/25 bg-primary/10',
+    icon: 'bg-primary text-primary-foreground',
+    value: 'text-primary',
+  },
+  sky: {
+    card: 'border-sky-200 bg-sky-50 dark:border-sky-800 dark:bg-sky-950/50',
+    icon: 'bg-sky-600 text-white',
+    value: 'text-sky-800 dark:text-sky-200',
+  },
+  green: {
+    card: 'border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/50',
+    icon: 'bg-emerald-600 text-white',
+    value: 'text-emerald-800 dark:text-emerald-200',
+  },
+  red: {
+    card: 'border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/50',
+    icon: 'bg-red-600 text-white',
+    value: 'text-red-700 dark:text-red-200',
+  },
+  indigo: {
+    card: 'border-indigo-200 bg-indigo-50 dark:border-indigo-900 dark:bg-indigo-950/50',
+    icon: 'bg-indigo-600 text-white',
+    value: 'text-indigo-800 dark:text-indigo-200',
+  },
+  amber: {
+    card: 'border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40',
+    icon: 'bg-amber-500 text-amber-950',
+    value: 'text-amber-800 dark:text-amber-200',
+  },
+} as const;
+
+function MetricCard({ title, value, icon: Icon, tone }: {
+  title: string; value: number; icon: typeof Activity; tone: keyof typeof metricStyles;
 }) {
+  const style = metricStyles[tone];
   return (
-    <Card>
-      <CardContent className="flex items-center justify-between p-5">
-        <div>
-          <p className="text-sm text-muted-foreground">{title}</p>
-          <p className="mt-1 text-2xl font-semibold">{value}</p>
+    <Card className={style.card}>
+      <CardContent className="flex items-center gap-4 p-4 sm:p-5">
+        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${style.icon}`}>
+          <Icon className="h-6 w-6" />
         </div>
-        <Icon className={`h-8 w-8 ${tone}`} />
+        <div className="min-w-0">
+          <p className="text-sm font-medium leading-snug text-foreground/80">{title}</p>
+          <p className={`mt-1 text-3xl font-bold tabular-nums ${style.value}`}>{value}</p>
+        </div>
       </CardContent>
     </Card>
   );
@@ -352,17 +388,17 @@ export default function NursingCarePage() {
 
       {dashboard && (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          <MetricCard title="Patients sous surveillance" value={dashboard.stats.patientsUnderSurveillance} icon={UserRound} />
-          <MetricCard title="Soins à effectuer aujourd’hui" value={dashboard.stats.careToPerform} icon={ClipboardList} />
-          <MetricCard title="Soins réalisés aujourd’hui" value={dashboard.stats.careCompletedToday} icon={CheckCircle2} tone="text-green-600" />
-          <MetricCard title="Soins en retard" value={dashboard.stats.overdueCare} icon={Clock3} tone="text-destructive" />
-          <MetricCard title="Prescriptions à exécuter" value={dashboard.stats.prescriptionsWaiting} icon={FileText} />
-          <MetricCard title="Surveillance particulière" value={dashboard.stats.patientsRequiringAttention} icon={AlertTriangle} tone="text-amber-600" />
+          <MetricCard title="Patients sous surveillance" value={dashboard.stats.patientsUnderSurveillance} icon={UserRound} tone="teal" />
+          <MetricCard title="Soins à effectuer aujourd’hui" value={dashboard.stats.careToPerform} icon={ClipboardList} tone="sky" />
+          <MetricCard title="Soins réalisés aujourd’hui" value={dashboard.stats.careCompletedToday} icon={CheckCircle2} tone="green" />
+          <MetricCard title="Soins en retard" value={dashboard.stats.overdueCare} icon={Clock3} tone="red" />
+          <MetricCard title="Prescriptions à exécuter" value={dashboard.stats.prescriptionsWaiting} icon={FileText} tone="indigo" />
+          <MetricCard title="Surveillance particulière" value={dashboard.stats.patientsRequiringAttention} icon={AlertTriangle} tone="amber" />
         </div>
       )}
 
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="flex h-auto flex-wrap justify-start">
+        <TabsList className="h-auto w-full justify-start">
           <TabsTrigger value="overview">Vue d’ensemble</TabsTrigger>
           <TabsTrigger value="patients">Patients et dossier</TabsTrigger>
           <TabsTrigger value="treatment">Feuille de traitement</TabsTrigger>

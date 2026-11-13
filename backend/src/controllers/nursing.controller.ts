@@ -67,6 +67,16 @@ export const administrations = asyncHandler(async (req: Request, res: Response) 
   res.json(await nursing.getMedicationAdministrationSheet(actor, organizationId, req.query as unknown as { patientId: string; date: string }));
 });
 
+export const addTreatmentLine = asyncHandler(async (req: Request, res: Response) => {
+  const { actor, organizationId } = context(req);
+  res.status(201).json(await nursing.addTreatmentLine(actor, organizationId, req.body, req.ip));
+});
+
+export const scheduleAdministrations = asyncHandler(async (req: Request, res: Response) => {
+  const { actor, organizationId } = context(req);
+  res.status(201).json(await nursing.scheduleMedicationAdministrations(actor, organizationId, req.body, req.ip));
+});
+
 export const confirmAdministration = asyncHandler(async (req: Request, res: Response) => {
   const { actor, organizationId } = context(req);
   res.json(await nursing.confirmMedicationAdministration(actor, organizationId, req.params.id, req.body, req.ip));

@@ -1,11 +1,8 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Activity, AlertTriangle, BedDouble, CalendarDays, CheckCircle2, ClipboardList, Clock3,
-  FileText, HeartPulse, Pencil, Plus, Stethoscope, UserRound, XCircle,
+  FileText, Pencil, Plus, Stethoscope, UserRound, XCircle,
 } from 'lucide-react';
-import {
-  CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
-} from 'recharts';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,9 +15,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiMessage } from '@/lib/apiError';
 import { useToast } from '@/hooks/use-toast';
+import { SurveillanceSheet } from '@/pages/nursing/SurveillanceSheet';
+import { TreatmentSheet } from '@/pages/nursing/TreatmentSheet';
 import { nursingService } from '@/services/nursingService';
 import type {
-  MedicationAdministration, MedicationAdministrationSheet,
   NursingCare, NursingCareStatus, NursingCareType, NursingDashboard, NursingPatient,
   NursingPatientDetail, NursingReport, NursingThresholds,
 } from '@/types/nursing';
@@ -52,28 +50,6 @@ const statusVariants: Record<NursingCareStatus, 'default' | 'secondary' | 'destr
   not_done: 'destructive',
   cancelled: 'outline',
 };
-
-const administrationStatusLabels = {
-  pending: 'En attente',
-  administered_on_time: 'Administré à l’heure',
-  administered_late: 'Administré en retard',
-  not_administered: 'Non administré',
-  patient_refused: 'Refus du patient',
-  suspended: 'Suspendu par le médecin',
-  treatment_completed: 'Traitement terminé',
-  treatment_interrupted: 'Traitement interrompu',
-} as const;
-
-const administrationStatusStyles = {
-  pending: 'border-muted text-muted-foreground',
-  administered_on_time: 'border-green-600 bg-green-50 text-green-800',
-  administered_late: 'border-amber-500 bg-amber-50 text-amber-800',
-  not_administered: 'border-red-600 bg-red-50 text-red-800',
-  patient_refused: 'border-red-600 bg-red-50 text-red-800',
-  suspended: 'border-muted bg-muted text-muted-foreground',
-  treatment_completed: 'border-muted bg-muted text-muted-foreground',
-  treatment_interrupted: 'border-muted bg-muted text-muted-foreground',
-} as const;
 
 const localDate = (date = new Date()) => {
   const year = date.getFullYear();
@@ -225,32 +201,6 @@ function CareTable({ care, canUpdate, onUpdate, onCorrect }: {
   );
 }
 
-function VitalTrend({ data, dataKey, label, color }: {
-  data: Array<{ time: string; temperature?: number; heartRate?: number; oxygenSaturation?: number }>;
-  dataKey: 'temperature' | 'heartRate' | 'oxygenSaturation';
-  label: string;
-  color: string;
-}) {
-  return (
-    <Card>
-      <CardHeader><CardTitle className="text-base">{label}</CardTitle></CardHeader>
-      <CardContent>
-        <div className="h-52">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="time" />
-              <YAxis />
-              <Tooltip />
-              <Line type="monotone" dataKey={dataKey} name={label} stroke={color} connectNulls />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 export default function NursingCarePage() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -261,12 +211,9 @@ export default function NursingCarePage() {
   const [selectedId, setSelectedId] = useState('');
   const [detail, setDetail] = useState<NursingPatientDetail | null>(null);
   const [care, setCare] = useState<NursingCare[]>([]);
-  const [administrationSheet, setAdministrationSheet] = useState<MedicationAdministrationSheet | null>(null);
-  const [missingReasons, setMissingReasons] = useState<Record<string, { reasonType: 'patient_absent' | 'patient_refused' | 'unavailable' | 'other'; reason: string }>>({});
   const [report, setReport] = useState<NursingReport | null>(null);
   const [thresholds, setThresholds] = useState<NursingThresholds | null>(null);
   const [selectedDate, setSelectedDate] = useState(localDate());
-  const [medicationDate, setMedicationDate] = useState(facilityDate());
   const [patientSearch, setPatientSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
@@ -274,8 +221,6 @@ export default function NursingCarePage() {
   const [careType, setCareType] = useState<NursingCareType>('monitoring');
   const [careDescription, setCareDescription] = useState('');
   const [scheduledAt, setScheduledAt] = useState(localDateTime());
-  const [prescriptionLine, setPrescriptionLine] = useState('');
-  const [vitalForm, setVitalForm] = useState<Record<string, string>>({});
   const [observation, setObservation] = useState('');
 
   const reload = useCallback(async () => {
@@ -317,44 +262,11 @@ export default function NursingCarePage() {
   }, [selectedId]);
 
   useEffect(() => {
-    if (!selectedId) {
-      setAdministrationSheet(null);
-      return;
-    }
-    let active = true;
-    nursingService.getAdministrations(selectedId, medicationDate)
-      .then((sheet) => { if (active) setAdministrationSheet(sheet); })
-      .catch((reason) => { if (active) setError(apiMessage(reason)); });
-    return () => { active = false; };
-  }, [selectedId, medicationDate]);
-
-  useEffect(() => {
     if (!canConfigure) return;
     nursingService.getSettings().then(setThresholds).catch((reason) => setError(apiMessage(reason)));
   }, [canConfigure]);
 
   const selectedPatient = useMemo(() => patients.find((patient) => patient.id === selectedId), [patients, selectedId]);
-  const medicationMetrics = useMemo(() => {
-    const doses = administrationSheet?.doses ?? [];
-    const now = Date.now();
-    return {
-      upcoming: doses.filter((dose) => dose.status === 'pending' && new Date(dose.scheduledAt).getTime() > now && new Date(dose.scheduledAt).getTime() <= now + 2 * 60 * 60_000).length,
-      onTime: doses.filter((dose) => dose.status === 'administered_on_time').length,
-      late: doses.filter((dose) => dose.status === 'administered_late').length,
-      missed: doses.filter((dose) => dose.status === 'not_administered' || dose.status === 'patient_refused').length,
-      suspended: doses.filter((dose) => dose.status === 'suspended').length,
-    };
-  }, [administrationSheet]);
-  const chartData = useMemo(() => [...(detail?.vitals ?? [])].reverse().map((row) => ({
-    time: new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(row.measuredAt)),
-    temperature: row.temperature,
-    heartRate: row.heartRate,
-    oxygenSaturation: row.oxygenSaturation,
-  })), [detail?.vitals]);
-  const prescriptions = detail?.prescriptions ?? [];
-  const prescriptionSelection = prescriptionLine.split('::');
-  const chosenPrescription = prescriptions.find((item) => item.id === prescriptionSelection[0]);
-  const chosenItem = chosenPrescription?.items.find((item) => item.id === prescriptionSelection[1]);
 
   const notifyError = (reason: unknown) => toast({ title: 'Opération impossible', description: apiMessage(reason), variant: 'destructive' });
 
@@ -362,16 +274,13 @@ export default function NursingCarePage() {
     event.preventDefault();
     if (!selectedId) return;
     try {
-      const [prescriptionId, prescriptionItemId] = prescriptionSelection;
       await nursingService.createCare({
         patientId: selectedId,
         type: careType,
         description: careDescription,
         scheduledAt: new Date(scheduledAt).toISOString(),
-        ...(careType === 'medication' ? { prescriptionId, prescriptionItemId } : {}),
       });
       setCareDescription('');
-      setPrescriptionLine('');
       toast({ title: 'Soin programmé', description: 'Le soin a été ajouté au planning infirmier.' });
       await reload();
     } catch (reason) { notifyError(reason); }
@@ -390,22 +299,9 @@ export default function NursingCarePage() {
     } catch (error) { notifyError(error); }
   };
 
-  const submitVitals = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!selectedId) return;
-    const measurements = Object.fromEntries(
-      Object.entries(vitalForm).filter(([, value]) => value.trim() !== '').map(([key, value]) => [key, Number(value)])
-    );
-    try {
-      const newVital = await nursingService.createVitals({ patientId: selectedId, ...measurements });
-      toast({
-        title: 'Constantes enregistrées',
-        description: newVital.alerts.length ? `Alerte de seuil : ${newVital.alerts.join(', ')}` : 'La mesure a été ajoutée au dossier.',
-      });
-      setVitalForm({});
-      await reload();
-      setDetail(await nursingService.getPatient(selectedId));
-    } catch (reason) { notifyError(reason); }
+  const refreshPatient = async () => {
+    await reload();
+    if (selectedId) setDetail(await nursingService.getPatient(selectedId));
   };
 
   const submitObservation = async (event: FormEvent) => {
@@ -430,46 +326,6 @@ export default function NursingCarePage() {
     } catch (reason) { notifyError(reason); }
   };
 
-  const refreshAdministrationSheet = async () => {
-    if (selectedId) setAdministrationSheet(await nursingService.getAdministrations(selectedId, medicationDate));
-  };
-
-  const confirmAdministration = async (row: MedicationAdministration) => {
-    const observations = window.prompt('Observation (facultative)');
-    if (observations === null) return;
-    try {
-      await nursingService.confirmAdministration(row.id, observations.trim() || undefined);
-      toast({ title: 'Administration enregistrée' });
-      await refreshAdministrationSheet();
-      await reload();
-    } catch (reason) { notifyError(reason); }
-  };
-
-  const markAdministrationMissed = async (row: MedicationAdministration) => {
-    const reasonType = missingReasons[row.id]?.reasonType;
-    const reason = missingReasons[row.id]?.reason.trim();
-    if (!reason) return;
-    if (!reasonType) return;
-    try {
-      await nursingService.markAdministrationMissed(row.id, { reasonType, reason });
-      toast({ title: 'Prise clôturée', description: 'Le motif a été conservé dans l’historique.' });
-      await refreshAdministrationSheet();
-      await reload();
-    } catch (reasonError) { notifyError(reasonError); }
-  };
-
-  const correctAdministration = async (row: MedicationAdministration) => {
-    const reason = window.prompt('Justification de la correction (obligatoire)')?.trim();
-    if (!reason) return;
-    const observations = window.prompt('Observations corrigées', row.observations ?? '');
-    if (observations === null) return;
-    try {
-      await nursingService.correctAdministration(row.id, { reason, observations });
-      toast({ title: 'Correction tracée' });
-      await refreshAdministrationSheet();
-    } catch (reasonError) { notifyError(reasonError); }
-  };
-
   const saveThresholds = async () => {
     if (!thresholds) return;
     try {
@@ -487,7 +343,7 @@ export default function NursingCarePage() {
         <div>
           <p className="text-sm font-medium text-primary">Espace clinique</p>
           <h1 className="text-3xl font-bold tracking-tight">Soins infirmiers</h1>
-          <p className="mt-1 text-muted-foreground">Surveillance, planification et traçabilité dans les dossiers médicaux existants.</p>
+          <p className="mt-1 text-muted-foreground">Feuille de traitement, surveillance et traçabilité dans les dossiers existants.</p>
         </div>
         <Button variant="outline" onClick={() => void reload()} disabled={isLoading}><Activity className="mr-2 h-4 w-4" />Actualiser</Button>
       </div>
@@ -506,12 +362,11 @@ export default function NursingCarePage() {
       )}
 
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList>
+        <TabsList className="flex h-auto flex-wrap justify-start">
           <TabsTrigger value="overview">Vue d’ensemble</TabsTrigger>
           <TabsTrigger value="patients">Patients et dossier</TabsTrigger>
-          <TabsTrigger value="care">Soins</TabsTrigger>
-          <TabsTrigger value="medications">Médicaments</TabsTrigger>
-          <TabsTrigger value="vitals">Constantes</TabsTrigger>
+          <TabsTrigger value="treatment">Feuille de traitement</TabsTrigger>
+          <TabsTrigger value="surveillance">Feuille de surveillance</TabsTrigger>
           <TabsTrigger value="schedule">Planning</TabsTrigger>
           <TabsTrigger value="history">Historique</TabsTrigger>
           <TabsTrigger value="reports">Rapports</TabsTrigger>
@@ -589,125 +444,41 @@ export default function NursingCarePage() {
           )}
         </TabsContent>
 
-        <TabsContent value="care" className="space-y-4">
+        <TabsContent value="treatment" className="space-y-4">
+          <TreatmentSheet
+            patients={patients}
+            selectedId={selectedId}
+            onSelectPatient={setSelectedId}
+            detail={detail}
+            canWrite={canWrite}
+            onChanged={refreshPatient}
+          />
+        </TabsContent>
+
+        <TabsContent value="surveillance" className="space-y-4">
+          <SurveillanceSheet
+            patients={patients}
+            selectedId={selectedId}
+            onSelectPatient={setSelectedId}
+            detail={detail}
+            canWrite={canWrite}
+            onSaved={refreshPatient}
+          />
+        </TabsContent>
+
+        <TabsContent value="schedule" className="space-y-4">
           {canWrite && <Card>
             <CardHeader><CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5" />Programmer un soin</CardTitle></CardHeader>
             <CardContent>
               <form onSubmit={submitCare} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <div className="space-y-2"><Label>Patient</Label><Select value={selectedId} onValueChange={setSelectedId}><SelectTrigger><SelectValue placeholder="Sélectionner un patient" /></SelectTrigger><SelectContent>{patients.map((patient) => <SelectItem key={patient.id} value={patient.id}>{patient.firstName} {patient.lastName}</SelectItem>)}</SelectContent></Select></div>
-                <div className="space-y-2"><Label>Type de soin</Label><Select value={careType} onValueChange={(value) => setCareType(value as NursingCareType)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.entries(careLabels).map(([key, label]) => <SelectItem key={key} value={key}>{label}</SelectItem>)}</SelectContent></Select></div>
+                <div className="space-y-2"><Label>Type de soin</Label><Select value={careType} onValueChange={(value) => setCareType(value as NursingCareType)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.entries(careLabels).filter(([key]) => key !== 'medication').map(([key, label]) => <SelectItem key={key} value={key}>{label}</SelectItem>)}</SelectContent></Select></div>
                 <div className="space-y-2"><Label>Date et heure prévues</Label><Input type="datetime-local" value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} required /></div>
                 <div className="space-y-2 sm:col-span-2"><Label>Description</Label><Input value={careDescription} onChange={(event) => setCareDescription(event.target.value)} required maxLength={2000} /></div>
-                {careType === 'medication' && <>
-                  <div className="space-y-2"><Label>Médicament prescrit</Label><Select value={prescriptionLine} onValueChange={setPrescriptionLine}><SelectTrigger><SelectValue placeholder="Choisir une prescription validée" /></SelectTrigger><SelectContent>{prescriptions.flatMap((prescription) => prescription.items.map((item) => <SelectItem key={`${prescription.id}::${item.id}`} value={`${prescription.id}::${item.id}`}>{item.medication} · {item.dosage} · {item.posology}</SelectItem>))}</SelectContent></Select></div>
-                  <div className="self-end text-sm text-muted-foreground">{chosenItem ? `Dose et voie copiées de la prescription : ${chosenItem.dosage} · ${chosenItem.administrationRoute ?? 'non renseignée'}` : 'Sélectionnez une ligne prescrite. La prescription reste en lecture seule.'}</div>
-                </>}
                 <div className="sm:col-span-2 lg:col-span-3"><Button type="submit" disabled={!selectedId}>Ajouter au planning</Button></div>
               </form>
             </CardContent>
           </Card>}
-          <Card><CardHeader><CardTitle>Soins programmés pour le {new Intl.DateTimeFormat('fr-FR').format(new Date(`${selectedDate}T12:00:00`))}</CardTitle></CardHeader><CardContent><CareTable care={care} canUpdate={canWrite} onUpdate={(row, status) => void updateCare(row, status)} onCorrect={(row) => void correctCare(row)} /></CardContent></Card>
-        </TabsContent>
-
-        <TabsContent value="medications" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Feuille quotidienne d’administration des médicaments</CardTitle>
-              <p className="text-sm text-muted-foreground">Horaires prescrits en {administrationSheet?.timeZone ?? 'Africa/Kinshasa'} · Une prise non administrée devient clôturable après {administrationSheet?.lateWindowMinutes ?? 60} minutes.</p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-2"><Label>Patient</Label><Select value={selectedId} onValueChange={setSelectedId}><SelectTrigger><SelectValue placeholder="Sélectionner un patient" /></SelectTrigger><SelectContent>{patients.map((patient) => <SelectItem key={patient.id} value={patient.id}>{patient.firstName} {patient.lastName}</SelectItem>)}</SelectContent></Select></div>
-                <div className="space-y-2"><Label>Date de la feuille</Label><Input type="date" value={medicationDate} onChange={(event) => setMedicationDate(event.target.value)} /></div>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-                <MetricCard title="À administrer bientôt" value={medicationMetrics.upcoming} icon={Clock3} />
-                <MetricCard title="Administrés à l’heure" value={medicationMetrics.onTime} icon={CheckCircle2} tone="text-green-600" />
-                <MetricCard title="Administrés en retard" value={medicationMetrics.late} icon={Clock3} tone="text-amber-600" />
-                <MetricCard title="Non administrés / refus" value={medicationMetrics.missed} icon={XCircle} tone="text-destructive" />
-                <MetricCard title="Suspendus" value={medicationMetrics.suspended} icon={FileText} />
-              </div>
-              {administrationSheet?.unconfiguredItems.map((item, index) => <p key={`${item.prescriptionId}-${item.medication}-${index}`} className="text-sm text-amber-700">{item.medication} : {item.reason}. Aucune prise n’est générée.</p>)}
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader><TableRow><TableHead>Horaire</TableHead><TableHead>Médicament / dose</TableHead><TableHead>Voie et consignes</TableHead><TableHead>Statut</TableHead><TableHead>Administration</TableHead><TableHead>Traçabilité</TableHead></TableRow></TableHeader>
-                  <TableBody>
-                    {(administrationSheet?.doses ?? []).map((row) => {
-                      const future = new Date(row.scheduledAt).getTime() > Date.now();
-                      return <TableRow key={row.id}>
-                        <TableCell className="whitespace-nowrap">{displayDate(row.scheduledAt)}</TableCell>
-                        <TableCell><p className="font-medium">{row.medication}</p><p className="text-xs text-muted-foreground">{row.prescribedDose} · {row.posology}</p></TableCell>
-                        <TableCell><p>{row.administrationRoute}</p><p className="max-w-xs whitespace-normal text-xs text-muted-foreground">{row.instructions || '—'}</p></TableCell>
-                        <TableCell><Badge className={administrationStatusStyles[row.status]} variant="outline">{administrationStatusLabels[row.status]}</Badge></TableCell>
-                        <TableCell className="min-w-52">
-                          {canWrite && (row.status === 'pending' || row.status === 'not_administered') && <Button size="sm" variant="outline" disabled={future} aria-label={`Confirmer ${row.medication}`} onClick={() => void confirmAdministration(row)}><CheckCircle2 className="mr-2 h-4 w-4" />Administré</Button>}
-                          {canWrite && (row.status === 'not_administered' || (row.status === 'pending' && !future)) && <div className="space-y-2">
-                            <Select value={missingReasons[row.id]?.reasonType ?? ''} onValueChange={(value) => setMissingReasons((current) => ({ ...current, [row.id]: { reasonType: value as 'patient_absent' | 'patient_refused' | 'unavailable' | 'other', reason: current[row.id]?.reason ?? '' } }))}>
-                              <SelectTrigger aria-label="Motif de non-administration"><SelectValue placeholder="Choisir un motif" /></SelectTrigger>
-                              <SelectContent><SelectItem value="patient_absent">Patient absent</SelectItem><SelectItem value="patient_refused">Refus du patient</SelectItem><SelectItem value="unavailable">Médicament indisponible</SelectItem><SelectItem value="other">Autre motif</SelectItem></SelectContent>
-                            </Select>
-                            <Input aria-label="Détail du motif obligatoire" placeholder="Préciser le motif" value={missingReasons[row.id]?.reason ?? ''} onChange={(event) => setMissingReasons((current) => ({ ...current, [row.id]: { reasonType: current[row.id]?.reasonType ?? 'other', reason: event.target.value } }))} />
-                            <Button size="sm" variant="destructive" disabled={!missingReasons[row.id]?.reasonType || !missingReasons[row.id]?.reason.trim() || (row.status === 'pending' && Date.now() <= new Date(row.scheduledAt).getTime() + (administrationSheet?.lateWindowMinutes ?? 60) * 60_000 && missingReasons[row.id]?.reasonType !== 'patient_refused')} onClick={() => void markAdministrationMissed(row)}>Enregistrer le motif</Button>
-                          </div>}
-                          {!canWrite && row.administeredAt && <p className="text-sm">{displayMedicationDate(row.administeredAt, administrationSheet?.timeZone ?? 'Africa/Kinshasa')}</p>}
-                        </TableCell>
-                        <TableCell className="min-w-48 text-sm">
-                          {row.administeredByName && <p>{row.administeredByName}</p>}
-                          {row.notDoneReason && <p className="text-destructive">{row.notDoneReason}</p>}
-                          {row.observations && <p className="text-muted-foreground">{row.observations}</p>}
-                          {row.history.map((entry, index) => <p key={`${entry.at}-${index}`} className="text-xs text-muted-foreground">{entry.action.split('_').join(' ')} · {displayMedicationDate(entry.at, administrationSheet?.timeZone ?? 'Africa/Kinshasa')}{entry.reason ? ` · ${entry.reason}` : ''}</p>)}
-                          {canWrite && row.status !== 'pending' && <Button className="mt-1" size="sm" variant="ghost" onClick={() => void correctAdministration(row)}><Pencil className="mr-1 h-3 w-3" />Corriger</Button>}
-                        </TableCell>
-                      </TableRow>;
-                    })}
-                    {!administrationSheet?.doses.length && <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Aucune prise structurée prescrite pour cette date.</TableCell></TableRow>}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="vitals" className="space-y-4">
-          {canWrite && <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2"><HeartPulse className="h-5 w-5" />Enregistrer des constantes</CardTitle></CardHeader>
-            <CardContent>
-              <form onSubmit={submitVitals} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="space-y-2 sm:col-span-2 lg:col-span-4"><Label>Patient</Label><Select value={selectedId} onValueChange={setSelectedId}><SelectTrigger><SelectValue placeholder="Sélectionner un patient" /></SelectTrigger><SelectContent>{patients.map((patient) => <SelectItem key={patient.id} value={patient.id}>{patient.firstName} {patient.lastName}</SelectItem>)}</SelectContent></Select></div>
-                {[
-                  ['systolic', 'Tension systolique (mmHg)', '40', '300'],
-                  ['diastolic', 'Tension diastolique (mmHg)', '20', '200'],
-                  ['temperature', 'Température (°C)', '25', '45'],
-                  ['heartRate', 'Fréquence cardiaque (bpm)', '20', '300'],
-                  ['respiratoryRate', 'Fréquence respiratoire (/min)', '1', '100'],
-                  ['oxygenSaturation', 'SpO₂ (%)', '0', '100'],
-                  ['weight', 'Poids (kg)', '0.1', '500'],
-                  ['height', 'Taille (cm)', '20', '300'],
-                  ['glucose', 'Glycémie (mg/dL)', '0', '1000'],
-                ].map(([key, label, min, max]) => <div key={key} className="space-y-2"><Label htmlFor={`vital-${key}`}>{label}</Label><Input id={`vital-${key}`} type="number" step="any" min={min} max={max} value={vitalForm[key] ?? ''} onChange={(event) => setVitalForm((current) => ({ ...current, [key]: event.target.value }))} /></div>)}
-                <div className="sm:col-span-2 lg:col-span-4"><Button type="submit" disabled={!selectedId}>Enregistrer les mesures</Button></div>
-              </form>
-            </CardContent>
-          </Card>}
-          {selectedPatient && <Card>
-            <CardHeader><CardTitle>Évolution des constantes · {selectedPatient.firstName} {selectedPatient.lastName}</CardTitle></CardHeader>
-            <CardContent>
-              <div className="grid gap-3 lg:grid-cols-3">
-                <VitalTrend data={chartData} dataKey="temperature" label="Température (°C)" color="hsl(var(--primary))" />
-                <VitalTrend data={chartData} dataKey="heartRate" label="Fréquence cardiaque (bpm)" color="#ef4444" />
-                <VitalTrend data={chartData} dataKey="oxygenSaturation" label="SpO₂ (%)" color="#0ea5e9" />
-              </div>
-              {detail?.vitals.map((row) => <div key={row.id} className="border-t py-3 text-sm">
-                <div className="flex flex-wrap justify-between gap-2"><strong>{displayDate(row.measuredAt)}</strong><span>TA {row.systolic ?? '—'}/{row.diastolic ?? '—'} · T° {row.temperature ?? '—'} · FC {row.heartRate ?? '—'} · FR {row.respiratoryRate ?? '—'} · SpO₂ {row.oxygenSaturation ?? '—'}%</span></div>
-                {(row.weight || row.height || row.glucose) && <p className="text-muted-foreground">Poids {row.weight ?? '—'} kg · Taille {row.height ?? '—'} cm · Glycémie {row.glucose ?? '—'}</p>}
-                {row.alerts.length > 0 && <p className="mt-1 text-destructive">{row.alerts.join(' · ')} — alerte de seuil, pas un diagnostic.</p>}
-                {row.observation && <p className="text-muted-foreground">{row.observation}</p>}
-              </div>)}
-            </CardContent>
-          </Card>}
-        </TabsContent>
-
-        <TabsContent value="schedule" className="space-y-4">
           <Card><CardHeader><CardTitle className="flex items-center gap-2"><CalendarDays className="h-5 w-5" />Planning quotidien</CardTitle></CardHeader><CardContent className="space-y-4">
             <div className="max-w-xs space-y-2"><Label htmlFor="schedule-date">Date</Label><Input id="schedule-date" type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} /></div>
             <CareTable care={care} canUpdate={canWrite} onUpdate={(row, status) => void updateCare(row, status)} onCorrect={(row) => void correctCare(row)} />

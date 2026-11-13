@@ -18,6 +18,8 @@ import {
   nursingPatientListSchema,
   nursingPatientParamsSchema,
   nursingReportSchema,
+  nursingScheduleSchema,
+  nursingTreatmentLineSchema,
   nursingThresholdsSchema,
   nursingUpdateCareSchema,
   nursingVitalsListSchema,
@@ -38,6 +40,8 @@ router.post('/care/:id/corrections', requireRoles(ROLES.NURSE), validate(nursing
 router.get('/vitals', requireRoles(...readers), validate(nursingVitalsListSchema), nursing.vitals);
 router.post('/vitals', requireRoles(ROLES.NURSE), validate(nursingVitalsSchema), nursing.createVitals);
 router.post('/observations', requireRoles(ROLES.NURSE), validate(nursingObservationSchema), nursing.createObservation);
+router.post('/treatment-lines', requireRoles(ROLES.NURSE), validate(nursingTreatmentLineSchema), nursing.addTreatmentLine);
+router.post('/schedules', requireRoles(ROLES.NURSE), validate(nursingScheduleSchema), nursing.scheduleAdministrations);
 router.get('/administrations', requireRoles(...readers), validate(nursingAdministrationListSchema), nursing.administrations);
 router.post('/administrations/:id/confirm', requireRoles(ROLES.NURSE), validate(nursingAdministrationConfirmSchema), nursing.confirmAdministration);
 router.post('/administrations/:id/not-administered', requireRoles(ROLES.NURSE), validate(nursingAdministrationMissedSchema), nursing.markAdministrationMissed);

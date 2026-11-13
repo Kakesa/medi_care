@@ -144,6 +144,33 @@ const thresholdsSchema = z.object({
   }
 });
 
+const administrationRoutes = ['Orale', 'Intraveineuse', 'Intramusculaire', 'Sous-cutanée', 'Rectale', 'Inhalation'] as const;
+
+export const nursingTreatmentLineSchema = envelope(z.object({
+  patientId: objectIdSchema,
+  medication: z.string().trim().min(1).max(160),
+  timesPerDay: z.coerce.number().int().min(1).max(4),
+  administrationRoute: z.enum(administrationRoutes),
+  treatmentStartDate: calendarDate,
+  treatmentEndDate: calendarDate,
+}).refine((value) => value.treatmentEndDate >= value.treatmentStartDate, {
+  message: 'La fin du traitement doit suivre son début',
+  path: ['treatmentEndDate'],
+}));
+
+export const nursingScheduleSchema = envelope(z.object({
+  patientId: objectIdSchema,
+  prescriptionId: objectIdSchema,
+  prescriptionItemId: objectIdSchema,
+  timesPerDay: z.coerce.number().int().min(1).max(4),
+  administrationRoute: z.enum(administrationRoutes),
+  treatmentStartDate: calendarDate,
+  treatmentEndDate: calendarDate,
+}).refine((value) => value.treatmentEndDate >= value.treatmentStartDate, {
+  message: 'La fin du traitement doit suivre son début',
+  path: ['treatmentEndDate'],
+}));
+
 export const nursingThresholdsSchema = envelope(thresholdsSchema);
 export const nursingReportSchema = envelope(empty, z.object({
   from: z.coerce.date().optional(),

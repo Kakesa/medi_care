@@ -37,6 +37,12 @@ const defaultThresholds: VitalThresholds = {
 };
 
 const medicationLateWindowMs = 60 * 60 * 1000;
+const dosesByFrequency: Record<number, string[]> = {
+  1: ['08:00'],
+  2: ['08:00', '20:00'],
+  3: ['08:00', '14:00', '20:00'],
+  4: ['06:00', '12:00', '18:00', '22:00'],
+};
 const medicationTimeZone = 'Africa/Kinshasa';
 
 type VitalValues = {
@@ -141,6 +147,13 @@ function mapCare(row: InstanceType<typeof NursingCare>) {
     history: row.history ?? [],
     createdAt: row.createdAt,
   };
+}
+
+async function namesById(organizationId: string, ids: Array<string | undefined>) {
+  const unique = [...new Set(ids.filter((id): id is string => Boolean(id)))];
+  if (!unique.length) return new Map<string, string>();
+  const users = await User.find({ _id: { $in: unique }, organizationId }).select('firstName lastName');
+  return new Map(users.map((user) => [user.id, `${user.firstName} ${user.lastName}`.trim()]));
 }
 
 function mapVitals(row: InstanceType<typeof VitalSigns>, thresholds: VitalThresholds) {
@@ -500,6 +513,108 @@ export async function getMedicationAdministrationSheet(
   };
 }
 
+export async function addTreatmentLine(
+  actor: AuthContext,
+  organizationId: string,
+  input: {
+    patientId: string;
+    medication: string;
+    timesPerDay: number;
+    administrationRoute: string;
+    treatmentStartDate: string;
+    treatmentEndDate: string;
+  },
+  ip?: string
+) {
+  await requireVisiblePatient(actor, organizationId, input.patientId, ip);
+  const prescription = await Prescription.findOne({
+    organizationId,
+    patientId: input.patientId,
+    status: 'validated',
+  }).sort({ createdAt: -1 });
+  if (!prescription) throw new ApiError(404, 'Aucune prescription validée pour ce patient', 'PRESCRIPTION_NOT_FOUND');
+  const medication = input.medication.trim();
+  prescription.items.push({
+    medication,
+    dosage: 'Selon prescription',
+    posology: `${input.timesPerDay} fois / jour`,
+    administrationRoute: input.administrationRoute,
+    duration: '7 jours',
+    treatmentStartDate: input.treatmentStartDate,
+    treatmentEndDate: input.treatmentEndDate,
+    administrationTimes: dosesByFrequency[input.timesPerDay],
+    instructions: '',
+    quantityPrescribed: 1,
+    quantityDispensed: 0,
+  });
+  await prescription.save();
+  const item = prescription.items[prescription.items.length - 1];
+  await recordAudit({
+    actorId: actor.id, actorRole: actor.role, organizationId, action: 'NURSING_TREATMENT_LINE_ADDED',
+    resourceType: 'prescription', resourceId: prescription.id, success: true, ip,
+    metadata: { patientId: input.patientId, prescriptionItemId: item.id, medication },
+  });
+  return {
+    prescriptionId: prescription.id,
+    prescriptionItemId: item.id,
+    medication: item.medication,
+    administrationTimes: item.administrationTimes,
+    administrationRoute: item.administrationRoute,
+  };
+}
+
+export async function scheduleMedicationAdministrations(
+  actor: AuthContext,
+  organizationId: string,
+  input: {
+    patientId: string;
+    prescriptionId: string;
+    prescriptionItemId: string;
+    timesPerDay: number;
+    administrationRoute: string;
+    treatmentStartDate: string;
+    treatmentEndDate: string;
+  },
+  ip?: string
+) {
+  await requireVisiblePatient(actor, organizationId, input.patientId, ip);
+  const prescription = await Prescription.findOne({
+    _id: input.prescriptionId,
+    organizationId,
+    patientId: input.patientId,
+    status: 'validated',
+  });
+  if (!prescription) throw new ApiError(404, 'Prescription validée introuvable', 'PRESCRIPTION_NOT_FOUND');
+  const item = prescription.items.id(input.prescriptionItemId);
+  if (!item) throw new ApiError(404, 'Ligne de prescription introuvable', 'PRESCRIPTION_ITEM_NOT_FOUND');
+  const closed = await MedicationAdministration.countDocuments({
+    organizationId,
+    prescriptionItemId: item._id,
+    status: { $ne: 'pending' },
+  });
+  if (closed > 0) {
+    throw new ApiError(409, 'Des prises sont déjà enregistrées. La fréquence ne peut plus être modifiée.', 'SCHEDULE_LOCKED');
+  }
+  await MedicationAdministration.deleteMany({ organizationId, prescriptionItemId: item._id, status: 'pending' });
+  item.administrationTimes = dosesByFrequency[input.timesPerDay];
+  item.administrationRoute = input.administrationRoute;
+  item.treatmentStartDate = input.treatmentStartDate;
+  item.treatmentEndDate = input.treatmentEndDate;
+  await prescription.save();
+  await recordAudit({
+    actorId: actor.id, actorRole: actor.role, organizationId, action: 'MEDICATION_SCHEDULE_SET',
+    resourceType: 'prescription', resourceId: prescription.id, success: true, ip,
+    metadata: { patientId: input.patientId, prescriptionItemId: item.id, timesPerDay: input.timesPerDay },
+  });
+  return {
+    prescriptionItemId: item.id,
+    administrationTimes: item.administrationTimes,
+    administrationRoute: item.administrationRoute,
+    treatmentStartDate: item.treatmentStartDate,
+    treatmentEndDate: item.treatmentEndDate,
+  };
+}
+
 export async function confirmMedicationAdministration(
   actor: AuthContext,
   organizationId: string,
@@ -699,7 +814,8 @@ export async function createVitalSigns(
     resourceType: 'vital-signs', resourceId: row.id, success: true, ip,
     metadata: { patientId: patient.id },
   });
-  return mapVitals(row, await thresholdsFor(organizationId));
+  const names = await namesById(organizationId, [actor.id]);
+  return { ...mapVitals(row, await thresholdsFor(organizationId)), recordedByName: names.get(actor.id) };
 }
 
 export async function listVitalSigns(actor: AuthContext, organizationId: string, query: { patientId: string; page?: number; limit?: number }) {
@@ -711,7 +827,12 @@ export async function listVitalSigns(actor: AuthContext, organizationId: string,
     VitalSigns.countDocuments(filter),
     thresholdsFor(organizationId),
   ]);
-  return paginated(rows.map((row) => mapVitals(row, thresholds)), total, page, limit);
+  const mapped = rows.map((row) => mapVitals(row, thresholds));
+  const names = await namesById(organizationId, mapped.map((row) => row.recordedBy));
+  return paginated(mapped.map((row) => ({
+    ...row,
+    recordedByName: row.recordedBy ? names.get(row.recordedBy) : undefined,
+  })), total, page, limit);
 }
 
 export async function createNursingObservation(
@@ -750,7 +871,12 @@ export async function getNursingPatient(actor: AuthContext, organizationId: stri
     ? await Bed.findOne({ _id: stay.bedId, organizationId }).select('expectedDischarge')
     : null;
   const stayEnd = stay?.dischargeDate ?? new Date();
-  return {
+  const mappedVitals = vitals.map((row) => mapVitals(row, thresholds));
+    const names = await namesById(organizationId, [
+      ...mappedVitals.map((row) => row.recordedBy),
+      ...observations.map((row) => row.nurseId.toString()),
+    ]);
+    return {
     patient: {
       id: patient.id, recordNumber: patient.id,
       firstName: patient.firstName, lastName: patient.lastName,
@@ -779,9 +905,16 @@ export async function getNursingPatient(actor: AuthContext, organizationId: stri
     exams,
     care: care.map(mapCare),
     observations: observations.map((row) => ({
-      id: row.id, nurseId: row.nurseId.toString(), observedAt: row.observedAt, content: row.content,
+      id: row.id,
+      nurseId: row.nurseId.toString(),
+      nurseName: names.get(row.nurseId.toString()),
+      observedAt: row.observedAt,
+      content: row.content,
     })),
-    vitals: vitals.map((row) => mapVitals(row, thresholds)),
+    vitals: mappedVitals.map((row) => ({
+      ...row,
+      recordedByName: row.recordedBy ? names.get(row.recordedBy) : undefined,
+    })),
   };
 }
 

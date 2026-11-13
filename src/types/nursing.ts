@@ -42,6 +42,7 @@ export interface NursingVitalSigns {
   id: string;
   patientId: string;
   recordedBy: string;
+  recordedByName?: string;
   measuredAt: string;
   systolic?: number;
   diastolic?: number;
@@ -88,6 +89,7 @@ export interface NursingDashboard {
 export interface NursingObservation {
   id: string;
   nurseId: string;
+  nurseName?: string;
   observedAt: string;
   content: string;
 }

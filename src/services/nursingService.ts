@@ -66,6 +66,29 @@ class NursingService {
     return httpClient.post<NursingPatientDetail['observations'][number]>(`${this.basePath}/observations`, input);
   }
 
+  addTreatmentLine(input: {
+    patientId: string;
+    medication: string;
+    timesPerDay: number;
+    administrationRoute: string;
+    treatmentStartDate: string;
+    treatmentEndDate: string;
+  }) {
+    return httpClient.post<{ prescriptionItemId: string }>(`${this.basePath}/treatment-lines`, input);
+  }
+
+  scheduleAdministrations(input: {
+    patientId: string;
+    prescriptionId: string;
+    prescriptionItemId: string;
+    timesPerDay: number;
+    administrationRoute: string;
+    treatmentStartDate: string;
+    treatmentEndDate: string;
+  }) {
+    return httpClient.post<{ administrationTimes: string[] }>(`${this.basePath}/schedules`, input);
+  }
+
   getAdministrations(patientId: string, date: string) {
     return httpClient.get<MedicationAdministrationSheet>(`${this.basePath}/administrations`, { patientId, date });
   }

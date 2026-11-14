@@ -156,7 +156,14 @@ function isClosed(dose: MedicationAdministration) {
   return false;
 }
 
+const earlyWindowMs = 2 * 60 * 60 * 1000;
+
 function canConfirm(dose: MedicationAdministration) {
+  if (isClosed(dose)) return false;
+  return new Date(dose.scheduledAt).getTime() - earlyWindowMs <= Date.now();
+}
+
+function canMarkMissed(dose: MedicationAdministration) {
   if (isClosed(dose)) return false;
   return new Date(dose.scheduledAt).getTime() <= Date.now();
 }
@@ -209,7 +216,9 @@ function DoseControls({
         ? 'En retard, à confirmer'
         : tone === 'red'
           ? 'Prise non effectuée'
-          : 'Pas encore l’heure';
+          : canConfirm(dose)
+            ? 'À administrer'
+            : 'Pas encore l’heure';
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-2">
@@ -234,7 +243,7 @@ function DoseControls({
           {shown && <p className={`text-xs sm:text-[11px] ${dose.status === 'administered_late' ? 'text-amber-800' : 'text-red-700'}`}>{doseMotif(dose)}</p>}
         </div>
       )}
-      {canWrite && canConfirm(dose) && (
+      {canWrite && canMarkMissed(dose) && (
         <button type="button" className="text-xs text-destructive underline sm:text-[11px]" onClick={() => onOpen('missed')}>Non effectué</button>
       )}
       {canWrite && closed && (checked || dose.status === 'not_administered' || dose.status === 'patient_refused') && (
@@ -689,36 +698,34 @@ export function TreatmentSheet({
           </table>
         </div>
         {canWrite && selectedId && (
-          <form ref={addFormRef} onSubmit={addLine} className="space-y-3 rounded-lg border p-3">
-            <div className="grid gap-3 md:grid-cols-3">
-              <div className="space-y-2">
-                <Label htmlFor="new-product">Médicament</Label>
-                <Input id="new-product" value={newMedication} maxLength={160} placeholder="Nom du produit" onChange={(event) => setNewMedication(event.target.value)} required />
-              </div>
-              <div className="space-y-2">
-                <Label>Fréquence</Label>
-                <Select value={newTimes} onValueChange={changeNewFrequency}>
-                  <SelectTrigger aria-label="Fréquence du nouveau produit"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">1 fois / jour</SelectItem>
-                    <SelectItem value="2">2 fois / jour</SelectItem>
-                    <SelectItem value="3">3 fois / jour</SelectItem>
-                    <SelectItem value="4">4 fois / jour</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Voie</Label>
-                <Select value={newRoute} onValueChange={setNewRoute}>
-                  <SelectTrigger aria-label="Voie du nouveau produit"><SelectValue /></SelectTrigger>
-                  <SelectContent>{administrationRoutes.map((route) => <SelectItem key={route} value={route}>{route}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
+          <form ref={addFormRef} onSubmit={addLine} className="flex flex-nowrap items-end gap-2 overflow-x-auto rounded-lg border p-3">
+            <div className="min-w-[12rem] flex-1 space-y-2">
+              <Label htmlFor="new-product">Médicament</Label>
+              <Input id="new-product" value={newMedication} maxLength={160} placeholder="Nom du produit" onChange={(event) => setNewMedication(event.target.value)} required />
             </div>
-            <Button type="submit" className="w-full md:w-auto" disabled={adding || !newMedication.trim()}>{adding ? 'Ajout...' : 'Ajouter la ligne'}</Button>
+            <div className="w-40 shrink-0 space-y-2">
+              <Label>Fréquence</Label>
+              <Select value={newTimes} onValueChange={changeNewFrequency}>
+                <SelectTrigger aria-label="Fréquence du nouveau produit"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1 fois / jour</SelectItem>
+                  <SelectItem value="2">2 fois / jour</SelectItem>
+                  <SelectItem value="3">3 fois / jour</SelectItem>
+                  <SelectItem value="4">4 fois / jour</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-44 shrink-0 space-y-2">
+              <Label>Voie</Label>
+              <Select value={newRoute} onValueChange={setNewRoute}>
+                <SelectTrigger aria-label="Voie du nouveau produit"><SelectValue /></SelectTrigger>
+                <SelectContent>{administrationRoutes.map((route) => <SelectItem key={route} value={route}>{route}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <Button type="submit" className="shrink-0" disabled={adding || !newMedication.trim()}>{adding ? 'Ajout...' : 'Ajouter la ligne'}</Button>
           </form>
         )}
-        <p className="text-xs text-muted-foreground">Avant l’heure prévue, la case reste inactive. L’heure atteinte ne valide pas la prise. Case verte : confirmée à l’heure. Case jaune : en retard, à confirmer ou déjà confirmée avec un motif. Case rouge : prise non effectuée. Le médecin et l’administrateur voient ces motifs.</p>
+        <p className="text-xs text-muted-foreground">La case s’ouvre 2 heures avant l’heure prévue. L’heure atteinte ne valide pas la prise. Case verte : confirmée à l’heure. Case jaune : en retard, à confirmer ou déjà confirmée avec un motif. Case rouge : prise non effectuée. Le médecin et l’administrateur voient ces motifs.</p>
         <Dialog open={scheduleDraft !== null} onOpenChange={(open) => { if (!open && !schedulingId) setScheduleDraft(null); }}>
           <DialogContent>
             <DialogHeader>

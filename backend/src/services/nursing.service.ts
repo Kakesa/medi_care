@@ -37,6 +37,7 @@ const defaultThresholds: VitalThresholds = {
 };
 
 const medicationLateWindowMs = 60 * 60 * 1000;
+const medicationEarlyWindowMs = 2 * 60 * 60 * 1000;
 const medicationTimeZone = 'Africa/Kinshasa';
 const defaultWindowStart = '06:00';
 const defaultWindowEnd = '18:00';
@@ -724,7 +725,9 @@ export async function confirmMedicationAdministration(
   await requireVisiblePatient(actor, organizationId, row.patientId.toString(), ip);
   if (row.status !== 'pending') throw new ApiError(409, 'Cette prise a déjà été clôturée', 'ADMINISTRATION_CLOSED');
   const administeredAt = new Date();
-  if (administeredAt < row.scheduledAt) throw new ApiError(409, 'Cette prise est prévue ultérieurement', 'ADMINISTRATION_NOT_DUE');
+  if (administeredAt.getTime() + medicationEarlyWindowMs < row.scheduledAt.getTime()) {
+    throw new ApiError(409, 'Cette prise est prévue ultérieurement', 'ADMINISTRATION_NOT_DUE');
+  }
   const status = administeredAt.getTime() <= row.scheduledAt.getTime()
     ? 'administered_on_time'
     : 'administered_late';

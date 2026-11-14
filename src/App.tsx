@@ -80,9 +80,9 @@ const App = () => (
                 <Route path="consultations" element={<RequireRole roles={["HOSPITAL_ADMIN", "DOCTOR", "NURSE"]}><Consultations /></RequireRole>} />
                 <Route path="nursing" element={<RequireRole roles={["HOSPITAL_ADMIN", "DOCTOR", "NURSE"]}><NursingCare /></RequireRole>} />
                 <Route path="reception" element={<RequireRole roles={["HOSPITAL_ADMIN", "RECEPTIONIST"]}><Reception /></RequireRole>} />
-                <Route path="examinations" element={<RequireRole roles={["HOSPITAL_ADMIN", "ACCOUNTANT", "RECEPTIONIST", "DOCTOR", "NURSE"]}><Examinations /></RequireRole>} />
+                <Route path="examinations" element={<RequireRole roles={["HOSPITAL_ADMIN", "ACCOUNTANT", "RECEPTIONIST", "DOCTOR"]}><Examinations /></RequireRole>} />
                 <Route path="pharmacy" element={<RequireRole roles={["HOSPITAL_ADMIN", "PHARMACIST"]}><Pharmacy /></RequireRole>} />
-                <Route path="surgery" element={<RequireRole roles={["HOSPITAL_ADMIN", "ACCOUNTANT", "RECEPTIONIST", "DOCTOR", "NURSE"]}><Surgery /></RequireRole>} />
+                <Route path="surgery" element={<RequireRole roles={["HOSPITAL_ADMIN", "ACCOUNTANT", "RECEPTIONIST", "DOCTOR"]}><Surgery /></RequireRole>} />
                 <Route path="billing" element={<RequireRole roles={["HOSPITAL_ADMIN", "ACCOUNTANT", "RECEPTIONIST"]}><Billing /></RequireRole>} />
                 <Route path="accounting" element={<RequireRole roles={["HOSPITAL_ADMIN", "ACCOUNTANT", "RECEPTIONIST"]}><Accounting /></RequireRole>} />
                 <Route path="beds" element={<RequireRole roles={["HOSPITAL_ADMIN", "RECEPTIONIST"]}><BedManagement /></RequireRole>} />

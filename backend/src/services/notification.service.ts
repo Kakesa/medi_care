@@ -30,7 +30,7 @@ export async function notifyUser(input: {
   userId?: { toString(): string } | string | null;
   title: string;
   message: string;
-  type?: 'appointment' | 'billing' | 'exam_result' | 'pharmacy';
+  type?: 'appointment' | 'billing' | 'exam_result' | 'pharmacy' | 'shift';
   relatedId?: string;
 }) {
   const userId = input.userId ? String(input.userId) : '';
@@ -51,7 +51,7 @@ export async function notifyRoles(input: {
   roles: string[];
   title: string;
   message: string;
-  type?: 'appointment' | 'billing' | 'exam_result' | 'pharmacy';
+  type?: 'appointment' | 'billing' | 'exam_result' | 'pharmacy' | 'shift';
   relatedId?: string;
 }) {
   const users = await User.find({

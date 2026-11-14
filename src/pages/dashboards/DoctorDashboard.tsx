@@ -12,6 +12,7 @@ import type { Appointment, Consultation, Patient } from "@/types";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { apiMessage } from "@/lib/apiError";
+import { NurseShiftBoard } from "@/components/nursing/NurseShiftBoard";
 
 function todayIso() {
   const date = new Date();
@@ -109,10 +110,11 @@ export default function DoctorDashboard() {
 
   return (
     <div className="space-y-8">
+      {user?.role === 'NURSE' && <NurseShiftBoard />}
       {/* Page header */}
       <div className="animate-fade-in">
         <h1 className="text-3xl font-bold text-foreground">
-          Bonjour, Dr. {user?.lastName || 'Médecin'}
+          {user?.role === 'NURSE' ? `Bonjour, ${user.firstName}` : `Bonjour, Dr. ${user?.lastName || 'Médecin'}`}
         </h1>
         <p className="mt-1 text-muted-foreground">
           Voici votre planning et activité du jour

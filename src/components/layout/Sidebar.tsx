@@ -22,6 +22,7 @@ import {
   BedDouble,
   Building2,
   HeartPulse,
+  CalendarClock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,7 @@ export const allNavigation: { name: string; href: string; icon: typeof LayoutDas
   { name: "Personnel", href: "/dashboard/personnel", icon: Users, roles: ['HOSPITAL_ADMIN'] },
   { name: "Consultation", href: "/dashboard/consultations", icon: Stethoscope, roles: ['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE'] },
   { name: "Soins infirmiers", href: "/dashboard/nursing", icon: HeartPulse, roles: ['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE'] },
+  { name: "Gardes", href: "/dashboard/gardes", icon: CalendarClock, roles: ['HOSPITAL_ADMIN'] },
   { name: "Examen", href: "/dashboard/examinations", icon: FlaskConical, roles: ['HOSPITAL_ADMIN', 'ACCOUNTANT', 'RECEPTIONIST', 'DOCTOR'] },
   { name: "Examen", href: "/dashboard/examen", icon: FlaskConical, roles: ['PATIENT'] },
   { name: "Chirurgie", href: "/dashboard/surgery", icon: Scissors, roles: ['HOSPITAL_ADMIN', 'ACCOUNTANT', 'RECEPTIONIST', 'DOCTOR'] },

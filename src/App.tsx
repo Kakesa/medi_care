@@ -36,6 +36,7 @@ import ReceptionLab from "./pages/laboratory/ReceptionLab";
 import ClinicalPrescriptions from "./pages/laboratory/ClinicalPrescriptions";
 import PharmacyDesk from "./pages/laboratory/PharmacyDesk";
 import NursingCare from "./pages/NursingCare";
+import NurseShifts from "./pages/NurseShifts";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 import { WorkBadgeProvider } from "./contexts/WorkBadgeContext";
 import { RequireRole } from "./components/auth/RequireRole";
@@ -79,6 +80,7 @@ const App = () => (
                 <Route path="appointments" element={<RequireRole roles={["HOSPITAL_ADMIN", "DOCTOR", "RECEPTIONIST"]}><Appointments /></RequireRole>} />
                 <Route path="consultations" element={<RequireRole roles={["HOSPITAL_ADMIN", "DOCTOR", "NURSE"]}><Consultations /></RequireRole>} />
                 <Route path="nursing" element={<RequireRole roles={["HOSPITAL_ADMIN", "DOCTOR", "NURSE"]}><NursingCare /></RequireRole>} />
+                <Route path="gardes" element={<RequireRole roles={["HOSPITAL_ADMIN"]}><NurseShifts /></RequireRole>} />
                 <Route path="reception" element={<RequireRole roles={["HOSPITAL_ADMIN", "RECEPTIONIST"]}><Reception /></RequireRole>} />
                 <Route path="examinations" element={<RequireRole roles={["HOSPITAL_ADMIN", "ACCOUNTANT", "RECEPTIONIST", "DOCTOR"]}><Examinations /></RequireRole>} />
                 <Route path="pharmacy" element={<RequireRole roles={["HOSPITAL_ADMIN", "PHARMACIST"]}><Pharmacy /></RequireRole>} />

@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Bell, Trash2, Calendar, UserPlus, FlaskConical, Pill, FileText } from 'lucide-react';
+import { Bell, Trash2, Calendar, CalendarClock, UserPlus, FlaskConical, Pill, FileText } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,7 +22,8 @@ const typeIcons = {
   exam_result: FlaskConical,
   pharmacy: Pill,
   billing: FileText,
-  general: Bell
+  general: Bell,
+  shift: CalendarClock,
 };
 
 const typeColors = {
@@ -31,7 +32,8 @@ const typeColors = {
   exam_result: 'text-success',
   pharmacy: 'text-warning',
   billing: 'text-primary',
-  general: 'text-muted-foreground'
+  general: 'text-muted-foreground',
+  shift: 'text-primary',
 };
 
 export function NotificationDropdown() {
@@ -94,6 +96,9 @@ export function NotificationDropdown() {
                     }
                     if (notification.type === 'pharmacy') {
                       navigate('/dashboard/pharmacie-ordonnances');
+                    }
+                    if (notification.type === 'shift') {
+                      navigate(user?.role === 'HOSPITAL_ADMIN' ? '/dashboard/gardes' : '/dashboard');
                     }
                     return pending;
                   }}

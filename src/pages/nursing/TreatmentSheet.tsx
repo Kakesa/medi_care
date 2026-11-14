@@ -12,6 +12,7 @@ import { apiMessage } from '@/lib/apiError';
 import { useToast } from '@/hooks/use-toast';
 import { PatientSelect } from '@/components/patients/PatientSelect';
 import { nursingService } from '@/services/nursingService';
+import { shiftService, type NurseShift, type ShiftBoard } from '@/services/shiftService';
 import type { MedicationAdministration, MedicationAdministrationSheet, NursingPatient, NursingPatientDetail } from '@/types/nursing';
 
 const timeZone = 'Africa/Kinshasa';
@@ -46,6 +47,14 @@ function facilityDate() {
 function addDays(date: string, days: number) {
   const [year, month, day] = date.split('-').map(Number);
   return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
+
+function inShift(shift: Pick<NurseShift, 'date' | 'startTime' | 'endTime'>, scheduledAt: string) {
+  const when = new Date(scheduledAt);
+  const date = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(when);
+  const time = new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(when);
+  if (shift.endTime > shift.startTime) return date === shift.date && time >= shift.startTime && time < shift.endTime;
+  return (date === shift.date && time >= shift.startTime) || (date === addDays(shift.date, 1) && time < shift.endTime);
 }
 
 function clock(value: string) {
@@ -292,10 +301,16 @@ export function TreatmentSheet({
   } | null>(null);
   const [schedulingId, setSchedulingId] = useState('');
   const [adding, setAdding] = useState(false);
+  const [duty, setDuty] = useState<ShiftBoard | null>(null);
   const addFormRef = useRef<HTMLFormElement>(null);
 
   const days = useMemo(() => Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)), [weekStart]);
   const todayIndex = days.indexOf(facilityDate());
+
+  useEffect(() => {
+    if (!canWrite) return;
+    shiftService.mine().then(setDuty).catch(() => undefined);
+  }, [canWrite]);
 
   useEffect(() => {
     if (!selectedId) {
@@ -571,6 +586,21 @@ export function TreatmentSheet({
         </div>
       </CardHeader>
       <CardContent className="space-y-4 p-4 pt-0 sm:p-6 sm:pt-0">
+        {duty?.today.filter((shift) => shift.status === 'in_progress').map((shift) => {
+          const due = doses.filter((dose) => inShift(shift, dose.scheduledAt) && dose.status === 'pending');
+          return (
+            <p key={shift.id} className="rounded-xl border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-950">
+              Garde en cours jusqu’à {shift.endTime}, {shift.ward}. {due.length ? `${due.length} prise(s) encore à confirmer pendant ce service.` : 'Aucune prise en attente sur ce créneau.'} Les prises non confirmées restent visibles après la fin de garde.
+            </p>
+          );
+        })}
+        {duty?.handover && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+            <p className="font-medium">Transmission du {duty.handover.date} · {duty.handover.ward}</p>
+            {duty.handover.note && <p>{duty.handover.note}</p>}
+            {duty.handover.summary && <p className="whitespace-pre-line">{duty.handover.summary}</p>}
+          </div>
+        )}
         <div className="grid gap-3 md:grid-cols-3">
           <div className="space-y-2">
             <Label>Patient</Label>

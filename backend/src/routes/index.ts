@@ -20,6 +20,7 @@ import prescriptionRoutes from './prescription.routes.js';
 import badgeRoutes from './badge.routes.js';
 import publicRoutes from './public.routes.js';
 import nursingRoutes from './nursing.routes.js';
+import shiftRoutes from './shift.routes.js';
 
 const router = Router();
 
@@ -48,5 +49,6 @@ router.use('/lab', labRoutes);
 router.use('/prescriptions', prescriptionRoutes);
 router.use('/badges', badgeRoutes);
 router.use('/nursing', nursingRoutes);
+router.use('/shifts', shiftRoutes);
 
 export default router;

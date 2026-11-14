@@ -1,7 +1,6 @@
 import { httpClient } from './httpClient';
 
-export type ShiftType = 'morning' | 'afternoon' | 'night' | 'full_day';
-export type ShiftStatus = 'scheduled' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
+export type ShiftStatus = 'draft' | 'scheduled' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
 
 export type NurseShift = {
   id: string;
@@ -10,15 +9,35 @@ export type NurseShift = {
   date: string;
   startTime: string;
   endTime: string;
-  type: ShiftType;
+  type: string;
+  durationLabel: string;
   ward: string;
   status: ShiftStatus;
   absent: boolean;
   absenceReason: string;
+  conflict?: boolean;
   actualStartedAt?: string;
   actualEndedAt?: string;
   handoverNote: string;
   handoverSummary: string;
+};
+
+export type ShiftTemplate = {
+  id: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+  durationLabel: string;
+  ward: string;
+  requiredNurses: number;
+  active: boolean;
+};
+
+export type ShiftCycle = {
+  id: string;
+  name: string;
+  workDays: number;
+  restDays: number;
 };
 
 export type ShiftBoard = {
@@ -41,16 +60,48 @@ class ShiftService {
     return httpClient.get<NurseShift[]>(base, { from, to });
   }
 
-  create(input: { nurseIds: string[]; date: string; startTime: string; endTime: string; type: ShiftType; ward: string }) {
+  create(input: { nurseIds: string[]; date: string; startTime: string; endTime: string; type: string; ward: string }) {
     return httpClient.post<NurseShift[]>(base, input);
   }
 
-  rotation(input: { nurseIds: string[]; from: string; to: string; workDays: number; restDays: number; startTime: string; endTime: string; type: ShiftType; ward: string }) {
+  rotation(input: { nurseIds: string[]; from: string; to: string; workDays: number; restDays: number; startTime: string; endTime: string; type: string; ward: string }) {
     return httpClient.post<NurseShift[]>(`${base}/rotations`, input);
   }
 
-  update(id: string, input: { date: string; startTime: string; endTime: string; type: ShiftType; ward: string; status?: 'scheduled' | 'confirmed' | 'cancelled' }) {
+  update(id: string, input: { date: string; startTime: string; endTime: string; type: string; ward: string; status?: 'draft' | 'scheduled' | 'confirmed' | 'cancelled' }) {
     return httpClient.patch<NurseShift>(`${base}/${id}`, input);
+  }
+
+  publish(from: string, to: string) {
+    return httpClient.post<NurseShift[]>(`${base}/publish`, { from, to });
+  }
+
+  copy(from: string, to: string, targetFrom: string) {
+    return httpClient.post<{ created: NurseShift[]; skipped: Array<{ nurseName: string; date: string; startTime: string; endTime: string }> }>(`${base}/copy`, { from, to, targetFrom });
+  }
+
+  templates() {
+    return httpClient.get<ShiftTemplate[]>(`${base}/templates`);
+  }
+
+  saveTemplate(input: { name: string; startTime: string; endTime: string; ward: string; requiredNurses: number }, id?: string) {
+    return id ? httpClient.patch<ShiftTemplate>(`${base}/templates/${id}`, input) : httpClient.post<ShiftTemplate>(`${base}/templates`, input);
+  }
+
+  deleteTemplate(id: string) {
+    return httpClient.delete(`${base}/templates/${id}`);
+  }
+
+  cycles() {
+    return httpClient.get<ShiftCycle[]>(`${base}/cycles`);
+  }
+
+  saveCycle(input: { name: string; workDays: number; restDays: number }, id?: string) {
+    return id ? httpClient.patch<ShiftCycle>(`${base}/cycles/${id}`, input) : httpClient.post<ShiftCycle>(`${base}/cycles`, input);
+  }
+
+  deleteCycle(id: string) {
+    return httpClient.delete(`${base}/cycles/${id}`);
   }
 
   absence(id: string, reason: string) {

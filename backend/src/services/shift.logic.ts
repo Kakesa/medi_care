@@ -57,6 +57,28 @@ export function rotationDates(from: string, to: string, workDays: number, restDa
   return dates;
 }
 
+export function durationMinutes(startTime: string, endTime: string) {
+  const [startHour, startMinute] = startTime.split(':').map(Number);
+  const [endHour, endMinute] = endTime.split(':').map(Number);
+  let minutes = endHour * 60 + endMinute - (startHour * 60 + startMinute);
+  if (minutes <= 0) minutes += 24 * 60;
+  return minutes;
+}
+
+export function durationLabel(startTime: string, endTime: string) {
+  const minutes = durationMinutes(startTime, endTime);
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (!rest) return hours === 1 ? '1 heure' : `${hours} heures`;
+  return `${hours} h ${String(rest).padStart(2, '0')}`;
+}
+
+export function dayOffset(from: string, target: string) {
+  const start = Date.parse(`${from}T00:00:00Z`);
+  const end = Date.parse(`${target}T00:00:00Z`);
+  return Math.round((end - start) / 86_400_000);
+}
+
 export function restDates(from: string, to: string, worked: string[]) {
   const busy = new Set(worked);
   const dates: string[] = [];

@@ -7,7 +7,8 @@ import { useToast } from '@/hooks/use-toast';
 import { shiftService, type NurseShift, type ShiftBoard } from '@/services/shiftService';
 
 const statusLabel: Record<NurseShift['status'], string> = {
-  scheduled: 'Programmée',
+  draft: 'Brouillon',
+  scheduled: 'Publiée',
   confirmed: 'Confirmée',
   in_progress: 'En cours',
   completed: 'Terminée',

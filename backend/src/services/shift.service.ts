@@ -1,6 +1,8 @@
 import mongoose from 'mongoose';
 import { MedicationAdministration } from '../models/MedicationAdministration.js';
 import { NurseShift } from '../models/NurseShift.js';
+import { ShiftCycle } from '../models/ShiftCycle.js';
+import { ShiftTemplate } from '../models/ShiftTemplate.js';
 import { User } from '../models/User.js';
 import { ROLES } from '../config/permissions.js';
 import { ApiError } from '../utils/ApiError.js';
@@ -9,7 +11,7 @@ import { notifyUser } from './notification.service.js';
 import { sendPush } from './push.service.js';
 import type { AuthContext } from '../types/express.js';
 import {
-  addDays, facilityDate, formatShiftDate, rangesOverlap, restDates, rotationDates, shiftBounds,
+  addDays, dayOffset, durationLabel, facilityDate, formatShiftDate, rangesOverlap, restDates, rotationDates, shiftBounds,
 } from './shift.logic.js';
 
 type ShiftInput = {
@@ -17,15 +19,8 @@ type ShiftInput = {
   date: string;
   startTime: string;
   endTime: string;
-  type: 'morning' | 'afternoon' | 'night' | 'full_day';
+  type: string;
   ward: string;
-};
-
-const typeLabels = {
-  morning: 'matin',
-  afternoon: 'après-midi',
-  night: 'nuit',
-  full_day: 'journée complète',
 };
 
 async function nursesInOrganization(organizationId: string, ids: string[]) {
@@ -70,6 +65,7 @@ async function toDto(row: InstanceType<typeof NurseShift>, names: Map<string, st
     startTime: row.startTime,
     endTime: row.endTime,
     type: row.type,
+    durationLabel: durationLabel(row.startTime, row.endTime),
     ward: row.ward,
     status: row.status,
     absent: row.absent,
@@ -103,7 +99,11 @@ export async function listShifts(organizationId: string, query: { from?: string;
   const to = query.to || addDays(from, 6);
   const rows = await NurseShift.find({ organizationId, date: { $gte: from, $lte: to } }).sort({ date: 1, startTime: 1 });
   const names = await namesFor(organizationId, rows.map((row) => row.nurseId.toString()));
-  return Promise.all(rows.map((row) => toDto(row, names)));
+  const items = await Promise.all(rows.map((row) => toDto(row, names)));
+  return items.map((item) => ({
+    ...item,
+    conflict: item.status !== 'cancelled' && items.some((other) => other.id !== item.id && other.nurseId === item.nurseId && other.status !== 'cancelled' && rangesOverlap(shiftBounds(item.date, item.startTime, item.endTime), shiftBounds(other.date, other.startTime, other.endTime))),
+  }));
 }
 
 export async function createShifts(actor: AuthContext, organizationId: string, input: ShiftInput, ip?: string) {
@@ -121,16 +121,15 @@ export async function createShifts(actor: AuthContext, organizationId: string, i
       endTime: input.endTime,
       type: input.type,
       ward: input.ward.trim(),
-      status: 'scheduled',
+      status: 'draft',
       history: [{ at: new Date(), actorId: actor.id, action: 'CREATED', reason: '' }],
     });
     created.push(row);
-    await tell(organizationId, nurseId, 'Nouvelle garde', assignmentMessage(input.date, input.startTime, input.endTime, input.ward.trim()), row.id);
   }
   await recordAudit({
     actorId: actor.id, actorRole: actor.role, organizationId, action: 'SHIFT_CREATED',
     resourceType: 'nurse-shift', success: true, ip,
-    metadata: { count: created.length, date: input.date, type: typeLabels[input.type] },
+    metadata: { count: created.length, date: input.date, type: input.type },
   });
   const nameMap = await namesFor(organizationId, [...names.keys()]);
   return Promise.all(created.map((row) => toDto(row, nameMap)));
@@ -156,14 +155,9 @@ export async function createRotation(actor: AuthContext, organizationId: string,
     created.push(await NurseShift.create({
       organizationId, nurseId: item.nurseId, date: item.date,
       startTime: input.startTime, endTime: input.endTime, type: input.type, ward: input.ward.trim(),
-      status: 'scheduled',
+      status: 'draft',
       history: [{ at: new Date(), actorId: actor.id, action: 'ROTATION', reason: `${input.workDays} jour(s) / ${input.restDays} repos` }],
     }));
-  }
-  for (const nurseId of names.keys()) {
-    const first = plan.find((item) => item.nurseId === nurseId);
-    if (!first) continue;
-    await tell(organizationId, nurseId, 'Rotation de gardes', `Votre rotation commence le ${formatShiftDate(first.date)}, de ${input.startTime} à ${input.endTime}, au service ${input.ward.trim()}.`, created.find((row) => row.nurseId.toString() === nurseId)?.id ?? '');
   }
   await recordAudit({
     actorId: actor.id, actorRole: actor.role, organizationId, action: 'SHIFT_ROTATION_CREATED',
@@ -180,14 +174,15 @@ async function loadShift(organizationId: string, id: string) {
 }
 
 export async function updateShift(actor: AuthContext, organizationId: string, id: string, input: {
-  date: string; startTime: string; endTime: string; type: ShiftInput['type']; ward: string; status?: 'scheduled' | 'confirmed' | 'cancelled';
+  date: string; startTime: string; endTime: string; type: string; ward: string; status?: 'draft' | 'scheduled' | 'confirmed' | 'cancelled';
 }, ip?: string) {
   const row = await loadShift(organizationId, id);
   if (row.status === 'completed' || row.status === 'in_progress') {
     throw new ApiError(409, 'Une garde commencée ne se modifie pas ainsi', 'SHIFT_LOCKED');
   }
   await assertNoConflict(organizationId, row.nurseId.toString(), input.date, input.startTime, input.endTime, row.id);
-  const changed = row.date !== input.date || row.startTime !== input.startTime || row.endTime !== input.endTime || row.ward !== input.ward.trim() || (input.status && input.status !== row.status);
+  const live = row.status !== 'draft';
+  const changed = row.date !== input.date || row.startTime !== input.startTime || row.endTime !== input.endTime || row.ward !== input.ward.trim() || row.type !== input.type.trim() || (input.status && input.status !== row.status);
   row.date = input.date;
   row.startTime = input.startTime;
   row.endTime = input.endTime;
@@ -197,7 +192,7 @@ export async function updateShift(actor: AuthContext, organizationId: string, id
   row.sentReminders = row.sentReminders.filter((key) => key !== 'before' && key !== 'start' && key !== 'eve');
   row.history.push({ at: new Date(), actorId: actor.id, action: input.status === 'cancelled' ? 'CANCELLED' : 'UPDATED', reason: '' });
   await row.save();
-  if (changed) {
+  if (live && changed) {
     const title = input.status === 'cancelled' ? 'Garde annulée' : 'Garde modifiée';
     const message = input.status === 'cancelled'
       ? `Votre garde du ${formatShiftDate(input.date)} est annulée.`
@@ -219,7 +214,9 @@ export async function declareAbsence(actor: AuthContext, organizationId: string,
   row.absenceReason = reason;
   row.history.push({ at: new Date(), actorId: actor.id, action: 'ABSENCE', reason });
   await row.save();
-  await tell(organizationId, row.nurseId.toString(), 'Absence enregistrée', `Votre garde du ${formatShiftDate(row.date)} est marquée en absence. Le remplacement sera validé par l’administration.`, row.id);
+  if (row.status !== 'draft') {
+    await tell(organizationId, row.nurseId.toString(), 'Absence enregistrée', `Votre garde du ${formatShiftDate(row.date)} est marquée en absence. Le remplacement sera validé par l’administration.`, row.id);
+  }
   await recordAudit({
     actorId: actor.id, actorRole: actor.role, organizationId, action: 'SHIFT_ABSENCE',
     resourceType: 'nurse-shift', resourceId: row.id, success: true, ip,
@@ -245,8 +242,10 @@ export async function replaceNurse(actor: AuthContext, organizationId: string, i
   row.absent = false;
   row.sentReminders = [];
   await row.save();
-  await tell(organizationId, previous, 'Garde transférée', `Vous n’êtes plus affecté(e) à la garde du ${formatShiftDate(row.date)}. Motif : ${reason}`, row.id);
-  await tell(organizationId, nurseId, 'Remplacement de garde', `Vous remplacez une garde le ${formatShiftDate(row.date)}, de ${row.startTime} à ${row.endTime}, au service ${row.ward}.`, row.id);
+  if (row.status !== 'draft') {
+    await tell(organizationId, previous, 'Garde transférée', `Vous n’êtes plus affecté(e) à la garde du ${formatShiftDate(row.date)}. Motif : ${reason}`, row.id);
+    await tell(organizationId, nurseId, 'Remplacement de garde', `Vous remplacez une garde le ${formatShiftDate(row.date)}, de ${row.startTime} à ${row.endTime}, au service ${row.ward}.`, row.id);
+  }
   await recordAudit({
     actorId: actor.id, actorRole: actor.role, organizationId, action: 'SHIFT_REPLACED',
     resourceType: 'nurse-shift', resourceId: row.id, success: true, ip, metadata: { from: previous, to: nurseId },
@@ -259,7 +258,7 @@ export async function myBoard(actor: AuthContext, organizationId: string) {
   const today = facilityDate();
   const horizon = addDays(today, 30);
   const rows = await NurseShift.find({
-    organizationId, nurseId: actor.id, date: { $gte: addDays(today, -30), $lte: horizon },
+    organizationId, nurseId: actor.id, status: { $ne: 'draft' }, date: { $gte: addDays(today, -30), $lte: horizon },
   }).sort({ date: 1, startTime: 1 });
   const names = await namesFor(organizationId, [actor.id]);
   const items = await Promise.all(rows.map((row) => toDto(row, names)));
@@ -329,6 +328,141 @@ export async function endShift(actor: AuthContext, organizationId: string, id: s
   });
   const names = await namesFor(organizationId, [actor.id]);
   return toDto(row, names);
+}
+
+export async function publishShifts(actor: AuthContext, organizationId: string, from: string, to: string, ip?: string) {
+  const rows = await NurseShift.find({ organizationId, status: 'draft', date: { $gte: from, $lte: to } }).sort({ date: 1, startTime: 1 });
+  if (!rows.length) throw new ApiError(400, 'Aucun brouillon à publier sur cette période', 'NOTHING_TO_PUBLISH');
+  for (const row of rows) {
+    row.status = 'scheduled';
+    row.history.push({ at: new Date(), actorId: actor.id, action: 'PUBLISHED', reason: '' });
+    await row.save();
+  }
+  const grouped = new Map<string, typeof rows>();
+  for (const row of rows) {
+    const nurseId = row.nurseId.toString();
+    grouped.set(nurseId, [...(grouped.get(nurseId) ?? []), row]);
+  }
+  for (const [nurseId, list] of grouped) {
+    const first = list[0];
+    await tell(organizationId, nurseId, 'Planning publié', `${list.length > 1 ? `${list.length} gardes sont publiées. ` : ''}${assignmentMessage(first.date, first.startTime, first.endTime, first.ward)}`, first.id);
+  }
+  await recordAudit({
+    actorId: actor.id, actorRole: actor.role, organizationId, action: 'SHIFT_PUBLISHED',
+    resourceType: 'nurse-shift', success: true, ip, metadata: { count: rows.length, from, to },
+  });
+  const names = await namesFor(organizationId, [...grouped.keys()]);
+  return Promise.all(rows.map((row) => toDto(row, names)));
+}
+
+export async function copyShifts(actor: AuthContext, organizationId: string, from: string, to: string, targetFrom: string, ip?: string) {
+  const source = await NurseShift.find({
+    organizationId, date: { $gte: from, $lte: to }, status: { $nin: ['cancelled'] },
+  }).sort({ date: 1, startTime: 1 });
+  if (!source.length) throw new ApiError(400, 'Aucune garde à copier sur cette période', 'NOTHING_TO_COPY');
+  const offset = dayOffset(from, targetFrom);
+  const names = await namesFor(organizationId, source.map((row) => row.nurseId.toString()));
+  const created = [];
+  const skipped: Array<{ nurseName: string; date: string; startTime: string; endTime: string }> = [];
+  for (const row of source) {
+    const date = addDays(row.date, offset);
+    try {
+      await assertNoConflict(organizationId, row.nurseId.toString(), date, row.startTime, row.endTime);
+      created.push(await NurseShift.create({
+        organizationId,
+        nurseId: row.nurseId,
+        date,
+        startTime: row.startTime,
+        endTime: row.endTime,
+        type: row.type,
+        ward: row.ward,
+        status: 'draft',
+        history: [{ at: new Date(), actorId: actor.id, action: 'COPIED', reason: `Copie du ${row.date}` }],
+      }));
+    } catch {
+      skipped.push({ nurseName: names.get(row.nurseId.toString()) ?? 'Infirmier', date, startTime: row.startTime, endTime: row.endTime });
+    }
+  }
+  await recordAudit({
+    actorId: actor.id, actorRole: actor.role, organizationId, action: 'SHIFT_COPIED',
+    resourceType: 'nurse-shift', success: true, ip, metadata: { created: created.length, skipped: skipped.length },
+  });
+  return { created: await Promise.all(created.map((row) => toDto(row, names))), skipped };
+}
+
+function templateDto(row: InstanceType<typeof ShiftTemplate>) {
+  return {
+    id: row.id,
+    name: row.name,
+    startTime: row.startTime,
+    endTime: row.endTime,
+    durationLabel: durationLabel(row.startTime, row.endTime),
+    ward: row.ward,
+    requiredNurses: row.requiredNurses,
+    active: row.active,
+  };
+}
+
+export async function listTemplates(organizationId: string) {
+  const rows = await ShiftTemplate.find({ organizationId }).sort({ startTime: 1, name: 1 });
+  return rows.map(templateDto);
+}
+
+export async function saveTemplate(actor: AuthContext, organizationId: string, input: {
+  name: string; startTime: string; endTime: string; ward: string; requiredNurses: number;
+}, id?: string, ip?: string) {
+  const payload = {
+    name: input.name.trim(),
+    startTime: input.startTime,
+    endTime: input.endTime,
+    ward: input.ward.trim(),
+    requiredNurses: input.requiredNurses,
+  };
+  const row = id
+    ? await ShiftTemplate.findOneAndUpdate({ _id: id, organizationId }, payload, { new: true })
+    : await ShiftTemplate.create({ organizationId, ...payload, active: true });
+  if (!row) throw new ApiError(404, 'Type de garde introuvable', 'NOT_FOUND');
+  await recordAudit({
+    actorId: actor.id, actorRole: actor.role, organizationId, action: id ? 'SHIFT_TEMPLATE_UPDATED' : 'SHIFT_TEMPLATE_CREATED',
+    resourceType: 'shift-template', resourceId: row.id, success: true, ip,
+  });
+  return templateDto(row);
+}
+
+export async function removeTemplate(actor: AuthContext, organizationId: string, id: string, ip?: string) {
+  const row = await ShiftTemplate.findOneAndDelete({ _id: id, organizationId });
+  if (!row) throw new ApiError(404, 'Type de garde introuvable', 'NOT_FOUND');
+  await recordAudit({
+    actorId: actor.id, actorRole: actor.role, organizationId, action: 'SHIFT_TEMPLATE_DELETED',
+    resourceType: 'shift-template', resourceId: row.id, success: true, ip,
+  });
+}
+
+export async function listCycles(organizationId: string) {
+  const rows = await ShiftCycle.find({ organizationId }).sort({ name: 1 });
+  return rows.map((row) => ({ id: row.id, name: row.name, workDays: row.workDays, restDays: row.restDays }));
+}
+
+export async function saveCycle(actor: AuthContext, organizationId: string, input: { name: string; workDays: number; restDays: number }, id?: string, ip?: string) {
+  const payload = { name: input.name.trim(), workDays: input.workDays, restDays: input.restDays };
+  const row = id
+    ? await ShiftCycle.findOneAndUpdate({ _id: id, organizationId }, payload, { new: true })
+    : await ShiftCycle.create({ organizationId, ...payload, active: true });
+  if (!row) throw new ApiError(404, 'Cycle introuvable', 'NOT_FOUND');
+  await recordAudit({
+    actorId: actor.id, actorRole: actor.role, organizationId, action: id ? 'SHIFT_CYCLE_UPDATED' : 'SHIFT_CYCLE_CREATED',
+    resourceType: 'shift-cycle', resourceId: row.id, success: true, ip,
+  });
+  return { id: row.id, name: row.name, workDays: row.workDays, restDays: row.restDays };
+}
+
+export async function removeCycle(actor: AuthContext, organizationId: string, id: string, ip?: string) {
+  const row = await ShiftCycle.findOneAndDelete({ _id: id, organizationId });
+  if (!row) throw new ApiError(404, 'Cycle introuvable', 'NOT_FOUND');
+  await recordAudit({
+    actorId: actor.id, actorRole: actor.role, organizationId, action: 'SHIFT_CYCLE_DELETED',
+    resourceType: 'shift-cycle', resourceId: row.id, success: true, ip,
+  });
 }
 
 export async function dispatchShiftReminders() {

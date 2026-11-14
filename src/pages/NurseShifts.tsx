@@ -1,33 +1,35 @@
-import { useCallback, useEffect, useState } from 'react';
-import { CalendarClock } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { CalendarClock, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { shiftService, type NurseShift, type ShiftType } from '@/services/shiftService';
+import { shiftService, type NurseShift, type ShiftCycle, type ShiftTemplate } from '@/services/shiftService';
 
-const typeLabel: Record<ShiftType, string> = {
+const legacyNames: Record<string, string> = {
   morning: 'Matin',
   afternoon: 'Après-midi',
   night: 'Nuit',
-  full_day: 'Journée complète',
+  full_day: 'Journée',
 };
-const statusLabel: Record<NurseShift['status'], string> = {
-  scheduled: 'Programmée',
-  confirmed: 'Confirmée',
-  in_progress: 'En cours',
-  completed: 'Terminée',
-  cancelled: 'Annulée',
-};
-const presets: Record<ShiftType, { start: string; end: string }> = {
-  morning: { start: '06:00', end: '14:00' },
-  afternoon: { start: '14:00', end: '22:00' },
-  night: { start: '22:00', end: '06:00' },
-  full_day: { start: '06:00', end: '18:00' },
-};
+const examples = [
+  { name: 'Journée', start: '06:00', end: '18:00' },
+  { name: 'Nuit', start: '18:00', end: '06:00' },
+  { name: 'Matin', start: '06:00', end: '14:00' },
+  { name: 'Après-midi', start: '14:00', end: '22:00' },
+  { name: 'Nuit courte', start: '22:00', end: '06:00' },
+];
+const cycleExamples = [
+  { name: '1 jour / 1 repos', work: '1', rest: '1' },
+  { name: '2 jours / 2 repos', work: '2', rest: '2' },
+  { name: '3 jours / 3 repos', work: '3', rest: '3' },
+  { name: '1 semaine / 1 semaine', work: '7', rest: '7' },
+];
 
 function today() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Kinshasa', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
@@ -39,178 +41,411 @@ function addDays(date: string, days: number) {
 function dayLabel(date: string) {
   return new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(`${date}T12:00:00Z`));
 }
+function typeName(value: string) {
+  return legacyNames[value] ?? value;
+}
+function durationLabel(start: string, end: string) {
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(start) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(end)) return '';
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  let minutes = eh * 60 + em - (sh * 60 + sm);
+  if (minutes <= 0) minutes += 24 * 60;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (!rest) return hours === 1 ? '1 heure' : `${hours} heures`;
+  return `${hours} h ${String(rest).padStart(2, '0')}`;
+}
 function apiMessage(reason: unknown) {
   if (typeof reason === 'object' && reason && 'message' in reason && typeof reason.message === 'string') return reason.message;
   return 'Réessayez dans un instant.';
 }
 
+type Slot = { date: string; name: string; startTime: string; endTime: string; ward: string; requiredNurses: number };
+
 export default function NurseShifts() {
   const { toast } = useToast();
   const [staff, setStaff] = useState<Array<{ id: string; name: string }>>([]);
+  const [templates, setTemplates] = useState<ShiftTemplate[]>([]);
+  const [cycles, setCycles] = useState<ShiftCycle[]>([]);
   const [shifts, setShifts] = useState<NurseShift[]>([]);
   const [from, setFrom] = useState(today());
-  const [selected, setSelected] = useState<string[]>([]);
-  const [date, setDate] = useState(today());
-  const [type, setType] = useState<ShiftType>('full_day');
-  const [startTime, setStartTime] = useState('06:00');
-  const [endTime, setEndTime] = useState('18:00');
-  const [ward, setWard] = useState('Soins infirmiers');
   const [span, setSpan] = useState<'week' | 'month'>('week');
+  const [templateId, setTemplateId] = useState('');
+  const [cycleId, setCycleId] = useState('custom');
   const [workDays, setWorkDays] = useState('2');
   const [restDays, setRestDays] = useState('2');
+  const [selected, setSelected] = useState<string[]>([]);
+  const [targetFrom, setTargetFrom] = useState(addDays(today(), 7));
+  const [slot, setSlot] = useState<Slot | null>(null);
+  const [slotNurses, setSlotNurses] = useState<string[]>([]);
   const [reason, setReason] = useState('');
   const [replacement, setReplacement] = useState('');
-  const [target, setTarget] = useState('');
+  const [form, setForm] = useState({ id: '', name: '', startTime: '06:00', endTime: '18:00', ward: 'Soins infirmiers', requiredNurses: '1' });
+  const [cycleForm, setCycleForm] = useState({ id: '', name: '', workDays: '2', restDays: '2' });
 
-  const load = useCallback(() => {
-    const to = addDays(from, span === 'week' ? 6 : 29);
+  const to = addDays(from, span === 'week' ? 6 : 29);
+  const days = useMemo(() => Array.from({ length: span === 'week' ? 7 : 30 }, (_, index) => addDays(from, index)), [from, span]);
+  const template = templates.find((item) => item.id === templateId) ?? templates.find((item) => item.active);
+
+  const loadShifts = useCallback(() => {
     shiftService.list(from, to).then(setShifts).catch((error) => {
       toast({ title: 'Planning indisponible', description: apiMessage(error), variant: 'destructive' });
     });
-  }, [from, span, toast]);
+  }, [from, to, toast]);
 
-  useEffect(() => {
-    shiftService.staff().then(setStaff).catch((error) => {
-      toast({ title: 'Infirmiers indisponibles', description: apiMessage(error), variant: 'destructive' });
+  const loadConfig = useCallback(() => {
+    Promise.all([shiftService.templates(), shiftService.cycles(), shiftService.staff()]).then(([nextTemplates, nextCycles, nextStaff]) => {
+      setTemplates(nextTemplates);
+      setCycles(nextCycles);
+      setStaff(nextStaff);
+      setTemplateId((current) => current || nextTemplates.find((item) => item.active)?.id || '');
+    }).catch((error) => {
+      toast({ title: 'Configuration indisponible', description: apiMessage(error), variant: 'destructive' });
     });
   }, [toast]);
-  useEffect(() => { load(); }, [load]);
 
-  const toggle = (id: string) => setSelected((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
-  const changeType = (value: ShiftType) => {
-    setType(value);
-    setStartTime(presets[value].start);
-    setEndTime(presets[value].end);
+  useEffect(() => { loadConfig(); }, [loadConfig]);
+  useEffect(() => { loadShifts(); }, [loadShifts]);
+
+  const rows = useMemo(() => {
+    const active = templates.filter((item) => item.active);
+    const known = new Set(active.map((item) => `${item.name}|${item.startTime}`));
+    const extras = shifts.filter((shift) => shift.status !== 'cancelled' && !known.has(`${shift.type}|${shift.startTime}`));
+    const extraRows = extras.filter((shift, index) => extras.findIndex((item) => item.type === shift.type && item.startTime === shift.startTime) === index);
+    return [
+      ...active.map((item) => ({ name: item.name, startTime: item.startTime, endTime: item.endTime, ward: item.ward, requiredNurses: item.requiredNurses, durationLabel: item.durationLabel })),
+      ...extraRows.map((shift) => ({ name: shift.type, startTime: shift.startTime, endTime: shift.endTime, ward: shift.ward, requiredNurses: 1, durationLabel: shift.durationLabel })),
+    ];
+  }, [templates, shifts]);
+
+  const drafts = shifts.filter((shift) => shift.status === 'draft');
+  const conflicts = shifts.filter((shift) => shift.conflict);
+
+  const openSlot = (next: Slot) => {
+    const assigned = shifts.filter((shift) => shift.date === next.date && shift.type === next.name && shift.startTime === next.startTime && shift.status !== 'cancelled').map((shift) => shift.nurseId);
+    setSlot(next);
+    setSlotNurses(assigned);
+    setReason('');
+    setReplacement('');
   };
-  const periodEnd = addDays(date, span === 'week' ? 6 : 29);
 
-  const save = async (mode: 'one' | 'rotation') => {
-    if (!selected.length) {
-      toast({ title: 'Choisissez un infirmier', variant: 'destructive' });
+  const saveSlot = async () => {
+    if (!slot) return;
+    const current = shifts.filter((shift) => shift.date === slot.date && shift.type === slot.name && shift.startTime === slot.startTime && shift.status !== 'cancelled');
+    const adding = slotNurses.filter((id) => !current.some((shift) => shift.nurseId === id));
+    const removing = current.filter((shift) => !slotNurses.includes(shift.nurseId) && shift.status !== 'in_progress' && shift.status !== 'completed');
+    try {
+      if (adding.length) {
+        await shiftService.create({ nurseIds: adding, date: slot.date, startTime: slot.startTime, endTime: slot.endTime, type: slot.name, ward: slot.ward });
+      }
+      for (const shift of removing) {
+        await shiftService.update(shift.id, { date: shift.date, startTime: shift.startTime, endTime: shift.endTime, type: shift.type, ward: shift.ward, status: 'cancelled' });
+      }
+      setSlot(null);
+      toast({ title: 'Affectation enregistrée', description: 'Le brouillon n’est visible par les infirmiers qu’après publication.' });
+      loadShifts();
+    } catch (error) {
+      toast({ title: 'Affectation impossible', description: apiMessage(error), variant: 'destructive' });
+    }
+  };
+
+  const generate = async () => {
+    if (!template || !selected.length) {
+      toast({ title: 'Choisissez une garde et des infirmiers', variant: 'destructive' });
       return;
     }
     try {
-      if (mode === 'one') {
-        await shiftService.create({ nurseIds: selected, date, startTime, endTime, type, ward });
-        toast({ title: 'Garde programmée', description: 'Chaque infirmier concerné a reçu une notification.' });
-      } else {
-        await shiftService.rotation({
-          nurseIds: selected, from: date, to: periodEnd, workDays: Number(workDays), restDays: Number(restDays),
-          startTime, endTime, type, ward,
-        });
-        toast({ title: 'Rotation créée', description: 'Les jours de travail et de repos sont répartis. Aucun remplacement n’est fait sans votre validation.' });
-      }
-      load();
+      await shiftService.rotation({
+        nurseIds: selected,
+        from,
+        to,
+        workDays: Number(workDays),
+        restDays: Number(restDays),
+        startTime: template.startTime,
+        endTime: template.endTime,
+        type: template.name,
+        ward: template.ward,
+      });
+      toast({ title: 'Brouillon généré', description: 'Vérifiez le calendrier, puis publiez pour prévenir les infirmiers.' });
+      loadShifts();
     } catch (error) {
-      toast({ title: 'Planning non enregistré', description: apiMessage(error), variant: 'destructive' });
+      toast({ title: 'Rotation non générée', description: apiMessage(error), variant: 'destructive' });
     }
   };
 
-  const act = async (action: 'confirm' | 'cancel' | 'absence' | 'replace', shift: NurseShift) => {
+  const publish = async () => {
     try {
-      if (action === 'confirm') await shiftService.update(shift.id, { ...shift, status: 'confirmed' });
-      if (action === 'cancel') await shiftService.update(shift.id, { ...shift, status: 'cancelled' });
-      if (action === 'absence') await shiftService.absence(shift.id, reason);
-      if (action === 'replace') await shiftService.replace(shift.id, replacement, reason);
-      setTarget('');
-      setReason('');
-      toast({ title: 'Planning mis à jour', description: 'Le changement est historisé et les infirmiers concernés sont prévenus.' });
-      load();
+      const published = await shiftService.publish(from, to);
+      toast({ title: 'Planning publié', description: `${published.length} garde(s) notifiée(s) aux infirmiers.` });
+      loadShifts();
     } catch (error) {
-      toast({ title: 'Modification impossible', description: apiMessage(error), variant: 'destructive' });
+      toast({ title: 'Publication impossible', description: apiMessage(error), variant: 'destructive' });
     }
   };
+
+  const copy = async () => {
+    try {
+      const result = await shiftService.copy(from, to, targetFrom);
+      toast({
+        title: 'Planning copié en brouillon',
+        description: result.skipped.length
+          ? `${result.created.length} garde(s) copiée(s). ${result.skipped.length} ignorée(s) pour conflit : ${result.skipped.slice(0, 3).map((item) => `${item.nurseName} le ${dayLabel(item.date)}`).join(', ')}.`
+          : `${result.created.length} garde(s) copiée(s). Publiez-les après vérification.`,
+      });
+      setFrom(targetFrom);
+    } catch (error) {
+      toast({ title: 'Copie impossible', description: apiMessage(error), variant: 'destructive' });
+    }
+  };
+
+  const saveTemplate = async () => {
+    try {
+      await shiftService.saveTemplate({
+        name: form.name,
+        startTime: form.startTime,
+        endTime: form.endTime,
+        ward: form.ward,
+        requiredNurses: Number(form.requiredNurses),
+      }, form.id || undefined);
+      setForm({ id: '', name: '', startTime: '06:00', endTime: '18:00', ward: 'Soins infirmiers', requiredNurses: '1' });
+      toast({ title: 'Type de garde enregistré' });
+      loadConfig();
+    } catch (error) {
+      toast({ title: 'Enregistrement impossible', description: apiMessage(error), variant: 'destructive' });
+    }
+  };
+
+  const saveCycle = async () => {
+    try {
+      await shiftService.saveCycle({ name: cycleForm.name, workDays: Number(cycleForm.workDays), restDays: Number(cycleForm.restDays) }, cycleForm.id || undefined);
+      setCycleForm({ id: '', name: '', workDays: '2', restDays: '2' });
+      toast({ title: 'Cycle enregistré' });
+      loadConfig();
+    } catch (error) {
+      toast({ title: 'Enregistrement impossible', description: apiMessage(error), variant: 'destructive' });
+    }
+  };
+
+  const slotShifts = slot ? shifts.filter((shift) => shift.date === slot.date && shift.type === slot.name && shift.startTime === slot.startTime && shift.status !== 'cancelled') : [];
 
   return (
     <div className="space-y-6">
       <div className="sticky top-16 z-20 -mx-4 border-b bg-background/95 px-4 py-4 backdrop-blur md:-mx-6 md:px-6">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Administration</p>
         <h1 className="mt-1 flex items-center gap-2 text-2xl font-semibold"><CalendarClock className="h-6 w-6 text-primary" />Gardes infirmières</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Planifiez les présences, les rotations et les remplacements. Une infirmière n’est jamais remplacée sans votre validation.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Les horaires et les cycles viennent de la configuration de l’établissement. Une génération reste un brouillon jusqu’à votre publication.</p>
       </div>
 
-      <Card><CardContent className="grid gap-4 p-4 lg:grid-cols-[16rem_1fr]">
-        <div className="space-y-2">
-          <Label>Infirmiers</Label>
-          <div className="max-h-56 space-y-1 overflow-y-auto rounded-xl border p-2">
-            {staff.map((nurse) => (
-              <label key={nurse.id} className="flex items-center gap-2 rounded-lg px-2 py-1 text-sm hover:bg-muted">
-                <input type="checkbox" checked={selected.includes(nurse.id)} onChange={() => toggle(nurse.id)} />
-                {nurse.name}
-              </label>
-            ))}
-            {!staff.length && <p className="p-2 text-sm text-muted-foreground">Aucun infirmier actif.</p>}
-          </div>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="space-y-2"><Label>Date</Label><Input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></div>
-          <div className="space-y-2"><Label>Type</Label>
-            <Select value={type} onValueChange={(value) => changeType(value as ShiftType)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{Object.entries(typeLabel).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2"><Label>Début</Label><Input type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} /></div>
-          <div className="space-y-2"><Label>Fin</Label><Input type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} /></div>
-          <div className="space-y-2 sm:col-span-2"><Label>Service</Label><Input value={ward} onChange={(event) => setWard(event.target.value)} /></div>
-          <div className="space-y-2"><Label>Période</Label>
-            <Select value={span} onValueChange={(value) => setSpan(value as 'week' | 'month')}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="week">Semaine</SelectItem>
-                <SelectItem value="month">Mois (30 jours)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-2"><Label>Jours travaillés</Label><Input type="number" min={1} max={14} value={workDays} onChange={(event) => setWorkDays(event.target.value)} /></div>
-            <div className="space-y-2"><Label>Jours de repos</Label><Input type="number" min={1} max={14} value={restDays} onChange={(event) => setRestDays(event.target.value)} /></div>
-          </div>
-          <div className="flex flex-wrap items-end gap-2 sm:col-span-2 xl:col-span-4">
-            <Button type="button" onClick={() => save('one')}>Programmer la garde</Button>
-            <Button type="button" variant="outline" onClick={() => save('rotation')}>Créer la rotation</Button>
-          </div>
-        </div>
-      </CardContent></Card>
+      <Tabs defaultValue="calendar">
+        <TabsList>
+          <TabsTrigger value="calendar">Calendrier</TabsTrigger>
+          <TabsTrigger value="settings">Configuration des gardes</TabsTrigger>
+        </TabsList>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" variant="outline" onClick={() => setFrom(addDays(from, span === 'week' ? -7 : -30))}>Période précédente</Button>
-        <p className="text-sm text-muted-foreground">{dayLabel(from)} – {dayLabel(addDays(from, span === 'week' ? 6 : 29))}</p>
-        <Button type="button" variant="outline" onClick={() => setFrom(addDays(from, span === 'week' ? 7 : 30))}>Période suivante</Button>
-      </div>
-
-      <div className="space-y-3">
-        {shifts.map((shift) => (
-          <Card key={shift.id}><CardContent className="space-y-3 p-4">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div>
-                <p className="font-medium">{shift.nurseName}</p>
-                <p className="text-sm text-muted-foreground">{dayLabel(shift.date)} · {typeLabel[shift.type]} · {shift.startTime}–{shift.endTime} · {shift.ward}</p>
-                <p className="text-sm">{statusLabel[shift.status]}{shift.absent ? ` · Absence : ${shift.absenceReason}` : ''}</p>
-              </div>
-              {shift.status !== 'completed' && shift.status !== 'cancelled' && shift.status !== 'in_progress' && (
-                <div className="flex flex-wrap gap-2">
-                  {shift.status === 'scheduled' && <Button type="button" size="sm" variant="outline" onClick={() => act('confirm', shift)}>Confirmer</Button>}
-                  <Button type="button" size="sm" variant="outline" onClick={() => setTarget(target === shift.id ? '' : shift.id)}>Absence ou remplacement</Button>
-                  <Button type="button" size="sm" variant="outline" onClick={() => act('cancel', shift)}>Annuler</Button>
-                </div>
-              )}
+        <TabsContent value="calendar" className="space-y-4">
+          <Card><CardContent className="grid gap-3 p-4 lg:grid-cols-4">
+            <div className="space-y-2"><Label>Type de garde</Label>
+              <Select value={template?.id} onValueChange={setTemplateId}>
+                <SelectTrigger><SelectValue placeholder="Créer un type dans la configuration" /></SelectTrigger>
+                <SelectContent>{templates.filter((item) => item.active).map((item) => <SelectItem key={item.id} value={item.id}>{item.name} · {item.startTime}–{item.endTime} · {item.durationLabel}</SelectItem>)}</SelectContent>
+              </Select>
             </div>
-            {target === shift.id && (
-              <div className="grid gap-2 rounded-xl border p-3 md:grid-cols-[1fr_16rem_auto_auto]">
-                <Textarea value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Motif de l’absence ou du remplacement" />
-                <Select value={replacement} onValueChange={setReplacement}>
-                  <SelectTrigger><SelectValue placeholder="Infirmier remplaçant" /></SelectTrigger>
-                  <SelectContent>{staff.filter((nurse) => nurse.id !== shift.nurseId).map((nurse) => <SelectItem key={nurse.id} value={nurse.id}>{nurse.name}</SelectItem>)}</SelectContent>
-                </Select>
-                <Button type="button" variant="outline" onClick={() => act('absence', shift)}>Déclarer l’absence</Button>
-                <Button type="button" onClick={() => act('replace', shift)} disabled={!replacement}>Remplacer</Button>
+            <div className="space-y-2"><Label>Cycle</Label>
+              <Select value={cycleId} onValueChange={(value) => {
+                setCycleId(value);
+                const cycle = cycles.find((item) => item.id === value);
+                if (cycle) { setWorkDays(String(cycle.workDays)); setRestDays(String(cycle.restDays)); }
+              }}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="custom">Personnalisé</SelectItem>
+                  {cycles.map((cycle) => <SelectItem key={cycle.id} value={cycle.id}>{cycle.name} · {cycle.workDays}/{cycle.restDays}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-2"><Label>Jours travaillés</Label><Input type="number" min={1} max={31} value={workDays} onChange={(event) => { setCycleId('custom'); setWorkDays(event.target.value); }} /></div>
+              <div className="space-y-2"><Label>Jours de repos</Label><Input type="number" min={1} max={31} value={restDays} onChange={(event) => { setCycleId('custom'); setRestDays(event.target.value); }} /></div>
+            </div>
+            <div className="space-y-2">
+              <Label>Infirmiers de la rotation</Label>
+              <div className="flex max-h-24 flex-wrap gap-2 overflow-y-auto">
+                {staff.map((nurse) => (
+                  <label key={nurse.id} className="flex items-center gap-1 rounded-lg border px-2 py-1 text-xs">
+                    <input type="checkbox" checked={selected.includes(nurse.id)} onChange={() => setSelected((current) => current.includes(nurse.id) ? current.filter((id) => id !== nurse.id) : [...current, nurse.id])} />
+                    {nurse.name}
+                  </label>
+                ))}
               </div>
-            )}
+            </div>
+            <div className="lg:col-span-4"><Button type="button" onClick={generate}>Générer le brouillon</Button></div>
           </CardContent></Card>
-        ))}
-        {!shifts.length && <p className="text-sm text-muted-foreground">Aucune garde sur cette période.</p>}
-      </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" variant="outline" onClick={() => setFrom(addDays(from, span === 'week' ? -7 : -30))}>Période précédente</Button>
+            <Button type="button" variant="outline" onClick={() => setSpan(span === 'week' ? 'month' : 'week')}>{span === 'week' ? 'Voir le mois' : 'Voir la semaine'}</Button>
+            <p className="text-sm text-muted-foreground">{dayLabel(from)} – {dayLabel(to)}</p>
+            <Button type="button" variant="outline" onClick={() => setFrom(addDays(from, span === 'week' ? 7 : 30))}>Période suivante</Button>
+            <Button type="button" onClick={publish} disabled={!drafts.length}>Publier {drafts.length ? `(${drafts.length})` : ''}</Button>
+            <Input className="w-40" type="date" value={targetFrom} onChange={(event) => setTargetFrom(event.target.value)} />
+            <Button type="button" variant="outline" onClick={copy}>Copier vers cette date</Button>
+          </div>
+
+          {conflicts.length > 0 && <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">{conflicts.length} affectation(s) en conflit d’horaire. Le même infirmier ne peut pas tenir deux gardes qui se chevauchent.</p>}
+
+          {span === 'week' ? (
+            <div className="overflow-x-auto">
+              <div className="grid min-w-[64rem] grid-cols-[12rem_repeat(7,minmax(0,1fr))] gap-2">
+                <div />
+                {days.map((date) => <p key={date} className="text-center text-sm font-medium capitalize">{dayLabel(date)}</p>)}
+                {rows.map((row) => (
+                  <div key={`${row.name}-${row.startTime}`} className="contents">
+                    <div className="rounded-xl bg-muted/60 p-2 text-sm">
+                      <p className="font-medium">{typeName(row.name)}</p>
+                      <p className="text-muted-foreground">{row.startTime}–{row.endTime}</p>
+                      <p className="text-muted-foreground">{row.durationLabel} · {row.requiredNurses} infirmier(s) · {row.ward}</p>
+                    </div>
+                    {days.map((date) => {
+                      const cell = shifts.filter((shift) => shift.date === date && shift.type === row.name && shift.startTime === row.startTime && shift.status !== 'cancelled');
+                      const short = cell.length < row.requiredNurses;
+                      return (
+                        <button key={date} type="button" onClick={() => openSlot({ date, name: row.name, startTime: row.startTime, endTime: row.endTime, ward: row.ward, requiredNurses: row.requiredNurses })} className={`min-h-24 rounded-xl border p-2 text-left ${short ? 'border-amber-300 bg-amber-50/60' : 'bg-card'}`}>
+                          <p className="mb-1 text-[11px] text-muted-foreground">{cell.length}/{row.requiredNurses}</p>
+                          {cell.map((shift) => (
+                            <span key={shift.id} className={`mb-1 block truncate rounded-md px-1.5 py-0.5 text-xs ${shift.conflict ? 'bg-rose-100 text-rose-900' : shift.absent ? 'bg-amber-100 text-amber-950' : shift.status === 'draft' ? 'bg-sky-100 text-sky-950' : 'bg-teal-100 text-teal-950'}`}>
+                              {shift.nurseName}{shift.absent ? ' · absence' : shift.status === 'draft' ? ' · brouillon' : ''}
+                            </span>
+                          ))}
+                          {!cell.length && <span className="text-xs text-muted-foreground"><Plus className="mr-1 inline h-3 w-3" />Affecter</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
+                <div className="rounded-xl bg-emerald-50 p-2 text-sm font-medium text-emerald-950">Repos</div>
+                {days.map((date) => {
+                  const working = new Set(shifts.filter((shift) => shift.date === date && shift.status !== 'cancelled').map((shift) => shift.nurseId));
+                  const resting = staff.filter((nurse) => !working.has(nurse.id));
+                  return <p key={date} className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-2 text-xs text-emerald-950">{resting.map((nurse) => nurse.name).join(', ') || '—'}</p>;
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-5">
+              {days.map((date) => {
+                const cell = shifts.filter((shift) => shift.date === date && shift.status !== 'cancelled');
+                const absent = cell.filter((shift) => shift.absent).length;
+                return (
+                  <button key={date} type="button" onClick={() => { setFrom(date); setSpan('week'); }} className="rounded-xl border bg-card p-3 text-left">
+                    <p className="text-sm font-medium capitalize">{dayLabel(date)}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{cell.length} garde(s){absent ? ` · ${absent} absence(s)` : ''}</p>
+                    {cell.slice(0, 4).map((shift) => <p key={shift.id} className={`truncate text-xs ${shift.conflict ? 'text-rose-700' : ''}`}>{typeName(shift.type)} · {shift.nurseName}</p>)}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {!rows.length && <p className="text-sm text-muted-foreground">Aucun type de garde. Ouvrez Configuration des gardes pour créer les horaires de l’établissement.</p>}
+        </TabsContent>
+
+        <TabsContent value="settings" className="grid gap-4 lg:grid-cols-2">
+          <Card><CardContent className="space-y-3 p-4">
+            <h2 className="font-semibold">Types de gardes</h2>
+            <p className="text-sm text-muted-foreground">Le nom, les heures, le service et le nombre d’infirmiers sont libres. La durée se calcule toute seule.</p>
+            <div className="flex flex-wrap gap-2">
+              {examples.map((example) => <Button key={example.name} type="button" size="sm" variant="outline" onClick={() => setForm((current) => ({ ...current, id: '', name: example.name, startTime: example.start, endTime: example.end }))}>{example.name} {example.start}–{example.end}</Button>)}
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div className="space-y-2 sm:col-span-2"><Label>Nom</Label><Input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Matin, Garde longue, Week-end…" /></div>
+              <div className="space-y-2"><Label>Début</Label><Input type="time" value={form.startTime} onChange={(event) => setForm({ ...form, startTime: event.target.value })} /></div>
+              <div className="space-y-2"><Label>Fin</Label><Input type="time" value={form.endTime} onChange={(event) => setForm({ ...form, endTime: event.target.value })} /></div>
+              <div className="space-y-2"><Label>Service</Label><Input value={form.ward} onChange={(event) => setForm({ ...form, ward: event.target.value })} /></div>
+              <div className="space-y-2"><Label>Infirmiers nécessaires</Label><Input type="number" min={1} max={30} value={form.requiredNurses} onChange={(event) => setForm({ ...form, requiredNurses: event.target.value })} /></div>
+            </div>
+            <p className="text-sm font-medium text-primary">Durée : {durationLabel(form.startTime, form.endTime) || '—'}</p>
+            <Button type="button" onClick={saveTemplate}>{form.id ? 'Mettre à jour' : 'Enregistrer le type'}</Button>
+            <div className="space-y-2">
+              {templates.map((item) => (
+                <div key={item.id} className="flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-sm">
+                  <span>{item.name} · {item.startTime}–{item.endTime} · {item.durationLabel} · {item.ward} · {item.requiredNurses}</span>
+                  <span className="flex gap-1">
+                    <Button type="button" size="sm" variant="outline" onClick={() => setForm({ id: item.id, name: item.name, startTime: item.startTime, endTime: item.endTime, ward: item.ward, requiredNurses: String(item.requiredNurses) })}>Modifier</Button>
+                    <Button type="button" size="icon" variant="outline" onClick={() => shiftService.deleteTemplate(item.id).then(loadConfig).catch((error) => toast({ title: 'Suppression impossible', description: apiMessage(error), variant: 'destructive' }))}><Trash2 className="h-4 w-4" /></Button>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent></Card>
+
+          <Card><CardContent className="space-y-3 p-4">
+            <h2 className="font-semibold">Cycles de rotation</h2>
+            <p className="text-sm text-muted-foreground">Choisissez un rythme connu ou saisissez le vôtre. Il sera proposé dans le calendrier.</p>
+            <div className="flex flex-wrap gap-2">
+              {cycleExamples.map((example) => <Button key={example.name} type="button" size="sm" variant="outline" onClick={() => setCycleForm({ id: '', name: example.name, workDays: example.work, restDays: example.rest })}>{example.name}</Button>)}
+            </div>
+            <div className="grid gap-2 sm:grid-cols-3">
+              <div className="space-y-2 sm:col-span-3"><Label>Nom du cycle</Label><Input value={cycleForm.name} onChange={(event) => setCycleForm({ ...cycleForm, name: event.target.value })} /></div>
+              <div className="space-y-2"><Label>Travail</Label><Input type="number" min={1} max={31} value={cycleForm.workDays} onChange={(event) => setCycleForm({ ...cycleForm, workDays: event.target.value })} /></div>
+              <div className="space-y-2"><Label>Repos</Label><Input type="number" min={1} max={31} value={cycleForm.restDays} onChange={(event) => setCycleForm({ ...cycleForm, restDays: event.target.value })} /></div>
+            </div>
+            <Button type="button" onClick={saveCycle}>{cycleForm.id ? 'Mettre à jour le cycle' : 'Enregistrer le cycle'}</Button>
+            <div className="space-y-2">
+              {cycles.map((cycle) => (
+                <div key={cycle.id} className="flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-sm">
+                  <span>{cycle.name} · {cycle.workDays} travaillé(s) / {cycle.restDays} repos</span>
+                  <span className="flex gap-1">
+                    <Button type="button" size="sm" variant="outline" onClick={() => setCycleForm({ id: cycle.id, name: cycle.name, workDays: String(cycle.workDays), restDays: String(cycle.restDays) })}>Modifier</Button>
+                    <Button type="button" size="icon" variant="outline" onClick={() => shiftService.deleteCycle(cycle.id).then(loadConfig).catch((error) => toast({ title: 'Suppression impossible', description: apiMessage(error), variant: 'destructive' }))}><Trash2 className="h-4 w-4" /></Button>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent></Card>
+        </TabsContent>
+      </Tabs>
+
+      <Dialog open={Boolean(slot)} onOpenChange={(open) => { if (!open) setSlot(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{slot ? `${typeName(slot.name)} · ${dayLabel(slot.date)} · ${slot.startTime}–${slot.endTime}` : 'Affectation'}</DialogTitle>
+          </DialogHeader>
+          {slot && (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">{slot.ward} · {durationLabel(slot.startTime, slot.endTime)} · {slot.requiredNurses} infirmier(s) attendu(s), {slotNurses.length} sélectionné(s).</p>
+              <div className="max-h-48 space-y-1 overflow-y-auto">
+                {staff.map((nurse) => (
+                  <label key={nurse.id} className="flex items-center gap-2 rounded-lg px-2 py-1 text-sm hover:bg-muted">
+                    <input type="checkbox" checked={slotNurses.includes(nurse.id)} onChange={() => setSlotNurses((current) => current.includes(nurse.id) ? current.filter((id) => id !== nurse.id) : [...current, nurse.id])} />
+                    {nurse.name}
+                  </label>
+                ))}
+              </div>
+              {slotShifts.map((shift) => (
+                <div key={shift.id} className="space-y-2 rounded-xl border p-2 text-sm">
+                  <p>{shift.nurseName} · {shift.status === 'draft' ? 'Brouillon' : 'Publiée'}{shift.absent ? ` · Absence : ${shift.absenceReason}` : ''}{shift.conflict ? ' · Conflit' : ''}</p>
+                  {shift.status !== 'in_progress' && shift.status !== 'completed' && (
+                    <div className="grid gap-2">
+                      <Textarea value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Motif d’absence ou de remplacement" />
+                      <Select value={replacement} onValueChange={setReplacement}>
+                        <SelectTrigger><SelectValue placeholder="Remplaçant" /></SelectTrigger>
+                        <SelectContent>{staff.filter((nurse) => nurse.id !== shift.nurseId).map((nurse) => <SelectItem key={nurse.id} value={nurse.id}>{nurse.name}</SelectItem>)}</SelectContent>
+                      </Select>
+                      <div className="flex flex-wrap gap-2">
+                        <Button type="button" size="sm" variant="outline" onClick={() => shiftService.absence(shift.id, reason).then(() => { toast({ title: 'Absence enregistrée' }); setSlot(null); loadShifts(); }).catch((error) => toast({ title: 'Absence impossible', description: apiMessage(error), variant: 'destructive' }))}>Déclarer l’absence</Button>
+                        <Button type="button" size="sm" variant="outline" disabled={!replacement} onClick={() => shiftService.replace(shift.id, replacement, reason).then(() => { toast({ title: 'Remplacement enregistré' }); setSlot(null); loadShifts(); }).catch((error) => toast({ title: 'Remplacement impossible', description: apiMessage(error), variant: 'destructive' }))}>Remplacer</Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setSlot(null)}>Fermer</Button>
+            <Button type="button" onClick={saveSlot}>Enregistrer l’affectation</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

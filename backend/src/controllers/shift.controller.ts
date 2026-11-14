@@ -24,6 +24,58 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
   res.status(201).json(await shifts.createShifts(actor, organizationId, req.body, req.ip));
 });
 
+export const publish = asyncHandler(async (req: Request, res: Response) => {
+  const { actor, organizationId } = context(req);
+  res.json(await shifts.publishShifts(actor, organizationId, req.body.from, req.body.to, req.ip));
+});
+
+export const copy = asyncHandler(async (req: Request, res: Response) => {
+  const { actor, organizationId } = context(req);
+  res.status(201).json(await shifts.copyShifts(actor, organizationId, req.body.from, req.body.to, req.body.targetFrom, req.ip));
+});
+
+export const templates = asyncHandler(async (req: Request, res: Response) => {
+  const { organizationId } = context(req);
+  res.json(await shifts.listTemplates(organizationId));
+});
+
+export const createTemplate = asyncHandler(async (req: Request, res: Response) => {
+  const { actor, organizationId } = context(req);
+  res.status(201).json(await shifts.saveTemplate(actor, organizationId, req.body, undefined, req.ip));
+});
+
+export const updateTemplate = asyncHandler(async (req: Request, res: Response) => {
+  const { actor, organizationId } = context(req);
+  res.json(await shifts.saveTemplate(actor, organizationId, req.body, req.params.id, req.ip));
+});
+
+export const deleteTemplate = asyncHandler(async (req: Request, res: Response) => {
+  const { actor, organizationId } = context(req);
+  await shifts.removeTemplate(actor, organizationId, req.params.id, req.ip);
+  res.status(204).send();
+});
+
+export const cycles = asyncHandler(async (req: Request, res: Response) => {
+  const { organizationId } = context(req);
+  res.json(await shifts.listCycles(organizationId));
+});
+
+export const createCycle = asyncHandler(async (req: Request, res: Response) => {
+  const { actor, organizationId } = context(req);
+  res.status(201).json(await shifts.saveCycle(actor, organizationId, req.body, undefined, req.ip));
+});
+
+export const updateCycle = asyncHandler(async (req: Request, res: Response) => {
+  const { actor, organizationId } = context(req);
+  res.json(await shifts.saveCycle(actor, organizationId, req.body, req.params.id, req.ip));
+});
+
+export const deleteCycle = asyncHandler(async (req: Request, res: Response) => {
+  const { actor, organizationId } = context(req);
+  await shifts.removeCycle(actor, organizationId, req.params.id, req.ip);
+  res.status(204).send();
+});
+
 export const rotation = asyncHandler(async (req: Request, res: Response) => {
   const { actor, organizationId } = context(req);
   res.status(201).json(await shifts.createRotation(actor, organizationId, req.body, req.ip));

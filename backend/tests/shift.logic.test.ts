@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { rangesOverlap, restDates, rotationDates, shiftBounds } from '../src/services/shift.logic.js';
+import { durationLabel, rangesOverlap, restDates, rotationDates, shiftBounds } from '../src/services/shift.logic.js';
 
 describe('rotations de garde', () => {
   it('alterne 2 jours de travail et 2 jours de repos', () => {
@@ -17,6 +17,14 @@ describe('rotations de garde', () => {
     const overlap = shiftBounds('2026-11-15', '05:00', '12:00');
     expect(rangesOverlap(night, nextMorning)).toBe(false);
     expect(rangesOverlap(night, overlap)).toBe(true);
+  });
+
+  it('calcule la durée, y compris quand la garde passe minuit', () => {
+    expect(durationLabel('06:00', '18:00')).toBe('12 heures');
+    expect(durationLabel('18:00', '06:00')).toBe('12 heures');
+    expect(durationLabel('06:00', '14:00')).toBe('8 heures');
+    expect(durationLabel('22:00', '06:00')).toBe('8 heures');
+    expect(durationLabel('08:30', '10:00')).toBe('1 h 30');
   });
 
   it('calcule les jours de repos sur la période affichée', () => {

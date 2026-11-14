@@ -68,6 +68,30 @@ function frequencyLabel(times: string[]) {
   return '—';
 }
 
+function treatmentCue(startDate?: string, endDate?: string, status?: string) {
+  if (status === 'completed') return { label: 'Traitement terminé', tone: 'done' as const, className: 'bg-emerald-600 text-white' };
+  if (status === 'interrupted') return { label: 'Traitement interrompu', tone: 'stopped' as const, className: 'bg-rose-600 text-white' };
+  if (!startDate || !endDate) return null;
+  const start = Date.parse(`${startDate}T00:00:00.000Z`);
+  const end = Date.parse(`${endDate}T00:00:00.000Z`);
+  const today = Date.parse(`${facilityDate()}T00:00:00.000Z`);
+  if (Number.isNaN(start) || Number.isNaN(end) || end < start) return null;
+  if (today > end) return { label: 'Traitement terminé', tone: 'done' as const, className: 'bg-emerald-600 text-white' };
+  const totalDays = Math.floor((end - start) / 86_400_000) + 1;
+  if (today < start) {
+    const wait = Math.floor((start - today) / 86_400_000);
+    return { label: `Débute dans ${wait} jour${wait > 1 ? 's' : ''}`, tone: 'upcoming' as const, className: 'bg-sky-600 text-white' };
+  }
+  const remaining = totalDays - (Math.floor((today - start) / 86_400_000) + 1);
+  if (remaining <= 0) return { label: 'Dernier jour', tone: 'remaining' as const, className: 'bg-amber-500 text-white' };
+  return { label: `${remaining} jour${remaining > 1 ? 's' : ''} restant${remaining > 1 ? 's' : ''}`, tone: 'remaining' as const, className: 'bg-amber-500 text-white' };
+}
+
+function dayStillDue(date: string, startDate?: string, endDate?: string, status?: string) {
+  if (status === 'completed' || status === 'interrupted' || !startDate || !endDate) return false;
+  return date >= facilityDate() && date >= startDate && date <= endDate;
+}
+
 function doseTone(dose: MedicationAdministration) {
   if (dose.status === 'administered_on_time') return 'green';
   if (dose.status === 'administered_late') return 'yellow';
@@ -218,8 +242,16 @@ export function TreatmentSheet({
 
   const doses = sheets.flatMap((sheet, dayIndex) => sheet.doses.map((dose) => ({ ...dose, dayIndex })));
   const rows = useMemo(() => {
-    const grouped = new Map<string, { id: string; prescriptionId: string; medication: string; dose: string; route: string; posology: string; times: string[]; cells: MedicationAdministration[][] }>();
+    const schedule = new Map<string, { start?: string; end?: string; status?: string }>();
+    for (const prescription of detail?.prescriptions ?? []) {
+      for (const item of prescription.items) {
+        const id = lineId(item);
+        if (id) schedule.set(id, { start: item.treatmentStartDate, end: item.treatmentEndDate, status: item.treatmentStatus });
+      }
+    }
+    const grouped = new Map<string, { id: string; prescriptionId: string; medication: string; dose: string; route: string; posology: string; times: string[]; cells: MedicationAdministration[][]; start?: string; end?: string; status?: string }>();
     for (const dose of doses) {
+      const info = schedule.get(dose.prescriptionItemId);
       const current = grouped.get(dose.prescriptionItemId) ?? {
         id: dose.prescriptionItemId,
         prescriptionId: dose.prescriptionId,
@@ -229,6 +261,9 @@ export function TreatmentSheet({
         posology: dose.posology,
         times: [],
         cells: days.map(() => []),
+        start: info?.start,
+        end: info?.end,
+        status: info?.status,
       };
       current.cells[dose.dayIndex]?.push(dose);
       const time = clock(dose.scheduledAt);
@@ -252,6 +287,9 @@ export function TreatmentSheet({
           posology: item.posology,
           times: item.administrationTimes ?? [],
           cells: days.map(() => []),
+          start: item.treatmentStartDate,
+          end: item.treatmentEndDate,
+          status: item.treatmentStatus,
         });
       }
     }
@@ -450,6 +488,8 @@ export function TreatmentSheet({
           <Badge variant="outline" className="border-green-600 text-green-800"><CheckCircle2 className="mr-1 h-3 w-3" />{counts.done} effectué(s)</Badge>
           <Badge variant="outline" className="border-amber-500 text-amber-800"><Clock3 className="mr-1 h-3 w-3" />{counts.late} en retard</Badge>
           <Badge variant="outline" className="border-red-600 text-red-800"><XCircle className="mr-1 h-3 w-3" />{counts.missed} non effectué(s)</Badge>
+          <span className="inline-flex items-center rounded-full bg-amber-500 px-2.5 py-0.5 text-xs font-semibold text-white">Jours restants</span>
+          <span className="inline-flex items-center rounded-full bg-emerald-600 px-2.5 py-0.5 text-xs font-semibold text-white">Traitement terminé</span>
         </div>
         {loading && <p className="text-sm text-muted-foreground">Chargement de la feuille…</p>}
         {!loading && rows.length === 0 && <p className="rounded-lg border px-3 py-8 text-center text-sm text-muted-foreground">Aucune prescription validée pour cette semaine.</p>}
@@ -457,12 +497,15 @@ export function TreatmentSheet({
           {rows.length > 0 && todayIndex < 0 && <p className="text-sm text-muted-foreground">Aujourd’hui n’est pas dans la semaine affichée.</p>}
           {todayIndex >= 0 && rows.map((row) => {
             const cell = row.cells[todayIndex] ?? [];
+            const cue = treatmentCue(row.start, row.end, row.status);
+            const dueToday = dayStillDue(days[todayIndex], row.start, row.end, row.status);
             return (
-              <article key={row.id} className="space-y-3 rounded-lg border p-3">
+              <article key={row.id} className={`space-y-3 rounded-lg border p-3 ${cue?.tone === 'done' ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-950/40' : dueToday ? 'border-amber-400 bg-amber-50 dark:bg-amber-950/40' : ''}`}>
                 <div>
                   <p className="font-medium" title={row.medication}>{row.medication}</p>
                   <p className="text-xs text-muted-foreground">{row.dose}</p>
                   <p className="mt-1 text-sm">{frequencyLabel(row.times)} · {row.route || '—'}</p>
+                  {cue && <p className={`mt-2 inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${cue.className}`}>{cue.label}</p>}
                 </div>
                 <div className="rounded-md bg-muted/40 p-2">
                   <p className="mb-2 text-xs font-medium">Aujourd’hui · J{todayIndex + 1} · {dayLabel(days[todayIndex])}</p>
@@ -503,11 +546,14 @@ export function TreatmentSheet({
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
+              {rows.map((row) => {
+                const cue = treatmentCue(row.start, row.end, row.status);
+                return (
                 <tr key={row.id} className="align-top">
-                  <td className="max-w-[220px] border px-2 py-2">
+                  <td className={`max-w-[220px] border px-2 py-2 ${cue?.tone === 'done' ? 'bg-emerald-50 dark:bg-emerald-950/40' : ''}`}>
                     <p className="line-clamp-4 font-medium" title={row.medication}>{row.medication}</p>
                     <p className="text-xs text-muted-foreground">{row.dose}</p>
+                    {cue && <p className={`mt-2 inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${cue.className}`}>{cue.label}</p>}
                   </td>
                   <td className="border px-2 py-2 whitespace-nowrap">
                     {row.times.length === 0 && canWrite ? (
@@ -534,7 +580,7 @@ export function TreatmentSheet({
                     ) : (row.route || '—')}
                   </td>
                   {row.cells.map((cell, index) => (
-                    <td key={`${row.id}-${days[index]}`} className="border px-2 py-2">
+                    <td key={`${row.id}-${days[index]}`} className={`border px-2 py-2 ${dayStillDue(days[index], row.start, row.end, row.status) ? 'bg-amber-100 dark:bg-amber-950/50' : ''}`}>
                       <div className="space-y-2">
                         {cell.map((dose) => (
                           <DoseControls
@@ -554,7 +600,8 @@ export function TreatmentSheet({
                     </td>
                   ))}
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

@@ -99,16 +99,23 @@ const pharmacyStatusLabels: Record<string, string> = {
 
 const clinicalStatus = (status?: string) => clinicalStatusLabels[status ?? ''] ?? status ?? '—';
 
-const treatmentProgress = (startDate?: string, endDate?: string) => {
-  if (!startDate || !endDate) return 'Dates de traitement non structurées';
+const treatmentCue = (startDate?: string, endDate?: string, status?: string) => {
+  if (status === 'completed') return { label: 'Traitement terminé', tone: 'done' as const, className: 'bg-emerald-600 text-white' };
+  if (status === 'interrupted') return { label: 'Traitement interrompu', tone: 'stopped' as const, className: 'bg-rose-600 text-white' };
+  if (!startDate || !endDate) return null;
   const start = Date.parse(`${startDate}T00:00:00.000Z`);
   const end = Date.parse(`${endDate}T00:00:00.000Z`);
   const today = Date.parse(`${facilityDate()}T00:00:00.000Z`);
-  if (Number.isNaN(start) || Number.isNaN(end) || end < start) return 'Dates de traitement invalides';
+  if (Number.isNaN(start) || Number.isNaN(end) || end < start) return null;
+  if (today > end) return { label: 'Traitement terminé', tone: 'done' as const, className: 'bg-emerald-600 text-white' };
   const totalDays = Math.floor((end - start) / 86_400_000) + 1;
-  if (today < start) return `${totalDays} jour(s) prescrits · début le ${displayFacilityDate(startDate)}`;
-  const elapsedDays = Math.min(totalDays, Math.floor((today - start) / 86_400_000) + 1);
-  return `${elapsedDays} jour(s) écoulé(s) · ${Math.max(0, totalDays - elapsedDays)} restant(s)`;
+  if (today < start) {
+    const wait = Math.floor((start - today) / 86_400_000);
+    return { label: `Débute dans ${wait} jour${wait > 1 ? 's' : ''}`, tone: 'upcoming' as const, className: 'bg-sky-600 text-white' };
+  }
+  const remaining = totalDays - (Math.floor((today - start) / 86_400_000) + 1);
+  if (remaining <= 0) return { label: 'Dernier jour', tone: 'remaining' as const, className: 'bg-amber-500 text-white' };
+  return { label: `${remaining} jour${remaining > 1 ? 's' : ''} restant${remaining > 1 ? 's' : ''}`, tone: 'remaining' as const, className: 'bg-amber-500 text-white' };
 };
 
 const metricStyles = {
@@ -509,18 +516,29 @@ export default function NursingCarePage() {
                       <div key={prescription.id} className="space-y-2 rounded-xl border p-3">
                         <p className="text-sm font-medium">{prescription.prescriberName} · {pharmacyStatusLabels[prescription.pharmacyStatus] ?? prescription.pharmacyStatus}</p>
                         <div className="space-y-2">
-                          {prescription.items.map((item) => item.administrationTimes?.length ? (
-                            <div key={item.id} className="rounded-lg bg-primary/5 px-3 py-2 text-sm">
-                              <p className="font-medium">{item.medication}</p>
-                              <p className="text-muted-foreground">{item.posology} · {item.administrationRoute || 'Voie non précisée'} · {item.administrationTimes.join(', ')}</p>
-                              <p className="text-xs text-muted-foreground">{treatmentProgress(item.treatmentStartDate, item.treatmentEndDate)}</p>
-                            </div>
-                          ) : (
-                            <div key={item.id} className="rounded-lg bg-muted/50 px-3 py-2 text-sm">
-                              <p className="text-xs font-medium text-muted-foreground">Note du prescripteur</p>
-                              <p className="mt-1 whitespace-pre-wrap">{item.medication}</p>
-                            </div>
-                          ))}
+                          {prescription.items.map((item) => {
+                            if (!item.administrationTimes?.length) {
+                              return (
+                                <div key={item.id} className="rounded-lg bg-muted/50 px-3 py-2 text-sm">
+                                  <p className="text-xs font-medium text-muted-foreground">Note du prescripteur</p>
+                                  <p className="mt-1 whitespace-pre-wrap">{item.medication}</p>
+                                </div>
+                              );
+                            }
+                            const cue = treatmentCue(item.treatmentStartDate, item.treatmentEndDate, item.treatmentStatus);
+                            const surface = cue?.tone === 'done'
+                              ? 'border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40'
+                              : cue?.tone === 'remaining'
+                                ? 'border border-amber-300 bg-amber-50 dark:bg-amber-950/40'
+                                : 'bg-primary/5';
+                            return (
+                              <div key={item.id} className={`rounded-lg px-3 py-2 text-sm ${surface}`}>
+                                <p className="font-medium">{item.medication}</p>
+                                <p className="text-muted-foreground">{item.posology} · {item.administrationRoute || 'Voie non précisée'} · {item.administrationTimes.join(', ')}</p>
+                                {cue && <p className={`mt-2 inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${cue.className}`}>{cue.label}</p>}
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     )) : <p className="text-sm text-muted-foreground">Aucune prescription validée.</p>}

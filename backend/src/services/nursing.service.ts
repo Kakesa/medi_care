@@ -37,13 +37,11 @@ const defaultThresholds: VitalThresholds = {
 };
 
 const medicationLateWindowMs = 60 * 60 * 1000;
-const dosesByFrequency: Record<number, string[]> = {
-  1: ['08:00'],
-  2: ['08:00', '20:00'],
-  3: ['08:00', '14:00', '20:00'],
-  4: ['06:00', '12:00', '18:00', '22:00'],
-};
 const medicationTimeZone = 'Africa/Kinshasa';
+const defaultWindowStart = '06:00';
+const defaultWindowEnd = '18:00';
+const defaultFirstDose: Record<number, string> = { 1: '06:00', 2: '08:00', 3: '08:00', 4: '06:00' };
+const clockPattern = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 type VitalValues = {
   systolic?: number; diastolic?: number; temperature?: number; heartRate?: number;
@@ -105,8 +103,88 @@ function treatmentStatusAt(item: {
   return latest?.status ?? 'active';
 }
 
+function minutesOf(clock: string) {
+  const [hour, minute] = clock.split(':').map(Number);
+  return hour * 60 + minute;
+}
+
+function clockOf(totalMinutes: number) {
+  const hour = Math.floor(totalMinutes / 60);
+  const minute = totalMinutes % 60;
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+function intervalMinutes(timesPerDay: number, windowMinutes: number) {
+  if (timesPerDay <= 1) return 0;
+  if (windowMinutes === 12 * 60) {
+    const daytime: Record<number, number> = { 2: 8 * 60, 3: 4 * 60, 4: 4 * 60 };
+    return daytime[timesPerDay] ?? Math.round(windowMinutes / timesPerDay);
+  }
+  return Math.round(windowMinutes / timesPerDay);
+}
+
+export function computeAdministrationTimes(input: {
+  timesPerDay: number;
+  firstDoseTime: string;
+  windowStart?: string;
+  windowEnd?: string;
+}) {
+  const windowStart = input.windowStart || defaultWindowStart;
+  const windowEnd = input.windowEnd || defaultWindowEnd;
+  if (!clockPattern.test(input.firstDoseTime) || !clockPattern.test(windowStart) || !clockPattern.test(windowEnd)) {
+    throw new ApiError(400, 'Indiquez des heures au format HH:mm', 'SCHEDULE_CLOCK_INVALID');
+  }
+  const windowMinutes = minutesOf(windowEnd) - minutesOf(windowStart);
+  if (windowMinutes <= 0) throw new ApiError(400, 'La fin de la plage doit suivre son début', 'SCHEDULE_WINDOW_INVALID');
+  const first = minutesOf(input.firstDoseTime);
+  if (input.timesPerDay <= 1) return [clockOf(first)];
+  const interval = intervalMinutes(input.timesPerDay, windowMinutes);
+  if (interval <= 0) throw new ApiError(400, 'L’intervalle calculé est trop court', 'SCHEDULE_INTERVAL_INVALID');
+  const times: string[] = [];
+  for (let index = 0; index < input.timesPerDay; index += 1) {
+    const total = first + index * interval;
+    if (total >= 24 * 60) {
+      throw new ApiError(400, 'Les prises calculées dépassent minuit. Avancez la première prise ou saisissez les heures du médecin.', 'SCHEDULE_OUT_OF_DAY');
+    }
+    times.push(clockOf(total));
+  }
+  if (new Set(times).size !== times.length) {
+    throw new ApiError(400, 'Deux prises tombent à la même heure. Élargissez la plage ou réduisez la fréquence.', 'SCHEDULE_DUPLICATE_TIME');
+  }
+  return times;
+}
+
+function resolveAdministrationTimes(input: {
+  timesPerDay: number;
+  scheduleMode?: 'automatic' | 'custom';
+  firstDoseTime?: string;
+  administrationTimes?: string[];
+  windowStart?: string;
+  windowEnd?: string;
+}) {
+  if (input.scheduleMode === 'custom') {
+    const times = input.administrationTimes ?? [];
+    if (times.length !== input.timesPerDay) throw new ApiError(400, 'Indiquez une heure pour chaque prise prescrite.', 'SCHEDULE_TIMES_REQUIRED');
+    if (times.some((time) => !clockPattern.test(time))) throw new ApiError(400, 'Indiquez des heures au format HH:mm', 'SCHEDULE_CLOCK_INVALID');
+    if (new Set(times).size !== times.length) throw new ApiError(400, 'Les heures prescrites doivent être différentes.', 'SCHEDULE_DUPLICATE_TIME');
+    return [...times].sort();
+  }
+  return computeAdministrationTimes({
+    timesPerDay: input.timesPerDay,
+    firstDoseTime: input.firstDoseTime || defaultFirstDose[input.timesPerDay] || defaultWindowStart,
+    windowStart: input.windowStart,
+    windowEnd: input.windowEnd,
+  });
+}
+
+function facilityToday() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: medicationTimeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date());
+}
+
 function mapAdministration(row: InstanceType<typeof MedicationAdministration>, now = new Date()) {
-  const overdue = row.status === 'pending' && now.getTime() > row.scheduledAt.getTime() + medicationLateWindowMs;
+  const overdue = row.status === 'pending' && now.getTime() > row.scheduledAt.getTime();
   return {
     id: row.id,
     patientId: row.patientId.toString(),
@@ -120,7 +198,8 @@ function mapAdministration(row: InstanceType<typeof MedicationAdministration>, n
     scheduledAt: row.scheduledAt,
     administeredAt: row.administeredAt,
     administeredBy: idOf(row.administeredBy),
-    status: overdue ? 'not_administered' : row.status,
+    status: row.status,
+    overdue,
     observations: row.observations,
     notDoneReason: row.notDoneReason,
     history: row.history ?? [],
@@ -468,8 +547,18 @@ export async function getMedicationAdministrationSheet(
     }
   }
 
-  if (scheduled.length) {
-    await MedicationAdministration.bulkWrite(scheduled.map((dose) => ({
+  let dosesToCreate = scheduled;
+  if (scheduled.length && query.date < facilityToday()) {
+    const existing = await MedicationAdministration.find({
+      organizationId,
+      patientId: query.patientId,
+      scheduledAt: { $gte: start, $lt: end },
+    }).select('prescriptionItemId');
+    const alreadyTracked = new Set(existing.map((row) => row.prescriptionItemId.toString()));
+    dosesToCreate = scheduled.filter((dose) => !alreadyTracked.has(dose.prescriptionItemId.toString()));
+  }
+  if (dosesToCreate.length) {
+    await MedicationAdministration.bulkWrite(dosesToCreate.map((dose) => ({
       updateOne: {
         filter: {
           organizationId,
@@ -523,6 +612,11 @@ export async function addTreatmentLine(
     administrationRoute: string;
     treatmentStartDate: string;
     treatmentEndDate: string;
+    scheduleMode?: 'automatic' | 'custom';
+    firstDoseTime?: string;
+    administrationTimes?: string[];
+    windowStart?: string;
+    windowEnd?: string;
   },
   ip?: string
 ) {
@@ -542,7 +636,7 @@ export async function addTreatmentLine(
     duration: '7 jours',
     treatmentStartDate: input.treatmentStartDate,
     treatmentEndDate: input.treatmentEndDate,
-    administrationTimes: dosesByFrequency[input.timesPerDay],
+    administrationTimes: resolveAdministrationTimes(input),
     instructions: '',
     quantityPrescribed: 1,
     quantityDispensed: 0,
@@ -574,6 +668,11 @@ export async function scheduleMedicationAdministrations(
     administrationRoute: string;
     treatmentStartDate: string;
     treatmentEndDate: string;
+    scheduleMode?: 'automatic' | 'custom';
+    firstDoseTime?: string;
+    administrationTimes?: string[];
+    windowStart?: string;
+    windowEnd?: string;
   },
   ip?: string
 ) {
@@ -587,16 +686,14 @@ export async function scheduleMedicationAdministrations(
   if (!prescription) throw new ApiError(404, 'Prescription validée introuvable', 'PRESCRIPTION_NOT_FOUND');
   const item = prescription.items.id(input.prescriptionItemId);
   if (!item) throw new ApiError(404, 'Ligne de prescription introuvable', 'PRESCRIPTION_ITEM_NOT_FOUND');
-  const closed = await MedicationAdministration.countDocuments({
+  await MedicationAdministration.deleteMany({
     organizationId,
     prescriptionItemId: item._id,
-    status: { $ne: 'pending' },
+    status: 'pending',
+    scheduledAt: { $gte: localDayBounds(facilityToday()).start },
   });
-  if (closed > 0) {
-    throw new ApiError(409, 'Des prises sont déjà enregistrées. La fréquence ne peut plus être modifiée.', 'SCHEDULE_LOCKED');
-  }
-  await MedicationAdministration.deleteMany({ organizationId, prescriptionItemId: item._id, status: 'pending' });
-  item.administrationTimes = dosesByFrequency[input.timesPerDay];
+  item.administrationTimes = resolveAdministrationTimes(input);
+  if (/^\d+ fois \/ jour$/.test(item.posology)) item.posology = `${input.timesPerDay} fois / jour`;
   item.administrationRoute = input.administrationRoute;
   item.treatmentStartDate = input.treatmentStartDate;
   item.treatmentEndDate = input.treatmentEndDate;

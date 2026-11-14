@@ -73,8 +73,13 @@ class NursingService {
     administrationRoute: string;
     treatmentStartDate: string;
     treatmentEndDate: string;
+    scheduleMode?: 'automatic' | 'custom';
+    firstDoseTime?: string;
+    administrationTimes?: string[];
+    windowStart?: string;
+    windowEnd?: string;
   }) {
-    return httpClient.post<{ prescriptionItemId: string }>(`${this.basePath}/treatment-lines`, input);
+    return httpClient.post<{ prescriptionItemId: string; administrationTimes: string[] }>(`${this.basePath}/treatment-lines`, input);
   }
 
   scheduleAdministrations(input: {
@@ -85,6 +90,11 @@ class NursingService {
     administrationRoute: string;
     treatmentStartDate: string;
     treatmentEndDate: string;
+    scheduleMode?: 'automatic' | 'custom';
+    firstDoseTime?: string;
+    administrationTimes?: string[];
+    windowStart?: string;
+    windowEnd?: string;
   }) {
     return httpClient.post<{ administrationTimes: string[] }>(`${this.basePath}/schedules`, input);
   }

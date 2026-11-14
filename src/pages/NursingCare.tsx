@@ -401,39 +401,41 @@ export default function NursingCarePage() {
   if (isLoading && !dashboard) return <div className="py-16 text-center text-muted-foreground">Chargement des données infirmières…</div>;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
-        <div>
-          <p className="text-sm font-medium text-primary">Espace clinique</p>
-          <h1 className="text-3xl font-bold tracking-tight">Soins infirmiers</h1>
-          <p className="mt-1 text-muted-foreground">Feuille de traitement, surveillance et traçabilité dans les dossiers existants.</p>
-        </div>
-        <Button variant="outline" onClick={() => void reload()} disabled={isLoading}><Activity className="mr-2 h-4 w-4" />Actualiser</Button>
-      </div>
-
-      {error && <Card className="border-destructive/50"><CardContent className="flex items-center gap-2 p-4 text-sm text-destructive"><AlertTriangle className="h-4 w-4" />{error}</CardContent></Card>}
-
-      {dashboard && (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          <MetricCard title="Patients sous surveillance" value={dashboard.stats.patientsUnderSurveillance} icon={UserRound} tone="teal" />
-          <MetricCard title="Soins à effectuer aujourd’hui" value={dashboard.stats.careToPerform} icon={ClipboardList} tone="sky" />
-          <MetricCard title="Soins réalisés aujourd’hui" value={dashboard.stats.careCompletedToday} icon={CheckCircle2} tone="green" />
-          <MetricCard title="Soins en retard" value={dashboard.stats.overdueCare} icon={Clock3} tone="red" />
-          <MetricCard title="Prescriptions à exécuter" value={dashboard.stats.prescriptionsWaiting} icon={FileText} tone="indigo" />
-          <MetricCard title="Surveillance particulière" value={dashboard.stats.patientsRequiringAttention} icon={AlertTriangle} tone="amber" />
-        </div>
-      )}
+    <div className="mx-auto max-w-7xl">
+      {error && <Card className="mb-4 border-destructive/50"><CardContent className="flex items-center gap-2 p-4 text-sm text-destructive"><AlertTriangle className="h-4 w-4" />{error}</CardContent></Card>}
 
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="h-auto w-full justify-start">
-          <TabsTrigger value="overview">Vue d’ensemble</TabsTrigger>
-          <TabsTrigger value="patients">Patients et dossier</TabsTrigger>
-          <TabsTrigger value="treatment">Feuille de traitement</TabsTrigger>
-          <TabsTrigger value="surveillance">Feuille de surveillance</TabsTrigger>
-          <TabsTrigger value="schedule">Planning</TabsTrigger>
-          <TabsTrigger value="history">Historique</TabsTrigger>
-          <TabsTrigger value="reports">Rapports</TabsTrigger>
-        </TabsList>
+        <div className="sticky top-16 z-20 -mx-4 space-y-4 border-b border-border bg-background/95 px-4 py-3 backdrop-blur md:-mx-6 md:px-6">
+          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+            <div>
+              <p className="text-sm font-medium text-primary">Espace clinique</p>
+              <h1 className="text-3xl font-bold tracking-tight">Soins infirmiers</h1>
+              <p className="mt-1 text-muted-foreground">Feuille de traitement, surveillance et traçabilité dans les dossiers existants.</p>
+            </div>
+            <Button variant="outline" onClick={() => void reload()} disabled={isLoading}><Activity className="mr-2 h-4 w-4" />Actualiser</Button>
+          </div>
+
+          {dashboard && (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <MetricCard title="Patients sous surveillance" value={dashboard.stats.patientsUnderSurveillance} icon={UserRound} tone="teal" />
+              <MetricCard title="Soins à effectuer aujourd’hui" value={dashboard.stats.careToPerform} icon={ClipboardList} tone="sky" />
+              <MetricCard title="Soins réalisés aujourd’hui" value={dashboard.stats.careCompletedToday} icon={CheckCircle2} tone="green" />
+              <MetricCard title="Soins en retard" value={dashboard.stats.overdueCare} icon={Clock3} tone="red" />
+              <MetricCard title="Prescriptions à exécuter" value={dashboard.stats.prescriptionsWaiting} icon={FileText} tone="indigo" />
+              <MetricCard title="Surveillance particulière" value={dashboard.stats.patientsRequiringAttention} icon={AlertTriangle} tone="amber" />
+            </div>
+          )}
+
+          <TabsList className="h-auto w-full justify-start">
+            <TabsTrigger value="overview">Vue d’ensemble</TabsTrigger>
+            <TabsTrigger value="patients">Patients et dossier</TabsTrigger>
+            <TabsTrigger value="treatment">Feuille de traitement</TabsTrigger>
+            <TabsTrigger value="surveillance">Feuille de surveillance</TabsTrigger>
+            <TabsTrigger value="schedule">Planning</TabsTrigger>
+            <TabsTrigger value="history">Historique</TabsTrigger>
+            <TabsTrigger value="reports">Rapports</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="overview">
           <Card>

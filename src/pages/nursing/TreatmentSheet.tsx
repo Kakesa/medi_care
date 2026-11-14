@@ -68,6 +68,108 @@ function frequencyLabel(times: string[]) {
   return '—';
 }
 
+const defaultFirstDose: Record<string, string> = { '1': '06:00', '2': '08:00', '3': '08:00', '4': '06:00' };
+const clockPattern = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+function minutesOf(value: string) {
+  const [hour, minute] = value.split(':').map(Number);
+  return hour * 60 + minute;
+}
+
+function clockOf(totalMinutes: number) {
+  return `${String(Math.floor(totalMinutes / 60)).padStart(2, '0')}:${String(totalMinutes % 60).padStart(2, '0')}`;
+}
+
+function previewTimes(input: {
+  timesPerDay: number;
+  mode: 'automatic' | 'custom';
+  firstDose: string;
+  windowStart: string;
+  windowEnd: string;
+  customTimes: string[];
+}) {
+  if (input.mode === 'custom') {
+    if (input.customTimes.length !== input.timesPerDay || input.customTimes.some((time) => !clockPattern.test(time))) {
+      return { times: [] as string[], error: 'Indiquez une heure valide pour chaque prise.' };
+    }
+    if (new Set(input.customTimes).size !== input.customTimes.length) return { times: [] as string[], error: 'Les heures doivent être différentes.' };
+    return { times: [...input.customTimes].sort(), error: '' };
+  }
+  if (![input.firstDose, input.windowStart, input.windowEnd].every((time) => clockPattern.test(time))) {
+    return { times: [] as string[], error: 'Indiquez des heures au format HH:mm.' };
+  }
+  const windowMinutes = minutesOf(input.windowEnd) - minutesOf(input.windowStart);
+  if (windowMinutes <= 0) return { times: [] as string[], error: 'La fin de la plage doit suivre son début.' };
+  if (input.timesPerDay <= 1) return { times: [input.firstDose], error: '' };
+  const interval = windowMinutes === 12 * 60
+    ? ({ 2: 8 * 60, 3: 4 * 60, 4: 4 * 60 } as Record<number, number>)[input.timesPerDay] ?? Math.round(windowMinutes / input.timesPerDay)
+    : Math.round(windowMinutes / input.timesPerDay);
+  const first = minutesOf(input.firstDose);
+  const times: string[] = [];
+  for (let index = 0; index < input.timesPerDay; index += 1) {
+    const total = first + index * interval;
+    if (total >= 24 * 60) return { times: [] as string[], error: 'Les prises dépassent minuit. Avancez la première prise ou saisissez les heures du médecin.' };
+    times.push(clockOf(total));
+  }
+  if (new Set(times).size !== times.length) return { times: [] as string[], error: 'Deux prises tombent à la même heure.' };
+  return { times, error: '' };
+}
+
+function ScheduleChoices({
+  idPrefix, mode, timesPerDay, firstDose, windowStart, windowEnd, customTimes, preview, onMode, onFirstDose, onWindowStart, onWindowEnd, onCustomTime,
+}: {
+  idPrefix: string;
+  mode: 'automatic' | 'custom';
+  timesPerDay: number;
+  firstDose: string;
+  windowStart: string;
+  windowEnd: string;
+  customTimes: string[];
+  preview: { times: string[]; error: string };
+  onMode: (mode: 'automatic' | 'custom') => void;
+  onFirstDose: (value: string) => void;
+  onWindowStart: (value: string) => void;
+  onWindowEnd: (value: string) => void;
+  onCustomTime: (index: number, value: string) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" variant={mode === 'automatic' ? 'default' : 'outline'} onClick={() => onMode('automatic')}>Calcul automatique</Button>
+        <Button type="button" variant={mode === 'custom' ? 'default' : 'outline'} onClick={() => onMode('custom')}>Horaires du médecin</Button>
+      </div>
+      {mode === 'automatic' ? (
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="space-y-2">
+            <Label htmlFor={`${idPrefix}-first-dose`}>Première prise</Label>
+            <Input id={`${idPrefix}-first-dose`} type="time" value={firstDose} onChange={(event) => onFirstDose(event.target.value.slice(0, 5))} required />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor={`${idPrefix}-window-start`}>Plage dès</Label>
+            <Input id={`${idPrefix}-window-start`} type="time" value={windowStart} onChange={(event) => onWindowStart(event.target.value.slice(0, 5))} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor={`${idPrefix}-window-end`}>Plage jusqu’à</Label>
+            <Input id={`${idPrefix}-window-end`} type="time" value={windowEnd} onChange={(event) => onWindowEnd(event.target.value.slice(0, 5))} />
+          </div>
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: timesPerDay }, (_, index) => (
+            <div key={index} className="space-y-2">
+              <Label htmlFor={`${idPrefix}-dose-${index}`}>Prise {index + 1}</Label>
+              <Input id={`${idPrefix}-dose-${index}`} type="time" value={customTimes[index] ?? ''} onChange={(event) => onCustomTime(index, event.target.value)} required />
+            </div>
+          ))}
+        </div>
+      )}
+      {preview.error
+        ? <p className="text-sm text-destructive">{preview.error}</p>
+        : <p className="text-sm font-medium text-amber-800">Heures calculées : {preview.times.join(' · ')}</p>}
+    </div>
+  );
+}
+
 function treatmentCue(startDate?: string, endDate?: string, status?: string) {
   if (status === 'completed') return { label: 'Traitement terminé', tone: 'done' as const, className: 'bg-emerald-600 text-white' };
   if (status === 'interrupted') return { label: 'Traitement interrompu', tone: 'stopped' as const, className: 'bg-rose-600 text-white' };
@@ -96,7 +198,7 @@ function doseTone(dose: MedicationAdministration) {
   if (dose.status === 'administered_on_time') return 'green';
   if (dose.status === 'administered_late') return 'yellow';
   if (dose.status === 'not_administered' || dose.status === 'patient_refused') return 'red';
-  if (!isClosed(dose) && new Date(dose.scheduledAt).getTime() + 60 * 60_000 < Date.now()) return 'red';
+  if (!isClosed(dose) && new Date(dose.scheduledAt).getTime() < Date.now()) return 'yellow';
   return 'open';
 }
 
@@ -145,6 +247,7 @@ function DoseControls({
 }) {
   const closed = isClosed(dose);
   const checked = dose.status === 'administered_on_time' || dose.status === 'administered_late';
+  const waiting = !closed && new Date(dose.scheduledAt).getTime() < Date.now();
   const tone = doseTone(dose);
   const toneClass = tone === 'green'
     ? 'border-green-700 bg-green-600 text-white'
@@ -153,6 +256,15 @@ function DoseControls({
       : tone === 'red'
         ? 'border-red-700 bg-red-600 text-white'
         : 'border-slate-400 bg-white text-transparent';
+  const title = tone === 'green'
+    ? 'Pris à l’heure'
+    : dose.status === 'administered_late'
+      ? 'Pris en retard'
+      : waiting
+        ? 'En retard, à confirmer'
+        : tone === 'red'
+          ? 'Prise non effectuée'
+          : 'Pas encore l’heure';
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-2">
@@ -160,13 +272,13 @@ function DoseControls({
           type="button"
           disabled={!canWrite || !canConfirm(dose)}
           aria-label={`${medication} ${clock(dose.scheduledAt)} ${day}`}
-          title={tone === 'green' ? 'Pris à l’heure' : tone === 'yellow' ? 'Pris en retard' : tone === 'red' ? 'Prise ratée' : 'À administrer'}
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded border sm:h-6 sm:w-6 ${toneClass} disabled:cursor-not-allowed`}
+          title={title}
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded border sm:h-6 sm:w-6 ${toneClass} disabled:cursor-not-allowed ${!closed && !canConfirm(dose) ? 'opacity-40' : ''}`}
           onClick={() => { if (isLate(dose)) onOpen('late'); else onConfirm(); }}
         >
-          {tone === 'red' ? <X className="h-4 w-4" /> : tone === 'open' ? null : <Check className="h-4 w-4" />}
+          {tone === 'red' ? <X className="h-4 w-4" /> : checked ? <Check className="h-4 w-4" /> : null}
         </button>
-        <span className="text-sm sm:text-xs">{clock(dose.scheduledAt)}</span>
+        <span className={`text-sm sm:text-xs ${waiting ? 'font-semibold text-amber-700' : ''}`}>{clock(dose.scheduledAt)}</span>
       </div>
       {dose.administeredByName && <p className="text-xs text-muted-foreground sm:text-[11px]">{dose.administeredByName} · {dose.administeredAt ? clock(dose.administeredAt) : ''}</p>}
       {doseMotif(dose) && (
@@ -215,11 +327,20 @@ export function TreatmentSheet({
   const [reason, setReason] = useState('');
   const [savingMotif, setSavingMotif] = useState(false);
   const [shownMotifs, setShownMotifs] = useState<Record<string, boolean>>({});
-  const [drafts, setDrafts] = useState<Record<string, { times: string; route: string }>>({});
-  const [schedulingId, setSchedulingId] = useState('');
   const [newMedication, setNewMedication] = useState('');
   const [newTimes, setNewTimes] = useState('1');
   const [newRoute, setNewRoute] = useState('Orale');
+  const [scheduleMode, setScheduleMode] = useState<'automatic' | 'custom'>('automatic');
+  const [firstDose, setFirstDose] = useState('06:00');
+  const [windowStart, setWindowStart] = useState('06:00');
+  const [windowEnd, setWindowEnd] = useState('18:00');
+  const [customTimes, setCustomTimes] = useState(['06:00']);
+  const [scheduleDraft, setScheduleDraft] = useState<{
+    rowId: string; prescriptionId: string; medication: string; route: string;
+    timesPerDay: string; mode: 'automatic' | 'custom'; firstDose: string;
+    windowStart: string; windowEnd: string; customTimes: string[]; startDate: string; endDate: string;
+  } | null>(null);
+  const [schedulingId, setSchedulingId] = useState('');
   const [adding, setAdding] = useState(false);
   const addFormRef = useRef<HTMLFormElement>(null);
 
@@ -352,9 +473,21 @@ export function TreatmentSheet({
     }
   };
 
+  const newPreview = previewTimes({
+    timesPerDay: Number(newTimes), mode: scheduleMode, firstDose, windowStart, windowEnd, customTimes,
+  });
+
+  const changeNewFrequency = (value: string) => {
+    const first = defaultFirstDose[value] ?? '06:00';
+    setNewTimes(value);
+    setFirstDose(first);
+    const next = previewTimes({ timesPerDay: Number(value), mode: 'automatic', firstDose: first, windowStart, windowEnd, customTimes: [] });
+    setCustomTimes(next.times.length ? next.times : [first]);
+  };
+
   const addLine = async (event: FormEvent) => {
     event.preventDefault();
-    if (!selectedId || !newMedication.trim()) return;
+    if (!selectedId || !newMedication.trim() || newPreview.error) return;
     setAdding(true);
     try {
       await nursingService.addTreatmentLine({
@@ -364,6 +497,11 @@ export function TreatmentSheet({
         administrationRoute: newRoute,
         treatmentStartDate: days[0],
         treatmentEndDate: days[6],
+        scheduleMode,
+        firstDoseTime: firstDose,
+        windowStart,
+        windowEnd,
+        ...(scheduleMode === 'custom' ? { administrationTimes: newPreview.times } : {}),
       });
       setNewMedication('');
       toast({ title: 'Ligne ajoutée', description: 'Une ligne et ses cases ont été créées pour ce produit.' });
@@ -376,24 +514,56 @@ export function TreatmentSheet({
     }
   };
 
-  const applySchedule = async (row: { id: string; prescriptionId: string }) => {
-    const draft = drafts[row.id] ?? { times: '1', route: 'Orale' };
-    if (!selectedId) return;
-    setSchedulingId(row.id);
+  const openSchedule = (row: { id: string; prescriptionId: string; medication: string; route: string; times: string[]; start?: string; end?: string }) => {
+    const count = String(Math.min(4, Math.max(1, row.times.length || 1)));
+    const first = row.times[0] || defaultFirstDose[count];
+    const knownRoute = (administrationRoutes as readonly string[]).includes(row.route) ? row.route : 'Orale';
+    const automatic = previewTimes({ timesPerDay: Number(count), mode: 'automatic', firstDose: first, windowStart: '06:00', windowEnd: '18:00', customTimes: [] });
+    const custom = row.times.length > 0 && automatic.times.join(',') !== [...row.times].sort().join(',');
+    setScheduleDraft({
+      rowId: row.id,
+      prescriptionId: row.prescriptionId,
+      medication: row.medication,
+      route: knownRoute,
+      timesPerDay: count,
+      mode: custom ? 'custom' : 'automatic',
+      firstDose: first,
+      windowStart: '06:00',
+      windowEnd: '18:00',
+      customTimes: row.times.length ? [...row.times].sort() : automatic.times,
+      startDate: row.start || days[0],
+      endDate: row.end || days[6],
+    });
+  };
+
+  const saveSchedule = async () => {
+    if (!scheduleDraft || !selectedId) return;
+    const preview = previewTimes({ ...scheduleDraft, timesPerDay: Number(scheduleDraft.timesPerDay) });
+    if (preview.error) {
+      toast({ title: 'Horaires incomplets', description: preview.error, variant: 'destructive' });
+      return;
+    }
+    setSchedulingId(scheduleDraft.rowId);
     try {
       await nursingService.scheduleAdministrations({
         patientId: selectedId,
-        prescriptionId: row.prescriptionId,
-        prescriptionItemId: row.id,
-        timesPerDay: Number(draft.times),
-        administrationRoute: draft.route,
-        treatmentStartDate: days[0],
-        treatmentEndDate: days[6],
+        prescriptionId: scheduleDraft.prescriptionId,
+        prescriptionItemId: scheduleDraft.rowId,
+        timesPerDay: Number(scheduleDraft.timesPerDay),
+        administrationRoute: scheduleDraft.route,
+        treatmentStartDate: scheduleDraft.startDate,
+        treatmentEndDate: scheduleDraft.endDate,
+        scheduleMode: scheduleDraft.mode,
+        firstDoseTime: scheduleDraft.firstDose,
+        windowStart: scheduleDraft.windowStart,
+        windowEnd: scheduleDraft.windowEnd,
+        ...(scheduleDraft.mode === 'custom' ? { administrationTimes: preview.times } : {}),
       });
-      toast({ title: 'Cases ajoutées', description: `${draft.times} prise(s) par jour sur cette semaine.` });
+      setScheduleDraft(null);
+      toast({ title: 'Heures recalculées', description: 'Les prises déjà confirmées restent inchangées.' });
       await reloadSheet();
     } catch (error) {
-      toast({ title: 'Fréquence non enregistrée', description: apiMessage(error), variant: 'destructive' });
+      toast({ title: 'Horaires non enregistrés', description: apiMessage(error), variant: 'destructive' });
     } finally {
       setSchedulingId('');
     }
@@ -506,6 +676,7 @@ export function TreatmentSheet({
                   <p className="text-xs text-muted-foreground">{row.dose}</p>
                   <p className="mt-1 text-sm">{frequencyLabel(row.times)} · {row.route || '—'}</p>
                   {cue && <p className={`mt-2 inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${cue.className}`}>{cue.label}</p>}
+                  {canWrite && <Button type="button" size="sm" variant="outline" className="mt-2" onClick={() => openSchedule(row)}>{row.times.length ? 'Modifier les heures' : 'Définir les heures'}</Button>}
                 </div>
                 <div className="rounded-md bg-muted/40 p-2">
                   <p className="mb-2 text-xs font-medium">Aujourd’hui · J{todayIndex + 1} · {dayLabel(days[todayIndex])}</p>
@@ -556,29 +727,10 @@ export function TreatmentSheet({
                     {cue && <p className={`mt-2 inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${cue.className}`}>{cue.label}</p>}
                   </td>
                   <td className="border px-2 py-2 whitespace-nowrap">
-                    {row.times.length === 0 && canWrite ? (
-                      <Select value={drafts[row.id]?.times ?? '1'} onValueChange={(value) => setDrafts((current) => ({ ...current, [row.id]: { times: value, route: current[row.id]?.route ?? 'Orale' } }))}>
-                        <SelectTrigger className="h-8 w-36" aria-label={`Fréquence de ${row.medication}`}><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="1">1 fois / jour</SelectItem>
-                          <SelectItem value="2">2 fois / jour</SelectItem>
-                          <SelectItem value="3">3 fois / jour</SelectItem>
-                          <SelectItem value="4">4 fois / jour</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    ) : frequencyLabel(row.times)}
+                    <p>{frequencyLabel(row.times)}</p>
+                    {canWrite && <Button type="button" size="sm" variant="outline" className="mt-2" onClick={() => openSchedule(row)}>{row.times.length ? 'Modifier les heures' : 'Définir les heures'}</Button>}
                   </td>
-                  <td className="border px-2 py-2">
-                    {row.times.length === 0 && canWrite ? (
-                      <div className="space-y-2">
-                        <Select value={drafts[row.id]?.route ?? 'Orale'} onValueChange={(value) => setDrafts((current) => ({ ...current, [row.id]: { times: current[row.id]?.times ?? '1', route: value } }))}>
-                          <SelectTrigger className="h-8 w-40" aria-label={`Voie de ${row.medication}`}><SelectValue /></SelectTrigger>
-                          <SelectContent>{administrationRoutes.map((route) => <SelectItem key={route} value={route}>{route}</SelectItem>)}</SelectContent>
-                        </Select>
-                        <Button type="button" size="sm" disabled={schedulingId === row.id} onClick={() => void applySchedule(row)}>Afficher les cases</Button>
-                      </div>
-                    ) : (row.route || '—')}
-                  </td>
+                  <td className="border px-2 py-2">{row.route || '—'}</td>
                   {row.cells.map((cell, index) => (
                     <td key={`${row.id}-${days[index]}`} className={`border px-2 py-2 ${dayStillDue(days[index], row.start, row.end, row.status) ? 'bg-amber-100 dark:bg-amber-950/50' : ''}`}>
                       <div className="space-y-2">
@@ -606,34 +758,123 @@ export function TreatmentSheet({
           </table>
         </div>
         {canWrite && selectedId && (
-          <form ref={addFormRef} onSubmit={addLine} className="grid gap-3 rounded-lg border p-3 md:grid-cols-[minmax(0,1fr)_11rem_12rem_auto] md:items-end">
-            <div className="space-y-2">
-              <Label htmlFor="new-product">Médicament</Label>
-              <Input id="new-product" value={newMedication} maxLength={160} placeholder="Nom du produit" onChange={(event) => setNewMedication(event.target.value)} required />
+          <form ref={addFormRef} onSubmit={addLine} className="space-y-3 rounded-lg border p-3">
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="new-product">Médicament</Label>
+                <Input id="new-product" value={newMedication} maxLength={160} placeholder="Nom du produit" onChange={(event) => setNewMedication(event.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label>Fréquence</Label>
+                <Select value={newTimes} onValueChange={changeNewFrequency}>
+                  <SelectTrigger aria-label="Fréquence du nouveau produit"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1 fois / jour</SelectItem>
+                    <SelectItem value="2">2 fois / jour</SelectItem>
+                    <SelectItem value="3">3 fois / jour</SelectItem>
+                    <SelectItem value="4">4 fois / jour</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Voie</Label>
+                <Select value={newRoute} onValueChange={setNewRoute}>
+                  <SelectTrigger aria-label="Voie du nouveau produit"><SelectValue /></SelectTrigger>
+                  <SelectContent>{administrationRoutes.map((route) => <SelectItem key={route} value={route}>{route}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Fréquence</Label>
-              <Select value={newTimes} onValueChange={setNewTimes}>
-                <SelectTrigger aria-label="Fréquence du nouveau produit"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">1 fois / jour</SelectItem>
-                  <SelectItem value="2">2 fois / jour</SelectItem>
-                  <SelectItem value="3">3 fois / jour</SelectItem>
-                  <SelectItem value="4">4 fois / jour</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Voie</Label>
-              <Select value={newRoute} onValueChange={setNewRoute}>
-                <SelectTrigger aria-label="Voie du nouveau produit"><SelectValue /></SelectTrigger>
-                <SelectContent>{administrationRoutes.map((route) => <SelectItem key={route} value={route}>{route}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <Button type="submit" className="w-full md:w-auto" disabled={adding || !newMedication.trim()}>{adding ? 'Ajout...' : 'Ajouter la ligne'}</Button>
+            <ScheduleChoices
+              idPrefix="new-line"
+              mode={scheduleMode}
+              timesPerDay={Number(newTimes)}
+              firstDose={firstDose}
+              windowStart={windowStart}
+              windowEnd={windowEnd}
+              customTimes={customTimes}
+              preview={newPreview}
+              onMode={(mode) => {
+                if (mode === 'custom') {
+                  const next = previewTimes({ timesPerDay: Number(newTimes), mode: 'automatic', firstDose, windowStart, windowEnd, customTimes: [] });
+                  setCustomTimes(next.times.length ? next.times : Array.from({ length: Number(newTimes) }, () => firstDose));
+                }
+                setScheduleMode(mode);
+              }}
+              onFirstDose={setFirstDose}
+              onWindowStart={setWindowStart}
+              onWindowEnd={setWindowEnd}
+              onCustomTime={(index, value) => setCustomTimes((current) => current.map((time, timeIndex) => timeIndex === index ? value.slice(0, 5) : time))}
+            />
+            <Button type="submit" className="w-full md:w-auto" disabled={adding || !newMedication.trim() || Boolean(newPreview.error)}>{adding ? 'Ajout...' : 'Ajouter la ligne'}</Button>
           </form>
         )}
-        <p className="text-xs text-muted-foreground">Case verte : pris à l’heure. Case jaune : pris en retard, avec un motif. Case rouge : prise ratée, avec un motif. Le médecin et l’administrateur voient ces motifs. Une case validée ne se décoche pas sans une correction justifiée.</p>
+        <p className="text-xs text-muted-foreground">Avant l’heure prévue, la case reste inactive. L’heure atteinte ne valide pas la prise. Case verte : confirmée à l’heure. Case jaune : en retard, à confirmer ou déjà confirmée avec un motif. Case rouge : prise non effectuée. Le médecin et l’administrateur voient ces motifs.</p>
+        <Dialog open={scheduleDraft !== null} onOpenChange={(open) => { if (!open && !schedulingId) setScheduleDraft(null); }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Horaires de {scheduleDraft?.medication}</DialogTitle>
+              <DialogDescription>Le calcul aide l’infirmier. Les heures du médecin restent prioritaires en mode personnalisé. Les prises déjà confirmées ne sont pas modifiées.</DialogDescription>
+            </DialogHeader>
+            {scheduleDraft && (
+              <div className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Fréquence</Label>
+                    <Select value={scheduleDraft.timesPerDay} onValueChange={(value) => {
+                      const first = defaultFirstDose[value] ?? scheduleDraft.firstDose;
+                      const next = previewTimes({ timesPerDay: Number(value), mode: 'automatic', firstDose: first, windowStart: scheduleDraft.windowStart, windowEnd: scheduleDraft.windowEnd, customTimes: [] });
+                      setScheduleDraft({ ...scheduleDraft, timesPerDay: value, firstDose: first, customTimes: next.times.length ? next.times : [first] });
+                    }}>
+                      <SelectTrigger aria-label="Fréquence à recalculer"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">1 fois / jour</SelectItem>
+                        <SelectItem value="2">2 fois / jour</SelectItem>
+                        <SelectItem value="3">3 fois / jour</SelectItem>
+                        <SelectItem value="4">4 fois / jour</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Voie</Label>
+                    <Select value={scheduleDraft.route} onValueChange={(route) => setScheduleDraft({ ...scheduleDraft, route })}>
+                      <SelectTrigger aria-label="Voie d’administration"><SelectValue /></SelectTrigger>
+                      <SelectContent>{administrationRoutes.map((route) => <SelectItem key={route} value={route}>{route}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <ScheduleChoices
+                  idPrefix="edit-line"
+                  mode={scheduleDraft.mode}
+                  timesPerDay={Number(scheduleDraft.timesPerDay)}
+                  firstDose={scheduleDraft.firstDose}
+                  windowStart={scheduleDraft.windowStart}
+                  windowEnd={scheduleDraft.windowEnd}
+                  customTimes={scheduleDraft.customTimes}
+                  preview={previewTimes({ ...scheduleDraft, timesPerDay: Number(scheduleDraft.timesPerDay) })}
+                  onMode={(mode) => {
+                    const next = previewTimes({ ...scheduleDraft, timesPerDay: Number(scheduleDraft.timesPerDay), mode: 'automatic', customTimes: [] });
+                    setScheduleDraft({
+                      ...scheduleDraft,
+                      mode,
+                      customTimes: mode === 'custom' && next.times.length ? next.times : scheduleDraft.customTimes,
+                    });
+                  }}
+                  onFirstDose={(firstDose) => setScheduleDraft({ ...scheduleDraft, firstDose })}
+                  onWindowStart={(windowStart) => setScheduleDraft({ ...scheduleDraft, windowStart })}
+                  onWindowEnd={(windowEnd) => setScheduleDraft({ ...scheduleDraft, windowEnd })}
+                  onCustomTime={(index, value) => setScheduleDraft({
+                    ...scheduleDraft,
+                    customTimes: scheduleDraft.customTimes.map((time, timeIndex) => timeIndex === index ? value.slice(0, 5) : time),
+                  })}
+                />
+              </div>
+            )}
+            <DialogFooter>
+              <Button type="button" variant="outline" disabled={Boolean(schedulingId)} onClick={() => setScheduleDraft(null)}>Annuler</Button>
+              <Button type="button" disabled={Boolean(schedulingId)} onClick={() => void saveSchedule()}>{schedulingId ? 'Enregistrement...' : 'Recalculer'}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
         <Dialog open={motif !== null} onOpenChange={(open) => { if (!open && !savingMotif) { setMotif(null); setReason(''); } }}>
           <DialogContent>
             <DialogHeader>

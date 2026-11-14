@@ -146,6 +146,24 @@ const thresholdsSchema = z.object({
 });
 
 const administrationRoutes = ['Orale', 'Intraveineuse', 'Intramusculaire', 'Sous-cutanée', 'Rectale', 'Inhalation'] as const;
+const clock = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+
+const scheduleChoice = {
+  scheduleMode: z.enum(['automatic', 'custom']).optional().default('automatic'),
+  firstDoseTime: clock.optional(),
+  administrationTimes: z.array(clock).min(1).max(4).optional(),
+  windowStart: clock.optional(),
+  windowEnd: clock.optional(),
+};
+
+function scheduleChoiceRefine(value: { scheduleMode?: 'automatic' | 'custom'; timesPerDay: number; administrationTimes?: string[]; treatmentEndDate: string; treatmentStartDate: string }, context: z.RefinementCtx) {
+  if (value.treatmentEndDate < value.treatmentStartDate) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['treatmentEndDate'], message: 'La fin du traitement doit suivre son début' });
+  }
+  if (value.scheduleMode === 'custom' && value.administrationTimes?.length !== value.timesPerDay) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['administrationTimes'], message: 'Indiquez une heure pour chaque prise' });
+  }
+}
 
 export const nursingTreatmentLineSchema = envelope(z.object({
   patientId: objectIdSchema,
@@ -154,10 +172,8 @@ export const nursingTreatmentLineSchema = envelope(z.object({
   administrationRoute: z.enum(administrationRoutes),
   treatmentStartDate: calendarDate,
   treatmentEndDate: calendarDate,
-}).refine((value) => value.treatmentEndDate >= value.treatmentStartDate, {
-  message: 'La fin du traitement doit suivre son début',
-  path: ['treatmentEndDate'],
-}));
+  ...scheduleChoice,
+}).superRefine(scheduleChoiceRefine));
 
 export const nursingScheduleSchema = envelope(z.object({
   patientId: objectIdSchema,
@@ -167,10 +183,8 @@ export const nursingScheduleSchema = envelope(z.object({
   administrationRoute: z.enum(administrationRoutes),
   treatmentStartDate: calendarDate,
   treatmentEndDate: calendarDate,
-}).refine((value) => value.treatmentEndDate >= value.treatmentStartDate, {
-  message: 'La fin du traitement doit suivre son début',
-  path: ['treatmentEndDate'],
-}));
+  ...scheduleChoice,
+}).superRefine(scheduleChoiceRefine));
 
 export const nursingThresholdsSchema = envelope(thresholdsSchema);
 export const nursingReportSchema = envelope(empty, z.object({

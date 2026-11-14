@@ -7,6 +7,7 @@ import { BedStay } from '../src/models/BedStay.js';
 import { MedicationAdministration } from '../src/models/MedicationAdministration.js';
 import { NursingCare } from '../src/models/NursingCare.js';
 import { VitalSigns } from '../src/models/VitalSigns.js';
+import { computeAdministrationTimes } from '../src/services/nursing.service.js';
 import { bearer, createOrganization, createUser } from './helpers.js';
 
 let app: Express;
@@ -22,6 +23,16 @@ function kinshasaDate(offsetDays = 0) {
 
 beforeAll(() => {
   app = createApp();
+});
+
+describe('calcul des heures de prise', () => {
+  it('répartit les prises à partir de la première heure dans la plage de 12 heures', () => {
+    expect(computeAdministrationTimes({ timesPerDay: 1, firstDoseTime: '06:00' })).toEqual(['06:00']);
+    expect(computeAdministrationTimes({ timesPerDay: 2, firstDoseTime: '08:00' })).toEqual(['08:00', '16:00']);
+    expect(computeAdministrationTimes({ timesPerDay: 3, firstDoseTime: '08:00' })).toEqual(['08:00', '12:00', '16:00']);
+    expect(computeAdministrationTimes({ timesPerDay: 4, firstDoseTime: '06:00' })).toEqual(['06:00', '10:00', '14:00', '18:00']);
+    expect(computeAdministrationTimes({ timesPerDay: 2, firstDoseTime: '09:30' })).toEqual(['09:30', '17:30']);
+  });
 });
 
 async function setupHospital() {
@@ -183,7 +194,7 @@ describe('Module de soins infirmiers', () => {
         medication: 'Paracétamol', dosage: '1 comprimé', posology: '3 fois par jour',
         administrationRoute: 'orale', duration: '3 jours', quantityPrescribed: 9,
         treatmentStartDate: kinshasaDate(-1), treatmentEndDate: kinshasaDate(1),
-        administrationTimes: ['00:01', '08:00', '23:59'],
+        administrationTimes: ['00:01', '00:02', '23:59'],
       }],
     });
     expect(prescription.status).toBe(201);
@@ -197,7 +208,7 @@ describe('Module de soins infirmiers', () => {
     expect(sheet.body.timeZone).toBe('Africa/Kinshasa');
     expect(sheet.body.lateWindowMinutes).toBe(60);
     expect(sheet.body.doses).toHaveLength(3);
-    expect(sheet.body.doses[0]).toMatchObject({ medication: 'Paracétamol', prescribedDose: '1 comprimé', status: 'not_administered' });
+    expect(sheet.body.doses[0]).toMatchObject({ medication: 'Paracétamol', prescribedDose: '1 comprimé', status: 'pending', overdue: true });
     expect(sheet.body.doses[2].status).toBe('pending');
     expect(await MedicationAdministration.countDocuments({ patientId: hospital.patientId })).toBe(3);
     const repeatedSheet = await request(app).get('/api/nursing/administrations')

@@ -274,11 +274,12 @@ export default function Consultations() {
   );
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between animate-fade-in">
+    <div>
+      <div className="sticky top-16 z-20 -mx-4 mb-6 space-y-4 border-b border-border bg-background/95 px-4 py-3 backdrop-blur md:-mx-6 md:px-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Consultation</h1>
+          <p className="text-sm font-medium text-primary">Clinique</p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Consultation</h1>
           <p className="mt-1 text-muted-foreground">
             Gestion des consultations et diagnostics
           </p>
@@ -460,36 +461,42 @@ export default function Consultations() {
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-3 animate-slide-up" style={{ animationDelay: "100ms" }}>
-        <div className="rounded-lg bg-card border border-border p-4">
-          <p className="text-sm text-muted-foreground">Total consultations</p>
-          <p className="text-2xl font-bold">{consultations.length}</p>
-        </div>
-        <div className="rounded-lg bg-warning/10 border border-warning/20 p-4">
-          <p className="text-sm text-warning">En cours</p>
-          <p className="text-2xl font-bold text-warning">{consultations.filter(c => c.status === "in_progress").length}</p>
-        </div>
-        <div className="rounded-lg bg-success/10 border border-success/20 p-4">
-          <p className="text-sm text-success">Terminées</p>
-          <p className="text-2xl font-bold text-success">{consultations.filter(c => c.status === "completed").length}</p>
-        </div>
+      <div className="grid gap-3 sm:grid-cols-3">
+        {[
+          { label: "Total consultations", value: consultations.length, icon: Stethoscope, card: "border-primary/25 bg-primary/10", tile: "bg-primary text-primary-foreground", number: "text-primary" },
+          { label: "En cours", value: consultations.filter((item) => item.status === "in_progress").length, icon: Clock, card: "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40", tile: "bg-amber-500 text-amber-950", number: "text-amber-800 dark:text-amber-200" },
+          { label: "Terminées", value: consultations.filter((item) => item.status === "completed").length, icon: CheckCircle, card: "border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/50", tile: "bg-emerald-600 text-white", number: "text-emerald-800 dark:text-emerald-200" },
+        ].map((stat) => {
+          const Icon = stat.icon;
+          return (
+            <div key={stat.label} className={`flex items-center gap-3 rounded-2xl border p-3 sm:p-4 ${stat.card}`}>
+              <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${stat.tile}`}>
+                <Icon className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium leading-snug text-foreground/80">{stat.label}</p>
+                <p className={`text-3xl font-bold tabular-nums ${stat.number}`}>{stat.value}</p>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
-      {/* Search */}
-      <div className="flex flex-col gap-4 sm:flex-row animate-slide-up" style={{ animationDelay: "150ms" }}>
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input 
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="relative min-w-0 flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary" />
+          <Input
             placeholder="Rechercher par patient, médecin ou plainte..."
-            className="pl-10"
+            className="h-11 rounded-xl border-primary/20 bg-card pl-10 shadow-sm"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <Button variant="outline">
-          <Filter className="h-4 w-4 mr-2" />
+        <Button variant="outline" className="h-11 rounded-xl">
+          <Filter className="mr-2 h-4 w-4" />
           Filtres
         </Button>
+      </div>
       </div>
 
       {/* Consultations list */}

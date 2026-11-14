@@ -8,6 +8,10 @@ import {
   FileText,
   Calendar,
   User,
+  Users,
+  BedDouble,
+  UserRound,
+  CheckCircle2,
   Phone,
   MapPin,
   Edit,
@@ -314,11 +318,13 @@ export default function Patients() {
   };
 
   return (
-    <div className="space-y-6">
+    <div>
+      <div className="sticky top-16 z-20 -mx-4 mb-6 space-y-4 border-b border-border bg-background/95 px-4 py-3 backdrop-blur md:-mx-6 md:px-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between animate-fade-in">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Patient</h1>
+          <p className="text-sm font-medium text-primary">Dossiers médicaux</p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Patient</h1>
           <p className="mt-1 text-muted-foreground">
             Dossiers médicaux et suivi des patients
           </p>
@@ -515,40 +521,43 @@ export default function Patients() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-4 animate-slide-up lg:grid-cols-4" style={{ animationDelay: "100ms" }}>
-        <div className="rounded-lg bg-card border border-border p-4">
-          <p className="text-sm text-muted-foreground">Total patients</p>
-          <p className="text-2xl font-bold">{totals.total}</p>
-        </div>
-        <div className="rounded-lg bg-warning/10 border border-warning/20 p-4">
-          <p className="text-sm text-warning">Hospitalisés</p>
-          <p className="text-2xl font-bold text-warning">{totals.hospitalized}</p>
-        </div>
-        <div className="rounded-lg bg-info/10 border border-info/20 p-4">
-          <p className="text-sm text-info">Ambulatoires</p>
-          <p className="text-2xl font-bold text-info">{totals.outpatient}</p>
-        </div>
-        <div className="rounded-lg bg-success/10 border border-success/20 p-4">
-          <p className="text-sm text-success">Sortis (ce mois)</p>
-          <p className="text-2xl font-bold text-success">{totals.discharged}</p>
-        </div>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {[
+          { label: "Total patients", value: totals.total, icon: Users, card: "border-primary/25 bg-primary/10", tile: "bg-primary text-primary-foreground", number: "text-primary" },
+          { label: "Hospitalisés", value: totals.hospitalized, icon: BedDouble, card: "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40", tile: "bg-amber-500 text-amber-950", number: "text-amber-800 dark:text-amber-200" },
+          { label: "Ambulatoires", value: totals.outpatient, icon: UserRound, card: "border-sky-200 bg-sky-50 dark:border-sky-800 dark:bg-sky-950/50", tile: "bg-sky-600 text-white", number: "text-sky-800 dark:text-sky-200" },
+          { label: "Sortis (ce mois)", value: totals.discharged, icon: CheckCircle2, card: "border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/50", tile: "bg-emerald-600 text-white", number: "text-emerald-800 dark:text-emerald-200" },
+        ].map((stat) => {
+          const Icon = stat.icon;
+          return (
+            <div key={stat.label} className={`flex items-center gap-3 rounded-2xl border p-3 sm:p-4 ${stat.card}`}>
+              <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${stat.tile}`}>
+                <Icon className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium leading-snug text-foreground/80">{stat.label}</p>
+                <p className={`text-3xl font-bold tabular-nums ${stat.number}`}>{stat.value}</p>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col gap-4 sm:flex-row animate-slide-up" style={{ animationDelay: "150ms" }}>
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input 
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="relative min-w-0 flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary" />
+          <Input
             placeholder="Rechercher par nom, téléphone ou email..."
-            className="pl-10"
+            className="h-11 rounded-xl border-primary/20 bg-card pl-10 shadow-sm"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <Button variant="outline">
-          <Filter className="h-4 w-4 mr-2" />
+        <Button variant="outline" className="h-11 rounded-xl">
+          <Filter className="mr-2 h-4 w-4" />
           Filtres
         </Button>
+      </div>
       </div>
 
       {/* Patient cards */}

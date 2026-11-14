@@ -49,6 +49,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Card } from "@/components/ui/card";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { patientService } from "@/services/patientService";
 import type { Patient } from "@/types";
@@ -63,7 +64,9 @@ const statusConfig = {
 const bloodTypes = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 
 export default function Patients() {
+  const { user } = useAuth();
   const { toast } = useToast();
+  const canCreatePatient = user?.role !== "NURSE";
   const [params] = useSearchParams();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [totals, setTotals] = useState({ total: 0, hospitalized: 0, outpatient: 0, discharged: 0 });
@@ -324,12 +327,14 @@ export default function Patients() {
           setIsDialogOpen(open);
           if (!open) resetForm();
         }}>
-          <DialogTrigger asChild>
-            <Button variant="hero" size="lg">
-              <Plus className="h-5 w-5 mr-2" />
-              Nouveau patient
-            </Button>
-          </DialogTrigger>
+          {canCreatePatient && (
+            <DialogTrigger asChild>
+              <Button variant="hero" size="lg">
+                <Plus className="h-5 w-5 mr-2" />
+                Nouveau patient
+              </Button>
+            </DialogTrigger>
+          )}
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{isEditing ? "Modifier le patient" : "Nouveau patient"}</DialogTitle>

@@ -6,7 +6,6 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -20,7 +19,6 @@ import { SurveillanceSheet } from '@/pages/nursing/SurveillanceSheet';
 import { TreatmentSheet } from '@/pages/nursing/TreatmentSheet';
 import { PatientSelect } from '@/components/patients/PatientSelect';
 import { nursingService } from '@/services/nursingService';
-import { patientService } from '@/services/patientService';
 import type {
   NursingCare, NursingCareStatus, NursingCareType, NursingDashboard, NursingPatient,
   NursingPatientDetail, NursingReport, NursingThresholds,
@@ -280,9 +278,6 @@ export default function NursingCarePage() {
   const [careDescription, setCareDescription] = useState('');
   const [scheduledAt, setScheduledAt] = useState(localDateTime());
   const [observation, setObservation] = useState('');
-  const [addPatientOpen, setAddPatientOpen] = useState(false);
-  const [addingPatient, setAddingPatient] = useState(false);
-  const [newPatient, setNewPatient] = useState({ firstName: '', lastName: '', age: '', gender: 'M', phone: '', room: '' });
 
   const reload = useCallback(async () => {
     setIsLoading(true);
@@ -330,39 +325,6 @@ export default function NursingCarePage() {
   const selectedPatient = useMemo(() => patients.find((patient) => patient.id === selectedId), [patients, selectedId]);
 
   const notifyError = (reason: unknown) => toast({ title: 'Opération impossible', description: apiMessage(reason), variant: 'destructive' });
-
-  const addPatient = async (event: FormEvent) => {
-    event.preventDefault();
-    const age = Number(newPatient.age);
-    if (!newPatient.firstName.trim() || !newPatient.lastName.trim() || !Number.isInteger(age) || age < 0 || age > 120) {
-      toast({ title: 'Dossier incomplet', description: 'Indiquez le prénom, le nom et l’âge.', variant: 'destructive' });
-      return;
-    }
-    const birth = new Date();
-    birth.setFullYear(birth.getFullYear() - age);
-    const dateOfBirth = `${birth.getFullYear()}-${String(birth.getMonth() + 1).padStart(2, '0')}-${String(birth.getDate()).padStart(2, '0')}`;
-    setAddingPatient(true);
-    try {
-      const created = await patientService.create({
-        firstName: newPatient.firstName.trim(),
-        lastName: newPatient.lastName.trim(),
-        dateOfBirth,
-        gender: newPatient.gender as 'M' | 'F',
-        ...(newPatient.phone.trim() ? { phone: newPatient.phone.trim() } : {}),
-        status: 'hospitalized',
-        ...(newPatient.room.trim() ? { room: newPatient.room.trim() } : {}),
-      } as Parameters<typeof patientService.create>[0]);
-      setAddPatientOpen(false);
-      setNewPatient({ firstName: '', lastName: '', age: '', gender: 'M', phone: '', room: '' });
-      toast({ title: 'Patient ajouté', description: `${created.firstName} ${created.lastName} est dans les dossiers de l’établissement.` });
-      await reload();
-      setSelectedId(created.id);
-    } catch (reason) {
-      notifyError(reason);
-    } finally {
-      setAddingPatient(false);
-    }
-  };
 
   const submitCare = async (event: FormEvent) => {
     event.preventDefault();
@@ -439,10 +401,7 @@ export default function NursingCarePage() {
           <h1 className="text-3xl font-bold tracking-tight">Soins infirmiers</h1>
           <p className="mt-1 text-muted-foreground">Feuille de traitement, surveillance et traçabilité dans les dossiers existants.</p>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          {canWrite && <Button onClick={() => setAddPatientOpen(true)}><UserRound className="mr-2 h-4 w-4" />Ajouter un patient</Button>}
-          <Button variant="outline" onClick={() => void reload()} disabled={isLoading}><Activity className="mr-2 h-4 w-4" />Actualiser</Button>
-        </div>
+        <Button variant="outline" onClick={() => void reload()} disabled={isLoading}><Activity className="mr-2 h-4 w-4" />Actualiser</Button>
       </div>
 
       {error && <Card className="border-destructive/50"><CardContent className="flex items-center gap-2 p-4 text-sm text-destructive"><AlertTriangle className="h-4 w-4" />{error}</CardContent></Card>}
@@ -686,52 +645,6 @@ export default function NursingCarePage() {
         </TabsContent>
       </Tabs>
       {selectedPatient && <p className="text-xs text-muted-foreground"><BedDouble className="mr-1 inline h-3 w-3" />{selectedPatient.status === 'hospitalized' ? 'Hospitalisation' : 'Observation'} · Accès soumis aux permissions de l’établissement.</p>}
-      <Dialog open={addPatientOpen} onOpenChange={(open) => { if (!addingPatient) setAddPatientOpen(open); }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Ajouter un patient</DialogTitle>
-            <DialogDescription>Le dossier est créé dans l’établissement et apparaît dans les soins infirmiers.</DialogDescription>
-          </DialogHeader>
-          <form onSubmit={addPatient} className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="nurse-patient-first">Prénom</Label>
-                <Input id="nurse-patient-first" value={newPatient.firstName} onChange={(event) => setNewPatient((current) => ({ ...current, firstName: event.target.value }))} required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="nurse-patient-last">Nom</Label>
-                <Input id="nurse-patient-last" value={newPatient.lastName} onChange={(event) => setNewPatient((current) => ({ ...current, lastName: event.target.value }))} required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="nurse-patient-age">Âge</Label>
-                <Input id="nurse-patient-age" type="number" min={0} max={120} value={newPatient.age} onChange={(event) => setNewPatient((current) => ({ ...current, age: event.target.value }))} required />
-              </div>
-              <div className="space-y-2">
-                <Label>Sexe</Label>
-                <Select value={newPatient.gender} onValueChange={(gender) => setNewPatient((current) => ({ ...current, gender }))}>
-                  <SelectTrigger aria-label="Sexe du patient"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="M">Homme</SelectItem>
-                    <SelectItem value="F">Femme</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="nurse-patient-phone">Téléphone</Label>
-                <Input id="nurse-patient-phone" value={newPatient.phone} onChange={(event) => setNewPatient((current) => ({ ...current, phone: event.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="nurse-patient-room">Chambre</Label>
-                <Input id="nurse-patient-room" value={newPatient.room} onChange={(event) => setNewPatient((current) => ({ ...current, room: event.target.value }))} />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" disabled={addingPatient} onClick={() => setAddPatientOpen(false)}>Annuler</Button>
-              <Button type="submit" disabled={addingPatient}>{addingPatient ? 'Enregistrement...' : 'Enregistrer le dossier'}</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

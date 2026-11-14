@@ -18,7 +18,7 @@ const writeRoles = [ROLES.HOSPITAL_ADMIN, ROLES.RECEPTIONIST, ROLES.DOCTOR] as c
 
 router.use(authenticate, requireTenant);
 router.get('/', requireRoles(...readRoles), validate(listPatientsSchema), patientController.list);
-router.post('/', requireRoles(ROLES.HOSPITAL_ADMIN, ROLES.RECEPTIONIST, ROLES.NURSE), validate(createPatientSchema), patientController.create);
+router.post('/', requireRoles(ROLES.HOSPITAL_ADMIN, ROLES.RECEPTIONIST), validate(createPatientSchema), patientController.create);
 router.get('/:id', requireRoles(...readRoles), validate(patientParamsSchema), patientController.getById);
 router.put('/:id', requireRoles(...writeRoles), validate(updatePatientSchema), patientController.update);
 router.delete('/:id', requireRoles(ROLES.HOSPITAL_ADMIN), validate(patientParamsSchema), patientController.archive);

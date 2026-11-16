@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { nursingService, type TreatmentJournal } from '@/services/nursingService';
 
@@ -29,8 +28,8 @@ function bounds(period: Period, anchor: string, customFrom: string, customTo: st
   return { from: customFrom, to: customTo >= customFrom ? customTo : customFrom };
 }
 
-function dayLabel(date: string) {
-  return new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${date}T12:00:00Z`));
+function dateLabel(date: string) {
+  return new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short', timeZone: 'UTC' }).format(new Date(`${date}T12:00:00Z`));
 }
 
 function clock(value: string) {
@@ -71,7 +70,21 @@ export function ReceivedTreatments() {
       patients: day.patients.filter((patient) => `${patient.firstName} ${patient.lastName} ${patient.room}`.toLowerCase().includes(query)),
     })).filter((day) => day.patients.length > 0);
   }, [journal, search]);
-  const shownPatients = days.reduce((sum, day) => sum + day.patients.length, 0);
+  const rows = days.flatMap((day) => day.patients.map((patient) => {
+    const times = [...new Set(patient.doses.map((dose) => clock(dose.administeredAt)))];
+    const nurses = [...new Set(patient.doses.map((dose) => dose.nurseName).filter(Boolean))];
+    return {
+      key: `${day.date}-${patient.patientId}`,
+      when: times.length === 1 ? `${dateLabel(day.date)} · ${times[0]}` : dateLabel(day.date),
+      patient: `${patient.firstName} ${patient.lastName}${patient.room ? ` · Ch. ${patient.room}` : ''}`,
+      products: patient.doses.map((dose) => ({
+        label: `${times.length === 1 ? '' : `${clock(dose.administeredAt)} · `}${dose.medication}${dose.route ? ` · ${dose.route}` : ''}`,
+        late: dose.status === 'administered_late',
+      })),
+      nurse: nurses.join(', ') || '—',
+    };
+  }));
+  const shownPatients = new Set(days.flatMap((day) => day.patients.map((patient) => patient.patientId))).size;
 
   return (
     <div className="space-y-3">
@@ -94,24 +107,31 @@ export function ReceivedTreatments() {
         <Input className="h-8 w-full sm:w-56" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher un patient" aria-label="Rechercher un patient" />
       </div>
       {error && <p className="text-sm text-destructive">{error}</p>}
-      {!error && days.length === 0 && <p className="rounded-lg border px-3 py-6 text-center text-sm text-muted-foreground">Aucun traitement administré sur cette période.</p>}
-      {days.map((day) => (
-        <section key={day.date} className="space-y-2">
-          <h2 className="text-sm font-semibold capitalize">{dayLabel(day.date)}</h2>
-          {day.patients.map((patient) => (
-            <Card key={`${day.date}-${patient.patientId}`}>
-              <CardContent className="space-y-1 p-3">
-                <p className="font-medium">{patient.firstName} {patient.lastName}{patient.room ? ` · Ch. ${patient.room}` : ''}</p>
-                {patient.doses.map((dose, index) => (
-                  <p key={`${dose.medication}-${dose.administeredAt}-${index}`} className="text-xs text-muted-foreground">
-                    {clock(dose.administeredAt)} · {dose.medication} · {dose.route} · {dose.status === 'administered_late' ? 'en retard' : 'à l’heure'}{dose.nurseName ? ` · ${dose.nurseName}` : ''}
-                  </p>
-                ))}
-              </CardContent>
-            </Card>
-          ))}
-        </section>
-      ))}
+      {!error && rows.length === 0 && <p className="rounded-lg border px-3 py-6 text-center text-sm text-muted-foreground">Aucun traitement administré sur cette période.</p>}
+      {rows.length > 0 && (
+        <div className="overflow-x-auto rounded-lg border">
+          <div className="min-w-[44rem]">
+            <div className="grid grid-cols-[9rem_1.3fr_1.2fr_1fr] bg-muted/60 text-xs font-semibold text-muted-foreground">
+              <div className="border-r px-3 py-2">Date et heure</div>
+              <div className="border-r px-3 py-2">Nom</div>
+              <div className="border-r px-3 py-2">Produits</div>
+              <div className="px-3 py-2">Infirmier</div>
+            </div>
+            {rows.map((row) => (
+              <div key={row.key} className="grid grid-cols-[9rem_1.3fr_1.2fr_1fr] border-t text-sm">
+                <div className="border-r px-3 py-2 whitespace-nowrap">{row.when}</div>
+                <div className="border-r px-3 py-2 font-medium">{row.patient}</div>
+                <div className="border-r px-3 py-2">
+                  {row.products.map((product, index) => (
+                    <p key={`${product.label}-${index}`}>{product.label}{product.late ? <span className="ml-1 text-xs text-amber-700">en retard</span> : null}</p>
+                  ))}
+                </div>
+                <div className="px-3 py-2">{row.nurse}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

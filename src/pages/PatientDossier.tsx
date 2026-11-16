@@ -102,20 +102,12 @@ function examLabel(exam: DossierExam) {
   return examStatusLabels[exam.status ?? ""] ?? exam.status ?? "Examen";
 }
 
-function ExamLines({ exams, bulk = false }: { exams: DossierExam[]; bulk?: boolean }) {
+function ExamLines({ exams }: { exams: DossierExam[] }) {
   const [openIds, setOpenIds] = useState<string[]>([]);
   if (!exams.length) return null;
-  const allOpen = exams.every((exam) => openIds.includes(exam.id));
   const toggle = (id: string) => setOpenIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
   return (
-    <div className="space-y-2">
-      {bulk && (
-        <div className="flex justify-end">
-          <Button type="button" variant="outline" size="sm" onClick={() => setOpenIds(allOpen ? [] : exams.map((exam) => exam.id))}>
-            {allOpen ? "Tout fermer" : "Tout afficher"}
-          </Button>
-        </div>
-      )}
+    <div className="space-y-2 border-t px-3 py-3 md:px-4">
       {exams.map((exam) => {
         const open = openIds.includes(exam.id);
         return (
@@ -180,6 +172,7 @@ export default function PatientDossier() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [openIds, setOpenIds] = useState<string[]>([]);
+  const [examsOpen, setExamsOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -297,12 +290,22 @@ export default function PatientDossier() {
             )}
           </section>
 
-          <section className="space-y-3">
-            <h2 className="text-sm font-semibold md:text-base">Examens médicaux</h2>
+          <section>
             {dossier.history.exams.length === 0 ? (
               <p className="rounded-2xl border border-dashed bg-card px-4 py-6 text-center text-sm text-muted-foreground">Aucun examen enregistré.</p>
             ) : (
-              <ExamLines bulk exams={dossier.history.exams} />
+              <article className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+                <button type="button" className="flex w-full items-center gap-3 px-3 py-3 text-left md:px-4" onClick={() => setExamsOpen((current) => !current)} aria-expanded={examsOpen}>
+                  <span className="hidden h-10 w-1 shrink-0 rounded-full bg-sky-600 sm:block" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold">Examens médicaux</span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground">{dossier.history.exams.length} examen{dossier.history.exams.length > 1 ? "s" : ""}</span>
+                  </span>
+                  <span className="shrink-0 text-sm font-medium text-primary">{examsOpen ? "Masquer" : "Afficher"}</span>
+                  <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${examsOpen ? "rotate-180" : ""}`} />
+                </button>
+                {examsOpen && <ExamLines exams={dossier.history.exams} />}
+              </article>
             )}
           </section>
 

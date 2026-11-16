@@ -408,7 +408,7 @@ export default function NursingCarePage() {
     <div className="mx-auto max-w-7xl">
       {error && <Card className="mb-4 border-destructive/50"><CardContent className="flex items-center gap-2 p-4 text-sm text-destructive"><AlertTriangle className="h-4 w-4" />{error}</CardContent></Card>}
 
-      <Tabs defaultValue="overview" className="space-y-4">
+      <Tabs defaultValue="patients" className="space-y-4">
         <div className="static -mx-4 space-y-2 border-b border-border bg-background/95 px-4 py-2 md:sticky md:top-16 md:z-20 md:-mx-6 md:space-y-4 md:px-6 md:py-3 md:backdrop-blur">
           <div className="flex items-center justify-between gap-2 sm:items-end">
             <div className="min-w-0">
@@ -431,7 +431,6 @@ export default function NursingCarePage() {
           )}
 
           <TabsList className="h-auto w-full justify-start">
-            <TabsTrigger value="overview">Vue d’ensemble</TabsTrigger>
             <TabsTrigger value="patients">Patients et dossier</TabsTrigger>
             <TabsTrigger value="treatment">Feuille de traitement</TabsTrigger>
             {canConfigure && <TabsTrigger value="received">Traitements reçus</TabsTrigger>}
@@ -441,31 +440,6 @@ export default function NursingCarePage() {
             <TabsTrigger value="reports">Rapports</TabsTrigger>
           </TabsList>
         </div>
-
-        <TabsContent value="overview">
-          <Card>
-            <CardHeader><CardTitle>Patients hospitalisés et en observation</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
-              <Input aria-label="Rechercher un patient" placeholder="Rechercher par nom ou chambre" value={patientSearch} onChange={(event) => setPatientSearch(event.target.value)} />
-              <PatientTable patients={patients} selectedId={selectedId} onSelect={setSelectedId} />
-            </CardContent>
-          </Card>
-          <Card className="mt-4">
-            <CardHeader><CardTitle>Soins programmés et en retard</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
-              {dashboard?.dueItems.map((item) => {
-                const patient = patients.find((row) => row.id === item.patientId);
-                const overdue = new Date(item.scheduledAt).getTime() < Date.now() && (item.status === 'pending' || item.status === 'in_progress');
-                return <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 border-b pb-3 last:border-0">
-                  <div><p className="font-medium">{displayDate(item.scheduledAt)} · {item.description}</p><p className="text-sm text-muted-foreground">{patient ? `${patient.firstName} ${patient.lastName}` : `Dossier ${item.patientId.slice(-8)}`}</p></div>
-                  <Badge variant={overdue ? 'destructive' : statusVariants[item.status]}>{overdue ? 'En retard' : statusLabels[item.status]}</Badge>
-                </div>;
-              })}
-              {!dashboard?.dueItems.length && <p className="text-sm text-muted-foreground">Aucun soin en attente aujourd’hui.</p>}
-            </CardContent>
-          </Card>
-          {dashboard && <p className="text-xs text-muted-foreground">{dashboard.alertDisclaimer}</p>}
-        </TabsContent>
 
         <TabsContent value="patients" className="space-y-4">
           <Card><CardHeader><CardTitle>Patients autorisés</CardTitle></CardHeader><CardContent className="space-y-3"><Input aria-label="Rechercher un patient" placeholder="Rechercher par nom ou chambre" value={patientSearch} onChange={(event) => setPatientSearch(event.target.value)} /><PatientTable patients={patients} selectedId={selectedId} onSelect={setSelectedId} /></CardContent></Card>

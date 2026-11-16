@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, ChevronDown, Droplets, Phone, Stethoscope } from "lucide-react";
+import { ArrowLeft, ChevronDown, Droplets, FlaskConical, Phone, Stethoscope } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { apiMessage } from "@/lib/apiError";
@@ -102,20 +102,32 @@ function examLabel(exam: DossierExam) {
   return examStatusLabels[exam.status ?? ""] ?? exam.status ?? "Examen";
 }
 
-function ExamLines({ exams }: { exams: DossierExam[] }) {
+function ExamLines({ exams, bulk = false }: { exams: DossierExam[]; bulk?: boolean }) {
   const [openIds, setOpenIds] = useState<string[]>([]);
   if (!exams.length) return null;
+  const allOpen = exams.every((exam) => openIds.includes(exam.id));
   const toggle = (id: string) => setOpenIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
   return (
     <div className="space-y-2">
+      {bulk && (
+        <div className="flex justify-end">
+          <Button type="button" variant="outline" size="sm" onClick={() => setOpenIds(allOpen ? [] : exams.map((exam) => exam.id))}>
+            {allOpen ? "Tout fermer" : "Tout afficher"}
+          </Button>
+        </div>
+      )}
       {exams.map((exam) => {
         const open = openIds.includes(exam.id);
         return (
-          <article key={exam.id} className="overflow-hidden rounded-xl border bg-card">
-            <button type="button" className="flex w-full items-center gap-3 px-3 py-2.5 text-left" onClick={() => toggle(exam.id)} aria-expanded={open}>
+          <article key={exam.id} className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+            <button type="button" className="flex w-full items-center gap-3 px-3 py-3 text-left md:px-4" onClick={() => toggle(exam.id)} aria-expanded={open}>
+              <span className="hidden h-10 w-1 shrink-0 rounded-full bg-sky-600 sm:block" />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-semibold">{exam.name}</span>
-                <span className="mt-0.5 block truncate text-xs text-muted-foreground">{formatDay(exam.date)}{exam.doctorName ? ` · ${exam.doctorName}` : ""}</span>
+                <span className="mt-0.5 flex items-center gap-1 truncate text-xs text-muted-foreground">
+                  <FlaskConical className="h-3 w-3 shrink-0" />
+                  {formatDay(exam.date)}{exam.doctorName ? ` · ${exam.doctorName}` : ""}
+                </span>
               </span>
               <Badge variant="outline" className="shrink-0">{examLabel(exam)}</Badge>
               <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
@@ -285,6 +297,15 @@ export default function PatientDossier() {
             )}
           </section>
 
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold md:text-base">Examens médicaux</h2>
+            {dossier.history.exams.length === 0 ? (
+              <p className="rounded-2xl border border-dashed bg-card px-4 py-6 text-center text-sm text-muted-foreground">Aucun examen enregistré.</p>
+            ) : (
+              <ExamLines bulk exams={dossier.history.exams} />
+            )}
+          </section>
+
           <section className="space-y-3 rounded-2xl border bg-card p-3 shadow-sm md:p-5">
             <h2 className="text-sm font-semibold md:text-base">Historique médical</h2>
             <div className="grid gap-3 md:grid-cols-2">
@@ -322,10 +343,6 @@ export default function PatientDossier() {
                   ))}
                 </div>
               )}
-            </div>
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold">Examens médicaux</h3>
-              {dossier.history.exams.length === 0 ? <p className="text-sm text-muted-foreground">Aucun examen enregistré.</p> : <ExamLines exams={dossier.history.exams} />}
             </div>
             <div className="space-y-2">
               <h3 className="text-sm font-semibold">Prescriptions</h3>

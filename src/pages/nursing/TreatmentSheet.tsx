@@ -124,6 +124,15 @@ function previewTimes(input: {
   return { times, error: '' };
 }
 
+function shortCue(cue: { label: string; tone: string }) {
+  if (cue.tone === 'done') return 'Terminé';
+  if (cue.tone === 'stopped') return 'Arrêté';
+  if (cue.tone === 'upcoming') return 'À venir';
+  if (cue.label.startsWith('Dernier')) return 'Dernier j';
+  const count = cue.label.match(/^(\d+)/);
+  return count ? `${count[1]} j` : cue.label;
+}
+
 function treatmentCue(startDate?: string, endDate?: string, status?: string) {
   if (status === 'completed') return { label: 'Traitement terminé', tone: 'done' as const, className: 'bg-emerald-600 text-white' };
   if (status === 'interrupted') return { label: 'Traitement interrompu', tone: 'stopped' as const, className: 'bg-rose-600 text-white' };
@@ -647,7 +656,7 @@ export function TreatmentSheet({
               <article key={row.id} className={`space-y-1.5 rounded-lg border px-2.5 py-2 ${cue?.tone === 'done' ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-950/40' : dueToday ? 'border-amber-400 bg-amber-50 dark:bg-amber-950/40' : ''}`}>
                 <div className="flex items-start justify-between gap-2">
                   <p className="min-w-0 font-medium leading-tight" title={row.medication}>{row.medication}</p>
-                  {cue && <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none ${cue.className}`}>{cue.tone === 'remaining' && cue.label.startsWith('Dernier') ? 'Dernier j' : cue.tone === 'remaining' ? cue.label.replace(' restants', ' j').replace(' restant', ' j') : cue.tone === 'done' ? 'Terminé' : cue.tone === 'stopped' ? 'Arrêté' : 'À venir'}</span>}
+                  {cue && <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none ${cue.className}`}>{shortCue(cue)}</span>}
                 </div>
                 <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
                   <p className="min-w-0 truncate">{frequencyLabel(row.times)} · {row.route || '—'}</p>

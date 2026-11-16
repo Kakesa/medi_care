@@ -21,6 +21,12 @@ function dayLabel(date: string) {
   }).format(new Date(`${date}T12:00:00Z`));
 }
 
+function shortDay(date: string) {
+  return new Intl.DateTimeFormat('fr-FR', {
+    weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC',
+  }).format(new Date(`${date}T12:00:00Z`)).split('.').join('');
+}
+
 function clock(value?: string) {
   if (!value) return '';
   return new Intl.DateTimeFormat('fr-FR', {
@@ -42,10 +48,11 @@ function keyToBytes(value: string) {
 
 function ShiftLine({ shift }: { shift: NurseShift }) {
   return (
-    <div className="rounded-xl border bg-card px-3 py-2 text-sm">
-      <p className="font-medium capitalize">{dayLabel(shift.date)}</p>
-      <p className="text-muted-foreground">{shift.startTime} – {shift.endTime} · {shift.ward} · {statusLabel[shift.status]}{shift.absent ? ' · Absence déclarée' : ''}</p>
-    </div>
+    <p className="text-xs leading-snug">
+      <span className="font-semibold capitalize">{shortDay(shift.date)}</span>
+      <span className="text-foreground/70"> · {shift.startTime}–{shift.endTime}</span>
+      {shift.absent ? <span className="block text-[10px]">Absence</span> : null}
+    </p>
   );
 }
 
@@ -108,31 +115,37 @@ export function NurseShiftBoard() {
   const active = board.today.find((shift) => shift.status === 'in_progress' || shift.status === 'scheduled' || shift.status === 'confirmed');
 
   return (
-    <section className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Mes gardes</p>
-          <h2 className="text-xl font-semibold">Planning de travail</h2>
+    <section className="space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-primary">Mes gardes</p>
+          <h2 className="text-lg font-semibold leading-tight">Planning de travail</h2>
         </div>
-        <Button type="button" variant="outline" onClick={enablePush}><Bell className="mr-2 h-4 w-4" />Activer les rappels</Button>
+        <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={enablePush}><Bell className="h-4 w-4 sm:mr-2" /><span className="ml-1 sm:ml-0">Rappels</span></Button>
       </div>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="border-teal-200 bg-teal-50"><CardContent className="space-y-2 p-4">
-          <p className="flex items-center gap-2 text-sm font-medium text-teal-900"><CalendarClock className="h-4 w-4" />Ma prochaine garde</p>
-          {board.next ? <ShiftLine shift={board.next} /> : <p className="text-sm text-teal-900/70">Aucune garde à venir.</p>}
+      <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+        <Card className="border-teal-200 bg-teal-50 dark:border-teal-900 dark:bg-teal-950/40"><CardContent className="space-y-1 p-2.5 sm:p-4">
+          <p className="flex items-center gap-1.5 text-xs font-medium text-teal-900 dark:text-teal-100"><CalendarClock className="h-3.5 w-3.5 shrink-0" />Prochaine</p>
+          {board.next ? <ShiftLine shift={board.next} /> : <p className="text-xs text-teal-900/70 dark:text-teal-100/70">Aucune</p>}
         </CardContent></Card>
-        <Card className="border-amber-200 bg-amber-50"><CardContent className="space-y-2 p-4">
-          <p className="text-sm font-medium text-amber-950">Mes gardes d’aujourd’hui</p>
-          {board.today.length ? board.today.map((shift) => <ShiftLine key={shift.id} shift={shift} />) : <p className="text-sm text-amber-950/70">Pas de garde aujourd’hui.</p>}
+        <Card className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40"><CardContent className="space-y-1 p-2.5 sm:p-4">
+          <p className="text-xs font-medium text-amber-950 dark:text-amber-100">Aujourd’hui</p>
+          {board.today.length ? board.today.map((shift) => <ShiftLine key={shift.id} shift={shift} />) : <p className="text-xs text-amber-950/70 dark:text-amber-100/70">Aucune</p>}
         </CardContent></Card>
-        <Card className="border-sky-200 bg-sky-50"><CardContent className="space-y-2 p-4">
-          <p className="text-sm font-medium text-sky-950">Mes prochaines gardes</p>
-          {board.upcoming.slice(0, 4).map((shift) => <ShiftLine key={shift.id} shift={shift} />)}
-          {!board.upcoming.length && <p className="text-sm text-sky-950/70">Rien de planifié sur 30 jours.</p>}
+        <Card className="border-sky-200 bg-sky-50 dark:border-sky-900 dark:bg-sky-950/40"><CardContent className="space-y-1 p-2.5 sm:p-4">
+          <p className="text-xs font-medium text-sky-950 dark:text-sky-100">À venir</p>
+          {board.upcoming.slice(0, 3).map((shift) => <ShiftLine key={shift.id} shift={shift} />)}
+          {!board.upcoming.length && <p className="text-xs text-sky-950/70 dark:text-sky-100/70">Aucune sur 30 j</p>}
         </CardContent></Card>
-        <Card className="border-emerald-200 bg-emerald-50"><CardContent className="space-y-2 p-4">
-          <p className="flex items-center gap-2 text-sm font-medium text-emerald-950"><Moon className="h-4 w-4" />Mes jours de repos</p>
-          <p className="text-sm text-emerald-950/80">{board.restDays.length ? board.restDays.slice(0, 8).map((date) => dayLabel(date)).join(' · ') : 'Aucun repos sur les 14 prochains jours.'}</p>
+        <Card className="border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/40"><CardContent className="space-y-1.5 p-2.5 sm:p-4">
+          <p className="flex items-center gap-1.5 text-xs font-medium text-emerald-950 dark:text-emerald-100"><Moon className="h-3.5 w-3.5 shrink-0" />Repos · {board.restDays.length}</p>
+          {board.restDays.length ? (
+            <div className="flex flex-wrap gap-1">
+              {board.restDays.slice(0, 8).map((date) => (
+                <span key={date} className="rounded-md bg-white/80 px-1.5 py-0.5 text-[10px] font-medium capitalize text-emerald-950 dark:bg-emerald-900/60 dark:text-emerald-50">{shortDay(date)}</span>
+              ))}
+            </div>
+          ) : <p className="text-xs text-emerald-950/70 dark:text-emerald-100/70">Aucun</p>}
         </CardContent></Card>
       </div>
       {active && active.status !== 'completed' && (
@@ -160,8 +173,8 @@ export function NurseShiftBoard() {
         <div className="space-y-2">
           <p className="text-sm font-medium">Mon historique des gardes</p>
           {board.history.slice(0, 6).map((shift) => (
-            <p key={shift.id} className="text-sm text-muted-foreground">
-              {dayLabel(shift.date)} · {shift.startTime}–{shift.endTime} · {statusLabel[shift.status]}
+            <p key={shift.id} className="text-xs text-muted-foreground sm:text-sm">
+              {shortDay(shift.date)} · {shift.startTime}–{shift.endTime} · {statusLabel[shift.status]}
               {shift.actualStartedAt ? ` · réel ${clock(shift.actualStartedAt)}` : ''}
               {shift.actualEndedAt ? `–${clock(shift.actualEndedAt)}` : ''}
             </p>

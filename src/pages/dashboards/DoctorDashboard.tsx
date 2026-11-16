@@ -108,21 +108,37 @@ export default function DoctorDashboard() {
     return <Badge variant={variant}>{label}</Badge>;
   };
 
+  const compactStats = [
+    { label: "RDV", value: todayAppointments.length, card: "border-primary/25 bg-primary/10", number: "text-primary" },
+    { label: "Patients", value: patients.length, card: "border-sky-200 bg-sky-50 dark:border-sky-800 dark:bg-sky-950/50", number: "text-sky-800 dark:text-sky-200" },
+    { label: "Consult.", value: myConsultations.length, card: "border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/50", number: "text-emerald-800 dark:text-emerald-200" },
+    { label: "En cours", value: myConsultations.filter((item) => item.status === "in_progress").length, card: "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40", number: "text-amber-800 dark:text-amber-200" },
+  ];
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-4 md:space-y-8">
       {user?.role === 'NURSE' && <NurseShiftBoard />}
       {/* Page header */}
       <div className="animate-fade-in">
-        <h1 className="text-3xl font-bold text-foreground">
+        <h1 className="text-lg font-bold leading-tight text-foreground md:text-3xl">
           {user?.role === 'NURSE' ? `Bonjour, ${user.firstName}` : `Bonjour, Dr. ${user?.lastName || 'Médecin'}`}
         </h1>
-        <p className="mt-1 text-muted-foreground">
+        <p className="mt-1 hidden text-muted-foreground md:block">
           Voici votre planning et activité du jour
         </p>
       </div>
 
+      <div className="grid grid-cols-4 gap-1.5 sm:hidden">
+        {compactStats.map((stat) => (
+          <div key={stat.label} className={`rounded-xl border px-1.5 py-1.5 ${stat.card}`}>
+            <p className="truncate text-[10px] font-medium leading-tight text-foreground/80">{stat.label}</p>
+            <p className={`text-lg font-bold tabular-nums leading-none ${stat.number}`}>{stat.value}</p>
+          </div>
+        ))}
+      </div>
+
       {/* Stats grid */}
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="hidden gap-6 sm:grid sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat, index) => (
           <StatCard
             key={stat.title}

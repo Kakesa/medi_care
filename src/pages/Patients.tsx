@@ -319,13 +319,13 @@ export default function Patients() {
 
   return (
     <div>
-      <div className="sticky top-16 z-20 -mx-4 mb-6 space-y-4 border-b border-border bg-background/95 px-4 py-3 backdrop-blur md:-mx-6 md:px-6">
+      <div className="sticky top-16 z-20 -mx-4 mb-4 space-y-2 border-b border-border bg-background/95 px-4 py-2 backdrop-blur md:-mx-6 md:mb-6 md:space-y-4 md:px-6 md:py-3">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-sm font-medium text-primary">Dossiers médicaux</p>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Patient</h1>
-          <p className="mt-1 text-muted-foreground">
+      <div className="flex items-center justify-between gap-2 sm:items-end">
+        <div className="min-w-0">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-primary md:text-sm md:normal-case md:tracking-normal">Dossiers médicaux</p>
+          <h1 className="text-lg font-bold leading-tight tracking-tight text-foreground md:text-3xl">Patient</h1>
+          <p className="hidden text-muted-foreground md:mt-1 md:block">
             Dossiers médicaux et suivi des patients
           </p>
         </div>
@@ -335,9 +335,9 @@ export default function Patients() {
         }}>
           {canCreatePatient && (
             <DialogTrigger asChild>
-              <Button variant="hero" size="lg">
-                <Plus className="h-5 w-5 mr-2" />
-                Nouveau patient
+              <Button variant="hero" size="sm" className="shrink-0 md:h-11 md:px-5">
+                <Plus className="h-4 w-4 md:mr-2 md:h-5 md:w-5" />
+                <span className="ml-1 md:ml-0">Nouveau</span>
               </Button>
             </DialogTrigger>
           )}
@@ -521,41 +521,44 @@ export default function Patients() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-4 gap-1.5 sm:gap-3">
         {[
-          { label: "Total patients", value: totals.total, icon: Users, card: "border-primary/25 bg-primary/10", tile: "bg-primary text-primary-foreground", number: "text-primary" },
-          { label: "Hospitalisés", value: totals.hospitalized, icon: BedDouble, card: "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40", tile: "bg-amber-500 text-amber-950", number: "text-amber-800 dark:text-amber-200" },
-          { label: "Ambulatoires", value: totals.outpatient, icon: UserRound, card: "border-sky-200 bg-sky-50 dark:border-sky-800 dark:bg-sky-950/50", tile: "bg-sky-600 text-white", number: "text-sky-800 dark:text-sky-200" },
-          { label: "Sortis (ce mois)", value: totals.discharged, icon: CheckCircle2, card: "border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/50", tile: "bg-emerald-600 text-white", number: "text-emerald-800 dark:text-emerald-200" },
+          { label: "Total", full: "Total patients", value: totals.total, icon: Users, card: "border-primary/25 bg-primary/10", tile: "bg-primary text-primary-foreground", number: "text-primary" },
+          { label: "Hospit.", full: "Hospitalisés", value: totals.hospitalized, icon: BedDouble, card: "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40", tile: "bg-amber-500 text-amber-950", number: "text-amber-800 dark:text-amber-200" },
+          { label: "Ambul.", full: "Ambulatoires", value: totals.outpatient, icon: UserRound, card: "border-sky-200 bg-sky-50 dark:border-sky-800 dark:bg-sky-950/50", tile: "bg-sky-600 text-white", number: "text-sky-800 dark:text-sky-200" },
+          { label: "Sortis", full: "Sortis (ce mois)", value: totals.discharged, icon: CheckCircle2, card: "border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/50", tile: "bg-emerald-600 text-white", number: "text-emerald-800 dark:text-emerald-200" },
         ].map((stat) => {
           const Icon = stat.icon;
           return (
-            <div key={stat.label} className={`flex items-center gap-3 rounded-2xl border p-3 sm:p-4 ${stat.card}`}>
-              <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${stat.tile}`}>
+            <div key={stat.full} className={`flex items-center gap-1.5 rounded-xl border px-1.5 py-1.5 sm:gap-3 sm:rounded-2xl sm:p-4 ${stat.card}`}>
+              <div className={`hidden h-11 w-11 shrink-0 items-center justify-center rounded-2xl sm:flex ${stat.tile}`}>
                 <Icon className="h-5 w-5" />
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-medium leading-snug text-foreground/80">{stat.label}</p>
-                <p className={`text-3xl font-bold tabular-nums ${stat.number}`}>{stat.value}</p>
+                <p className="truncate text-[10px] font-medium leading-tight text-foreground/80 sm:text-sm sm:leading-snug">
+                  <span className="sm:hidden">{stat.label}</span>
+                  <span className="hidden sm:inline">{stat.full}</span>
+                </p>
+                <p className={`text-lg font-bold tabular-nums leading-none sm:text-3xl ${stat.number}`}>{stat.value}</p>
               </div>
             </div>
           );
         })}
       </div>
 
-      <div className="flex flex-col gap-2 sm:flex-row">
+      <div className="flex gap-2">
         <div className="relative min-w-0 flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary" />
           <Input
             placeholder="Rechercher par nom, téléphone ou email..."
-            className="h-11 rounded-xl border-primary/20 bg-card pl-10 shadow-sm"
+            className="h-9 rounded-xl border-primary/20 bg-card pl-10 shadow-sm md:h-11"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <Button variant="outline" className="h-11 rounded-xl">
-          <Filter className="mr-2 h-4 w-4" />
-          Filtres
+        <Button variant="outline" className="h-9 shrink-0 rounded-xl px-3 md:h-11">
+          <Filter className="h-4 w-4 md:mr-2" />
+          <span className="hidden md:inline">Filtres</span>
         </Button>
       </div>
       </div>

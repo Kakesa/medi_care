@@ -193,6 +193,7 @@ function DoseControls({
   day,
   canWrite,
   shown,
+  compact = false,
   onToggle,
   onOpen,
   onConfirm,
@@ -202,6 +203,7 @@ function DoseControls({
   day: string;
   canWrite: boolean;
   shown: boolean;
+  compact?: boolean;
   onToggle: () => void;
   onOpen: (mode: MotifMode) => void;
   onConfirm: () => void;
@@ -228,35 +230,37 @@ function DoseControls({
           : canConfirm(dose)
             ? 'À administrer'
             : 'Pas encore l’heure';
+  const nurse = dose.administeredByName?.split(' ')[0];
   return (
-    <div className="space-y-1">
-      <div className="flex items-center gap-2">
+    <div className={compact ? 'min-w-[4.5rem]' : 'space-y-1'}>
+      <div className="flex items-center gap-1.5">
         <button
           type="button"
           disabled={!canWrite || !canConfirm(dose)}
           aria-label={`${medication} ${clock(dose.scheduledAt)} ${day}`}
           title={title}
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded border sm:h-6 sm:w-6 ${toneClass} disabled:cursor-not-allowed ${!closed && !canConfirm(dose) ? 'opacity-40' : ''}`}
+          className={`flex shrink-0 items-center justify-center rounded border disabled:cursor-not-allowed ${compact ? 'h-7 w-7' : 'h-9 w-9 sm:h-6 sm:w-6'} ${toneClass} ${!closed && !canConfirm(dose) ? 'opacity-40' : ''}`}
           onClick={() => { if (isLate(dose)) onOpen('late'); else onConfirm(); }}
         >
           {tone === 'red' ? <X className="h-4 w-4" /> : checked ? <Check className="h-4 w-4" /> : null}
         </button>
-        <span className={`text-sm sm:text-xs ${waiting ? 'font-semibold text-amber-700' : ''}`}>{clock(dose.scheduledAt)}</span>
+        <span className={`${compact ? 'text-xs' : 'text-sm sm:text-xs'} ${waiting ? 'font-semibold text-amber-700' : ''}`}>{clock(dose.scheduledAt)}</span>
       </div>
-      {dose.administeredByName && <p className="text-xs text-muted-foreground sm:text-[11px]">{dose.administeredByName} · {dose.administeredAt ? clock(dose.administeredAt) : ''}</p>}
+      {!compact && dose.administeredByName && <p className="text-xs text-muted-foreground sm:text-[11px]">{dose.administeredByName} · {dose.administeredAt ? clock(dose.administeredAt) : ''}</p>}
+      {compact && nurse && <p className="truncate text-[10px] text-muted-foreground">{nurse}</p>}
       {doseMotif(dose) && (
         <div>
-          <button type="button" className="text-xs underline sm:text-[11px]" onClick={onToggle}>
-            {shown ? 'Masquer le motif' : 'Voir le motif'}
+          <button type="button" className="text-[10px] underline sm:text-[11px]" onClick={onToggle}>
+            {shown ? 'Masquer' : 'Motif'}
           </button>
-          {shown && <p className={`text-xs sm:text-[11px] ${dose.status === 'administered_late' ? 'text-amber-800' : 'text-red-700'}`}>{doseMotif(dose)}</p>}
+          {shown && <p className={`text-[10px] sm:text-[11px] ${dose.status === 'administered_late' ? 'text-amber-800' : 'text-red-700'}`}>{doseMotif(dose)}</p>}
         </div>
       )}
       {canWrite && canMarkMissed(dose) && (
-        <button type="button" className="text-xs text-destructive underline sm:text-[11px]" onClick={() => onOpen('missed')}>Non effectué</button>
+        <button type="button" className="text-[10px] text-destructive underline sm:text-[11px]" onClick={() => onOpen('missed')}>{compact ? 'Raté' : 'Non effectué'}</button>
       )}
       {canWrite && closed && (checked || dose.status === 'not_administered' || dose.status === 'patient_refused') && (
-        <button type="button" className="block text-xs text-muted-foreground underline sm:text-[11px]" onClick={() => onOpen('correct')}>Corriger avec motif</button>
+        <button type="button" className="block text-[10px] text-muted-foreground underline sm:text-[11px]" onClick={() => onOpen('correct')}>{compact ? 'Corriger' : 'Corriger avec motif'}</button>
       )}
     </div>
   );
@@ -640,32 +644,31 @@ export function TreatmentSheet({
             const cue = treatmentCue(row.start, row.end, row.status);
             const dueToday = dayStillDue(days[todayIndex], row.start, row.end, row.status);
             return (
-              <article key={row.id} className={`space-y-3 rounded-lg border p-3 ${cue?.tone === 'done' ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-950/40' : dueToday ? 'border-amber-400 bg-amber-50 dark:bg-amber-950/40' : ''}`}>
-                <div>
-                  <p className="font-medium" title={row.medication}>{row.medication}</p>
-                  <p className="text-xs text-muted-foreground">{row.dose}</p>
-                  <p className="mt-1 text-sm">{frequencyLabel(row.times)} · {row.route || '—'}</p>
-                  {cue && <p className={`mt-2 inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${cue.className}`}>{cue.label}</p>}
-                  {canWrite && <Button type="button" size="sm" variant="outline" className="mt-2" onClick={() => openSchedule(row)}>{row.times.length ? 'Modifier les heures' : 'Définir les heures'}</Button>}
+              <article key={row.id} className={`space-y-1.5 rounded-lg border px-2.5 py-2 ${cue?.tone === 'done' ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-950/40' : dueToday ? 'border-amber-400 bg-amber-50 dark:bg-amber-950/40' : ''}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="min-w-0 font-medium leading-tight" title={row.medication}>{row.medication}</p>
+                  {cue && <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none ${cue.className}`}>{cue.tone === 'remaining' && cue.label.startsWith('Dernier') ? 'Dernier j' : cue.tone === 'remaining' ? cue.label.replace(' restants', ' j').replace(' restant', ' j') : cue.tone === 'done' ? 'Terminé' : cue.tone === 'stopped' ? 'Arrêté' : 'À venir'}</span>}
                 </div>
-                <div className="rounded-md bg-muted/40 p-2">
-                  <p className="mb-2 text-xs font-medium">Aujourd’hui · J{todayIndex + 1} · {dayLabel(days[todayIndex])}</p>
+                <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                  <p className="min-w-0 truncate">{frequencyLabel(row.times)} · {row.route || '—'}</p>
+                  {canWrite && <button type="button" className="shrink-0 underline" onClick={() => openSchedule(row)}>{row.times.length ? 'Heures' : 'Définir'}</button>}
+                </div>
+                <div className="flex flex-wrap gap-x-3 gap-y-1">
                   {cell.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
-                  <div className="space-y-2">
-                    {cell.map((dose) => (
-                      <DoseControls
-                        key={dose.id}
-                        dose={dose}
-                        medication={row.medication}
-                        day={days[todayIndex]}
-                        canWrite={canWrite}
-                        shown={Boolean(shownMotifs[dose.id])}
-                        onToggle={() => setShownMotifs((current) => ({ ...current, [dose.id]: !current[dose.id] }))}
-                        onOpen={(mode) => openMotif(dose, row.medication, mode)}
-                        onConfirm={() => void confirmOnTime(dose)}
-                      />
-                    ))}
-                  </div>
+                  {cell.map((dose) => (
+                    <DoseControls
+                      key={dose.id}
+                      compact
+                      dose={dose}
+                      medication={row.medication}
+                      day={days[todayIndex]}
+                      canWrite={canWrite}
+                      shown={Boolean(shownMotifs[dose.id])}
+                      onToggle={() => setShownMotifs((current) => ({ ...current, [dose.id]: !current[dose.id] }))}
+                      onOpen={(mode) => openMotif(dose, row.medication, mode)}
+                      onConfirm={() => void confirmOnTime(dose)}
+                    />
+                  ))}
                 </div>
               </article>
             );

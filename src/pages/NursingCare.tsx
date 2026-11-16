@@ -151,19 +151,22 @@ const metricStyles = {
   },
 } as const;
 
-function MetricCard({ title, value, icon: Icon, tone }: {
-  title: string; value: number; icon: typeof Activity; tone: keyof typeof metricStyles;
+function MetricCard({ title, short, value, icon: Icon, tone }: {
+  title: string; short: string; value: number; icon: typeof Activity; tone: keyof typeof metricStyles;
 }) {
   const style = metricStyles[tone];
   return (
     <Card className={style.card}>
-      <CardContent className="flex items-center gap-4 p-4 sm:p-5">
-        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${style.icon}`}>
+      <CardContent className="flex items-center gap-1.5 p-2 sm:gap-4 sm:p-5">
+        <div className={`hidden h-12 w-12 shrink-0 items-center justify-center rounded-2xl sm:flex ${style.icon}`}>
           <Icon className="h-6 w-6" />
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-medium leading-snug text-foreground/80">{title}</p>
-          <p className={`mt-1 text-3xl font-bold tabular-nums ${style.value}`}>{value}</p>
+          <p className="truncate text-[10px] font-medium leading-tight text-foreground/80 sm:text-sm sm:leading-snug">
+            <span className="sm:hidden">{short}</span>
+            <span className="hidden sm:inline">{title}</span>
+          </p>
+          <p className={`text-lg font-bold tabular-nums leading-none sm:mt-1 sm:text-3xl ${style.value}`}>{value}</p>
         </div>
       </CardContent>
     </Card>
@@ -405,24 +408,24 @@ export default function NursingCarePage() {
       {error && <Card className="mb-4 border-destructive/50"><CardContent className="flex items-center gap-2 p-4 text-sm text-destructive"><AlertTriangle className="h-4 w-4" />{error}</CardContent></Card>}
 
       <Tabs defaultValue="overview" className="space-y-4">
-        <div className="sticky top-16 z-20 -mx-4 space-y-4 border-b border-border bg-background/95 px-4 py-3 backdrop-blur md:-mx-6 md:px-6">
-          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
-            <div>
-              <p className="text-sm font-medium text-primary">Espace clinique</p>
-              <h1 className="text-3xl font-bold tracking-tight">Soins infirmiers</h1>
-              <p className="mt-1 text-muted-foreground">Feuille de traitement, surveillance et traçabilité dans les dossiers existants.</p>
+        <div className="static -mx-4 space-y-2 border-b border-border bg-background/95 px-4 py-2 md:sticky md:top-16 md:z-20 md:-mx-6 md:space-y-4 md:px-6 md:py-3 md:backdrop-blur">
+          <div className="flex items-center justify-between gap-2 sm:items-end">
+            <div className="min-w-0">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-primary md:text-sm md:normal-case md:tracking-normal">Espace clinique</p>
+              <h1 className="text-lg font-bold leading-tight tracking-tight md:text-3xl">Soins infirmiers</h1>
+              <p className="hidden text-muted-foreground md:mt-1 md:block">Feuille de traitement, surveillance et traçabilité dans les dossiers existants.</p>
             </div>
-            <Button variant="outline" onClick={() => void reload()} disabled={isLoading}><Activity className="mr-2 h-4 w-4" />Actualiser</Button>
+            <Button variant="outline" size="sm" className="shrink-0" onClick={() => void reload()} disabled={isLoading}><Activity className="h-4 w-4 md:mr-2" />Actualiser</Button>
           </div>
 
           {dashboard && (
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              <MetricCard title="Patients sous surveillance" value={dashboard.stats.patientsUnderSurveillance} icon={UserRound} tone="teal" />
-              <MetricCard title="Soins à effectuer aujourd’hui" value={dashboard.stats.careToPerform} icon={ClipboardList} tone="sky" />
-              <MetricCard title="Soins réalisés aujourd’hui" value={dashboard.stats.careCompletedToday} icon={CheckCircle2} tone="green" />
-              <MetricCard title="Soins en retard" value={dashboard.stats.overdueCare} icon={Clock3} tone="red" />
-              <MetricCard title="Prescriptions à exécuter" value={dashboard.stats.prescriptionsWaiting} icon={FileText} tone="indigo" />
-              <MetricCard title="Surveillance particulière" value={dashboard.stats.patientsRequiringAttention} icon={AlertTriangle} tone="amber" />
+            <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3">
+              <MetricCard title="Patients sous surveillance" short="Patients" value={dashboard.stats.patientsUnderSurveillance} icon={UserRound} tone="teal" />
+              <MetricCard title="Soins à effectuer aujourd’hui" short="À faire" value={dashboard.stats.careToPerform} icon={ClipboardList} tone="sky" />
+              <MetricCard title="Soins réalisés aujourd’hui" short="Réalisés" value={dashboard.stats.careCompletedToday} icon={CheckCircle2} tone="green" />
+              <MetricCard title="Soins en retard" short="Retard" value={dashboard.stats.overdueCare} icon={Clock3} tone="red" />
+              <MetricCard title="Prescriptions à exécuter" short="Prescriptions" value={dashboard.stats.prescriptionsWaiting} icon={FileText} tone="indigo" />
+              <MetricCard title="Surveillance particulière" short="Surveillance" value={dashboard.stats.patientsRequiringAttention} icon={AlertTriangle} tone="amber" />
             </div>
           )}
 

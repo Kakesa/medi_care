@@ -117,8 +117,6 @@ export default function DoctorDashboard() {
 
   return (
     <div className="space-y-4 md:space-y-8">
-      {user?.role === 'NURSE' && <NurseShiftBoard />}
-      {/* Page header */}
       <div className="animate-fade-in">
         <h1 className="text-lg font-bold leading-tight text-foreground md:text-3xl">
           {user?.role === 'NURSE' ? `Bonjour, ${user.firstName}` : `Bonjour, Dr. ${user?.lastName || 'Médecin'}`}
@@ -127,6 +125,7 @@ export default function DoctorDashboard() {
           Voici votre planning et activité du jour
         </p>
       </div>
+      {user?.role === 'NURSE' && <NurseShiftBoard />}
 
       <div className="grid grid-cols-4 gap-1.5 sm:hidden">
         {compactStats.map((stat) => (

@@ -16,6 +16,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { apiMessage } from '@/lib/apiError';
 import { useToast } from '@/hooks/use-toast';
 import { SurveillanceSheet } from '@/pages/nursing/SurveillanceSheet';
+import { ReceivedTreatments } from '@/pages/nursing/ReceivedTreatments';
 import { TreatmentSheet } from '@/pages/nursing/TreatmentSheet';
 import { PatientSelect } from '@/components/patients/PatientSelect';
 import { nursingService } from '@/services/nursingService';
@@ -433,6 +434,7 @@ export default function NursingCarePage() {
             <TabsTrigger value="overview">Vue d’ensemble</TabsTrigger>
             <TabsTrigger value="patients">Patients et dossier</TabsTrigger>
             <TabsTrigger value="treatment">Feuille de traitement</TabsTrigger>
+            {canConfigure && <TabsTrigger value="received">Traitements reçus</TabsTrigger>}
             <TabsTrigger value="surveillance">Feuille de surveillance</TabsTrigger>
             <TabsTrigger value="schedule">Planning</TabsTrigger>
             <TabsTrigger value="history">Historique</TabsTrigger>
@@ -602,6 +604,12 @@ export default function NursingCarePage() {
             onChanged={refreshPatient}
           />
         </TabsContent>
+
+        {canConfigure && (
+          <TabsContent value="received">
+            <ReceivedTreatments />
+          </TabsContent>
+        )}
 
         <TabsContent value="surveillance" className="space-y-4">
           <SurveillanceSheet

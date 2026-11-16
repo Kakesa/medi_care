@@ -187,6 +187,11 @@ export const nursingScheduleSchema = envelope(z.object({
 }).superRefine(scheduleChoiceRefine));
 
 export const nursingThresholdsSchema = envelope(thresholdsSchema);
+export const nursingJournalSchema = envelope(empty, z.object({
+  from: calendarDate,
+  to: calendarDate,
+}).refine((value) => value.to >= value.from, { message: 'La fin de la période doit suivre son début', path: ['to'] }));
+
 export const nursingReportSchema = envelope(empty, z.object({
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional(),

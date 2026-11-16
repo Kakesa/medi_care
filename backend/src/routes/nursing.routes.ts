@@ -17,6 +17,7 @@ import {
   nursingObservationSchema,
   nursingPatientListSchema,
   nursingPatientParamsSchema,
+  nursingJournalSchema,
   nursingReportSchema,
   nursingScheduleSchema,
   nursingTreatmentLineSchema,
@@ -48,6 +49,7 @@ router.post('/administrations/:id/not-administered', requireRoles(ROLES.NURSE), 
 router.post('/administrations/:id/corrections', requireRoles(ROLES.NURSE), validate(nursingAdministrationCorrectionSchema), nursing.correctAdministration);
 router.get('/settings', requireRoles(...readers), nursing.settings);
 router.patch('/settings', requireRoles(ROLES.HOSPITAL_ADMIN), validate(nursingThresholdsSchema), nursing.updateSettings);
+router.get('/journal', requireRoles(ROLES.HOSPITAL_ADMIN), validate(nursingJournalSchema), nursing.journal);
 router.get('/reports', requireRoles(...readers), validate(nursingReportSchema), nursing.report);
 
 export default router;

@@ -1112,3 +1112,67 @@ export async function getNursingReport(actor: AuthContext, organizationId: strin
     period: { from: query.from, to: query.to },
   };
 }
+
+function facilityDay(date: Date) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: medicationTimeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(date);
+}
+
+export async function listTreatmentJournal(organizationId: string, from: string, to: string) {
+  const start = localDayBounds(from).start;
+  const end = localDayBounds(to).end;
+  const span = Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
+  if (span > 92) throw new ApiError(400, 'La période ne peut pas dépasser 3 mois', 'PERIOD_TOO_LONG');
+  const rows = await MedicationAdministration.find({
+    organizationId,
+    status: { $in: ['administered_on_time', 'administered_late'] },
+    administeredAt: { $gte: start, $lt: end },
+  }).sort({ administeredAt: 1 }).limit(2000);
+  const patientIds = [...new Set(rows.map((row) => row.patientId.toString()))];
+  const nurseIds = [...new Set(rows.map((row) => row.administeredBy?.toString()).filter((id): id is string => Boolean(id)))];
+  const [patients, nurses] = await Promise.all([
+    Patient.find({ _id: { $in: patientIds }, organizationId }).select('firstName lastName room'),
+    User.find({ _id: { $in: nurseIds }, organizationId }).select('firstName lastName'),
+  ]);
+  const patientById = new Map(patients.map((patient) => [patient.id, patient]));
+  const nurseById = new Map(nurses.map((nurse) => [nurse.id, `${nurse.firstName} ${nurse.lastName}`]));
+  const days = new Map<string, Map<string, {
+    patientId: string; firstName: string; lastName: string; room: string;
+    doses: Array<{ medication: string; route: string; status: string; scheduledAt: Date; administeredAt: Date; nurseName: string }>;
+  }>>();
+  for (const row of rows) {
+    if (!row.administeredAt) continue;
+    const patient = patientById.get(row.patientId.toString());
+    if (!patient) continue;
+    const day = facilityDay(row.administeredAt);
+    const group = days.get(day) ?? new Map();
+    const current = group.get(patient.id) ?? {
+      patientId: patient.id,
+      firstName: patient.firstName,
+      lastName: patient.lastName,
+      room: patient.room ?? '',
+      doses: [],
+    };
+    current.doses.push({
+      medication: row.medication,
+      route: row.administrationRoute,
+      status: row.status,
+      scheduledAt: row.scheduledAt,
+      administeredAt: row.administeredAt,
+      nurseName: row.administeredBy ? nurseById.get(row.administeredBy.toString()) ?? '' : '',
+    });
+    group.set(patient.id, current);
+    days.set(day, group);
+  }
+  return {
+    from,
+    to,
+    patientCount: patientIds.length,
+    doseCount: rows.length,
+    days: [...days.entries()].sort((left, right) => right[0].localeCompare(left[0])).map(([date, group]) => ({
+      date,
+      patients: [...group.values()].sort((left, right) => left.lastName.localeCompare(right.lastName, 'fr') || left.firstName.localeCompare(right.firstName, 'fr')),
+    })),
+  };
+}

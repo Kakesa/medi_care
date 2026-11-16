@@ -102,6 +102,12 @@ export const updateSettings = asyncHandler(async (req: Request, res: Response) =
   res.json(await nursing.updateNursingSettings(actor, organizationId, req.body, req.ip));
 });
 
+export const journal = asyncHandler(async (req: Request, res: Response) => {
+  const { organizationId } = context(req);
+  const query = req.query as { from?: string; to?: string };
+  res.json(await nursing.listTreatmentJournal(organizationId, query.from ?? '', query.to ?? ''));
+});
+
 export const report = asyncHandler(async (req: Request, res: Response) => {
   const { actor, organizationId } = context(req);
   res.json(await nursing.getNursingReport(actor, organizationId, req.query as unknown as { from?: Date; to?: Date }));

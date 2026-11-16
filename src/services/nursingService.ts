@@ -130,6 +130,34 @@ class NursingService {
   getReport() {
     return httpClient.get<NursingReport>(`${this.basePath}/reports`);
   }
+
+  getJournal(from: string, to: string) {
+    return httpClient.get<TreatmentJournal>(`${this.basePath}/journal`, { from, to });
+  }
 }
+
+export type TreatmentJournal = {
+  from: string;
+  to: string;
+  patientCount: number;
+  doseCount: number;
+  days: Array<{
+    date: string;
+    patients: Array<{
+      patientId: string;
+      firstName: string;
+      lastName: string;
+      room: string;
+      doses: Array<{
+        medication: string;
+        route: string;
+        status: string;
+        scheduledAt: string;
+        administeredAt: string;
+        nurseName: string;
+      }>;
+    }>;
+  }>;
+};
 
 export const nursingService = new NursingService();

@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, CheckCircle2, Clock3, Printer, X, XCircle } from 'lucide-react';
+import { Check, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Printer, X, XCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -586,19 +586,19 @@ export function TreatmentSheet({
 
   return (
     <Card>
-      <CardHeader className="gap-3 p-4 sm:p-6">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <CardTitle>Feuille de traitement</CardTitle>
-            <p className="mt-1 text-sm text-muted-foreground">Prescriptions validées du dossier. Chaque case confirme une administration et conserve l’infirmier, la date et l’heure.</p>
+      <CardHeader className="gap-2 p-3 md:gap-3 md:p-6">
+        <div className="flex items-center justify-between gap-2 lg:items-start">
+          <div className="min-w-0">
+            <CardTitle className="text-base md:text-2xl">Feuille de traitement</CardTitle>
+            <p className="mt-1 hidden text-sm text-muted-foreground md:block">Prescriptions validées du dossier. Chaque case confirme une administration et conserve l’infirmier, la date et l’heure.</p>
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-            <Button type="button" variant="outline" onClick={printSheet} disabled={!rows.length}><Printer className="mr-2 h-4 w-4" />Imprimer</Button>
-            <Button type="button" variant="outline" onClick={exportSheet} disabled={!rows.length}>Exporter</Button>
+          <div className="flex shrink-0 gap-1.5">
+            <Button type="button" variant="outline" size="sm" onClick={printSheet} disabled={!rows.length}><Printer className="h-4 w-4 md:mr-2" /><span className="hidden md:inline">Imprimer</span></Button>
+            <Button type="button" variant="outline" size="sm" onClick={exportSheet} disabled={!rows.length}><span className="md:hidden">CSV</span><span className="hidden md:inline">Exporter</span></Button>
           </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4 p-4 pt-0 sm:p-6 sm:pt-0">
+      <CardContent className="space-y-2 p-3 pt-0 md:space-y-4 md:p-6 md:pt-0">
         {duty?.today.filter((shift) => shift.status === 'in_progress').map((shift) => {
           const due = doses.filter((dose) => inShift(shift, dose.scheduledAt) && dose.status === 'pending');
           return (
@@ -614,30 +614,66 @@ export function TreatmentSheet({
             {duty.handover.summary && <p className="whitespace-pre-line">{duty.handover.summary}</p>}
           </div>
         )}
-        <div className="grid gap-3 md:grid-cols-3">
-          <div className="space-y-2">
-            <Label>Patient</Label>
+        <div className="space-y-2 md:grid md:grid-cols-3 md:gap-3 md:space-y-0">
+          <div className="space-y-1 md:space-y-2">
+            <Label className="text-xs md:text-sm">Patient</Label>
             <PatientSelect patients={patients} value={selectedId} onValueChange={onSelectPatient} />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="treatment-week">Premier jour (J1)</Label>
-            <Input id="treatment-week" type="date" value={weekStart} onChange={(event) => setWeekStart(event.target.value)} />
+          <div className="flex items-end gap-1.5 md:block md:space-y-2">
+            <div className="min-w-0 flex-1 space-y-1 md:space-y-2">
+              <Label htmlFor="treatment-week" className="text-xs md:text-sm">
+                <span className="md:hidden">J1</span>
+                <span className="hidden md:inline">Premier jour (J1)</span>
+              </Label>
+              <Input id="treatment-week" className="h-9 md:h-10" type="date" value={weekStart} onChange={(event) => setWeekStart(event.target.value)} />
+            </div>
+            <div className="flex gap-1 md:hidden">
+              <Button type="button" variant="outline" size="sm" className="h-9 px-2" aria-label="Semaine précédente" onClick={() => setWeekStart(addDays(weekStart, -7))}><ChevronLeft className="h-4 w-4" /></Button>
+              <Button type="button" variant="outline" size="sm" className="h-9 px-2" aria-label="Semaine suivante" onClick={() => setWeekStart(addDays(weekStart, 7))}><ChevronRight className="h-4 w-4" /></Button>
+            </div>
           </div>
-          <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
+          <div className="hidden gap-2 md:grid md:grid-cols-1 md:content-end lg:grid-cols-2">
             <Button type="button" variant="outline" onClick={() => setWeekStart(addDays(weekStart, -7))}>Semaine précédente</Button>
             <Button type="button" variant="outline" onClick={() => setWeekStart(addDays(weekStart, 7))}>Semaine suivante</Button>
           </div>
         </div>
         {patient && (
-          <p className="flex flex-wrap gap-x-2 gap-y-1 text-sm text-muted-foreground">
-            <span>{patient.firstName} {patient.lastName}{patient.age !== undefined ? ` · ${patient.age} ans` : ''}</span>
-            <span>{patient.ward ?? 'Service non renseigné'}</span>
-            <span>Chambre {patient.room ?? '—'}</span>
-            <span>{patient.doctor ?? 'Médecin non renseigné'}</span>
-            {detail?.patient.allergies?.length ? <span>Allergies : {detail.patient.allergies.join(', ')}</span> : null}
-          </p>
+          <>
+            <p className="truncate text-xs text-muted-foreground md:hidden">
+              {patient.firstName} {patient.lastName}{patient.age !== undefined ? ` · ${patient.age} ans` : ''}
+              {patient.room ? ` · Ch. ${patient.room}` : ''}
+              {patient.ward ? ` · ${patient.ward}` : ''}
+              {patient.doctor ? ` · ${patient.doctor}` : ''}
+            </p>
+            {detail?.patient.allergies?.length ? <p className="truncate text-[11px] font-medium text-destructive md:hidden">Allergies : {detail.patient.allergies.join(', ')}</p> : null}
+            <p className="hidden flex-wrap gap-x-2 gap-y-1 text-sm text-muted-foreground md:flex">
+              <span>{patient.firstName} {patient.lastName}{patient.age !== undefined ? ` · ${patient.age} ans` : ''}</span>
+              <span>{patient.ward ?? 'Service non renseigné'}</span>
+              <span>Chambre {patient.room ?? '—'}</span>
+              <span>{patient.doctor ?? 'Médecin non renseigné'}</span>
+              {detail?.patient.allergies?.length ? <span>Allergies : {detail.patient.allergies.join(', ')}</span> : null}
+            </p>
+          </>
         )}
-        <div className="flex flex-wrap gap-2 text-sm">
+        <div className="grid grid-cols-3 gap-1.5 md:hidden">
+          <div className="rounded-md border border-green-600/40 px-1 py-1 text-center">
+            <p className="text-base font-semibold leading-none text-green-800">{counts.done}</p>
+            <p className="mt-0.5 text-[10px] text-muted-foreground">Effectués</p>
+          </div>
+          <div className="rounded-md border border-amber-500/50 px-1 py-1 text-center">
+            <p className="text-base font-semibold leading-none text-amber-800">{counts.late}</p>
+            <p className="mt-0.5 text-[10px] text-muted-foreground">Retard</p>
+          </div>
+          <div className="rounded-md border border-red-600/40 px-1 py-1 text-center">
+            <p className="text-base font-semibold leading-none text-red-800">{counts.missed}</p>
+            <p className="mt-0.5 text-[10px] text-muted-foreground">Non faits</p>
+          </div>
+        </div>
+        <div className="flex gap-1.5 md:hidden">
+          <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold text-white">Jours restants</span>
+          <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-semibold text-white">Terminé</span>
+        </div>
+        <div className="hidden flex-wrap gap-2 text-sm md:flex">
           <Badge variant="outline" className="border-green-600 text-green-800"><CheckCircle2 className="mr-1 h-3 w-3" />{counts.done} effectué(s)</Badge>
           <Badge variant="outline" className="border-amber-500 text-amber-800"><Clock3 className="mr-1 h-3 w-3" />{counts.late} en retard</Badge>
           <Badge variant="outline" className="border-red-600 text-red-800"><XCircle className="mr-1 h-3 w-3" />{counts.missed} non effectué(s)</Badge>
@@ -645,7 +681,12 @@ export function TreatmentSheet({
           <span className="inline-flex items-center rounded-full bg-emerald-600 px-2.5 py-0.5 text-xs font-semibold text-white">Traitement terminé</span>
         </div>
         {loading && <p className="text-sm text-muted-foreground">Chargement de la feuille…</p>}
-        {!loading && rows.length === 0 && <p className="rounded-lg border px-3 py-8 text-center text-sm text-muted-foreground">Aucune prescription validée pour cette semaine.</p>}
+        {!loading && rows.length === 0 && (
+          <p className="rounded-lg border px-3 py-3 text-center text-sm text-muted-foreground md:py-8">
+            <span className="md:hidden">Aucune prescription cette semaine.</span>
+            <span className="hidden md:inline">Aucune prescription validée pour cette semaine.</span>
+          </p>
+        )}
         <div className="space-y-3 lg:hidden">
           {rows.length > 0 && todayIndex < 0 && <p className="text-sm text-muted-foreground">Aujourd’hui n’est pas dans la semaine affichée.</p>}
           {todayIndex >= 0 && rows.map((row) => {
@@ -767,7 +808,6 @@ export function TreatmentSheet({
             <Button type="submit" className="shrink-0" disabled={adding || !newMedication.trim()}>{adding ? 'Ajout...' : 'Ajouter la ligne'}</Button>
           </form>
         )}
-        <p className="text-xs text-muted-foreground">La case s’ouvre 2 heures avant l’heure prévue. L’heure atteinte ne valide pas la prise. Case verte : confirmée à l’heure. Case jaune : en retard, à confirmer ou déjà confirmée avec un motif. Case rouge : prise non effectuée. Le médecin et l’administrateur voient ces motifs.</p>
         <Dialog open={scheduleDraft !== null} onOpenChange={(open) => { if (!open && !schedulingId) setScheduleDraft(null); }}>
           <DialogContent>
             <DialogHeader>

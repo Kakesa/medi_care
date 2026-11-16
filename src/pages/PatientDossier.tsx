@@ -1,10 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { ArrowLeft, ChevronDown, Droplets, Phone, Stethoscope } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { apiMessage } from "@/lib/apiError";
 import { patientService, type DossierConsultation, type DossierExam, type PatientDossier } from "@/services/patientService";
 
@@ -81,29 +79,53 @@ function textOrEmpty(value?: string) {
   return trimmed || undefined;
 }
 
-function Field({ label, value }: { label: string; value?: string }) {
+function Fact({ label, value }: { label: string; value?: string }) {
   return (
-    <div className="space-y-1">
-      <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="whitespace-pre-wrap text-sm">{value || "Non renseigné"}</p>
+    <div className="min-w-0 rounded-xl bg-muted/50 px-3 py-2">
+      <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className={`mt-0.5 truncate text-sm ${value ? "font-medium" : "text-muted-foreground"}`}>{value || "—"}</p>
     </div>
   );
 }
 
+function Note({ label, value }: { label: string; value?: string }) {
+  return (
+    <div className="rounded-xl border border-border/80 bg-background px-3 py-2">
+      <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className={`mt-1 whitespace-pre-wrap text-sm leading-relaxed ${value ? "" : "text-muted-foreground"}`}>{value || "Non renseigné"}</p>
+    </div>
+  );
+}
+
+function examLabel(exam: DossierExam) {
+  if (exam.labStatus) return labStatusLabels[exam.labStatus] ?? exam.labStatus;
+  return examStatusLabels[exam.status ?? ""] ?? exam.status ?? "Examen";
+}
+
 function ExamLines({ exams }: { exams: DossierExam[] }) {
+  const [openIds, setOpenIds] = useState<string[]>([]);
   if (!exams.length) return null;
+  const toggle = (id: string) => setOpenIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
   return (
     <div className="space-y-2">
-      {exams.map((exam) => (
-        <div key={exam.id} className="rounded-lg border px-3 py-2 text-sm">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="font-medium">{exam.name}</p>
-            <Badge variant="outline">{exam.labStatus ? labStatusLabels[exam.labStatus] ?? exam.labStatus : examStatusLabels[exam.status ?? ""] ?? exam.status}</Badge>
-          </div>
-          <p className="text-xs text-muted-foreground">{formatDay(exam.date)}{exam.doctorName ? ` · ${exam.doctorName}` : ""}</p>
-          <p className="mt-1 whitespace-pre-wrap">{exam.results || "Résultat non disponible"}</p>
-        </div>
-      ))}
+      {exams.map((exam) => {
+        const open = openIds.includes(exam.id);
+        return (
+          <article key={exam.id} className="overflow-hidden rounded-xl border bg-card">
+            <button type="button" className="flex w-full items-center gap-3 px-3 py-2.5 text-left" onClick={() => toggle(exam.id)} aria-expanded={open}>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-semibold">{exam.name}</span>
+                <span className="mt-0.5 block truncate text-xs text-muted-foreground">{formatDay(exam.date)}{exam.doctorName ? ` · ${exam.doctorName}` : ""}</span>
+              </span>
+              <Badge variant="outline" className="shrink-0">{examLabel(exam)}</Badge>
+              <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
+            </button>
+            {open && (
+              <p className="whitespace-pre-wrap border-t bg-muted/20 px-3 py-3 text-sm">{exam.results || "Résultat non disponible"}</p>
+            )}
+          </article>
+        );
+      })}
     </div>
   );
 }
@@ -120,19 +142,21 @@ function ConsultationDetail({ row }: { row: DossierConsultation }) {
   const requested = textOrEmpty(row.requestedExams);
 
   return (
-    <div className="space-y-4 pb-4">
-      <Field label="Date et heure" value={consultationWhen(row)} />
-      <Field label="Médecin" value={row.doctorName} />
-      <Field label="Motif de consultation" value={textOrEmpty(row.motif)} />
-      <Field label="Symptômes et observations" value={observations || undefined} />
-      <Field label="Diagnostic posé" value={diagnosis} />
-      <Field label="Traitement et prescriptions" value={treatment || undefined} />
-      <div className="space-y-2">
-        <Field label="Examens demandés" value={requested} />
+    <div className="grid gap-2 border-t border-border/70 bg-muted/20 px-3 py-3 md:grid-cols-2 md:px-4">
+      <Note label="Date et heure" value={consultationWhen(row)} />
+      <Note label="Médecin" value={row.doctorName} />
+      <Note label="Motif de consultation" value={textOrEmpty(row.motif)} />
+      <Note label="Symptômes et observations" value={observations || undefined} />
+      <Note label="Diagnostic posé" value={diagnosis} />
+      <Note label="Traitement et prescriptions" value={treatment || undefined} />
+      <div className="space-y-2 md:col-span-2">
+        <Note label="Examens demandés" value={requested} />
         <ExamLines exams={row.exams} />
         {requested && row.exams.length === 0 && <p className="text-sm text-muted-foreground">Résultat non disponible.</p>}
       </div>
-      <Field label="Recommandations du médecin" value={recommendations || undefined} />
+      <div className="md:col-span-2">
+        <Note label="Recommandations du médecin" value={recommendations || undefined} />
+      </div>
     </div>
   );
 }
@@ -143,6 +167,7 @@ export default function PatientDossier() {
   const [dossier, setDossier] = useState<PatientDossier | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [openIds, setOpenIds] = useState<string[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -157,137 +182,165 @@ export default function PatientDossier() {
 
   const patient = dossier?.patient;
   const age = ageOf(patient?.dateOfBirth);
-  const sex = patient?.gender === "F" ? "Femme" : patient?.gender === "M" ? "Homme" : "Non renseigné";
+  const sex = patient?.gender === "F" ? "Femme" : patient?.gender === "M" ? "Homme" : undefined;
+  const initials = patient ? `${patient.firstName.slice(0, 1)}${patient.lastName.slice(0, 1)}`.toUpperCase() : "";
+  const toggle = (id: string) => setOpenIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4">
-      <Button type="button" variant="ghost" className="-ml-2 h-9 px-2" onClick={() => navigate("/dashboard/patients")}>
-        <ArrowLeft className="mr-2 h-4 w-4" />
+    <div className="mx-auto max-w-5xl space-y-4">
+      <Button type="button" variant="ghost" className="-ml-2 h-8 px-2 text-sm" onClick={() => navigate("/dashboard/patients")}>
+        <ArrowLeft className="mr-1.5 h-4 w-4" />
         Patients
       </Button>
 
-      <div>
-        <p className="text-[11px] font-medium uppercase tracking-wide text-primary md:text-sm md:normal-case md:tracking-normal">Dossier médical</p>
-        <h1 className="text-lg font-bold leading-tight md:text-3xl">{patient ? `${patient.lastName} ${patient.firstName}` : "Dossier patient"}</h1>
-      </div>
-
       {loading && <p className="text-sm text-muted-foreground">Chargement du dossier…</p>}
-      {error && <p className="rounded-lg border border-destructive/40 px-3 py-2 text-sm text-destructive">{error}</p>}
+      {error && <p className="rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</p>}
 
       {patient && dossier && (
         <>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Fiche du patient</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-3 sm:grid-cols-2">
-              <Field label="Nom et postnom" value={patient.lastName} />
-              <Field label="Prénom" value={patient.firstName} />
-              <Field label="Sexe" value={sex} />
-              <Field label="Âge" value={age !== undefined ? `${age} ans` : undefined} />
-              <Field label="Date de naissance" value={patient.dateOfBirth ? formatDay(patient.dateOfBirth) : undefined} />
-              <Field label="Groupe sanguin" value={patient.bloodType} />
-              <Field label="Adresse" value={patient.address} />
-              <Field label="Téléphone" value={patient.phone} />
-              <Field label="Email" value={patient.email} />
-              <Field label="Personne à contacter" value={undefined} />
-              <Field label="Statut" value={patientStatusLabels[patient.status] ?? patient.status} />
-              <Field label="Médecin traitant" value={patient.doctorName} />
-              <Field label="Chambre" value={patient.room} />
-              <Field label="Température" value={patient.temperature != null ? `${patient.temperature.toLocaleString("fr-FR")} °C` : undefined} />
-              <Field label="Tension" value={patient.tension} />
-              <Field label="Saturation" value={patient.saturation != null ? `${patient.saturation} %` : undefined} />
-              <Field label="Inscrit le" value={patient.createdAt ? formatDateTime(patient.createdAt) : undefined} />
-            </CardContent>
-          </Card>
+          <section className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+            <div className="bg-primary px-4 py-4 text-primary-foreground md:px-6">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-primary-foreground/80">Dossier médical</p>
+              <div className="mt-2 flex items-center gap-3">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-lg font-semibold">{initials}</div>
+                <div className="min-w-0">
+                  <h1 className="truncate text-xl font-bold leading-tight md:text-3xl">{patient.lastName} {patient.firstName}</h1>
+                  <p className="mt-0.5 truncate text-sm text-primary-foreground/85">
+                    {[sex, age !== undefined ? `${age} ans` : undefined, patient.doctorName ? `Dr ${patient.doctorName}` : undefined].filter(Boolean).join(" · ") || "Identité incomplète"}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-medium">{patientStatusLabels[patient.status] ?? patient.status}</span>
+                {patient.room && <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-medium">Ch. {patient.room}</span>}
+                {patient.bloodType && <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-medium"><Droplets className="h-3 w-3" />{patient.bloodType}</span>}
+                {patient.phone && <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-medium"><Phone className="h-3 w-3" />{patient.phone}</span>}
+              </div>
+            </div>
+            <div className="grid grid-cols-3 divide-x border-t">
+              {[
+                ["Consultations", dossier.consultations.length],
+                ["Examens", dossier.history.exams.length],
+                ["Séjours", dossier.history.hospitalizations.length],
+              ].map(([label, value]) => (
+                <div key={String(label)} className="px-2 py-2 text-center md:py-3">
+                  <p className="text-lg font-bold tabular-nums leading-none text-primary md:text-2xl">{value}</p>
+                  <p className="mt-1 text-[10px] text-muted-foreground md:text-xs">{label}</p>
+                </div>
+              ))}
+            </div>
+          </section>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Historique des consultations</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {dossier.consultations.length === 0 ? (
-                <p className="rounded-lg border border-dashed px-3 py-4 text-sm text-muted-foreground">Aucune consultation antérieure enregistrée pour ce patient.</p>
-              ) : (
-                <Accordion type="multiple" className="w-full">
-                  {dossier.consultations.map((row) => (
-                    <AccordionItem key={row.id} value={row.id}>
-                      <AccordionTrigger className="gap-3 text-left hover:no-underline">
+          <section className="space-y-3 rounded-2xl border bg-card p-3 shadow-sm md:p-5">
+            <h2 className="text-sm font-semibold md:text-base">Fiche du patient</h2>
+            <div className="grid grid-cols-2 gap-1.5 md:grid-cols-3 md:gap-2">
+              <Fact label="Nom et postnom" value={patient.lastName} />
+              <Fact label="Prénom" value={patient.firstName} />
+              <Fact label="Sexe" value={sex} />
+              <Fact label="Âge" value={age !== undefined ? `${age} ans` : undefined} />
+              <Fact label="Naissance" value={patient.dateOfBirth ? formatDay(patient.dateOfBirth) : undefined} />
+              <Fact label="Groupe sanguin" value={patient.bloodType} />
+              <Fact label="Téléphone" value={patient.phone} />
+              <Fact label="Email" value={patient.email} />
+              <Fact label="Contact d'urgence" value={undefined} />
+              <Fact label="Médecin" value={patient.doctorName} />
+              <Fact label="Chambre" value={patient.room} />
+              <Fact label="Inscrit le" value={patient.createdAt ? formatDay(patient.createdAt) : undefined} />
+            </div>
+            <p className="rounded-xl bg-muted/50 px-3 py-2 text-sm"><span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Adresse</span><br />{patient.address || "—"}</p>
+            <div className="grid grid-cols-3 gap-1.5">
+              <Fact label="Température" value={patient.temperature != null ? `${patient.temperature.toLocaleString("fr-FR")} °C` : undefined} />
+              <Fact label="Tension" value={patient.tension} />
+              <Fact label="Saturation" value={patient.saturation != null ? `${patient.saturation} %` : undefined} />
+            </div>
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold md:text-base">Historique des consultations</h2>
+            {dossier.consultations.length === 0 ? (
+              <p className="rounded-2xl border border-dashed bg-card px-4 py-6 text-center text-sm text-muted-foreground">Aucune consultation antérieure enregistrée pour ce patient.</p>
+            ) : (
+              <div className="space-y-2">
+                {dossier.consultations.map((row) => {
+                  const open = openIds.includes(row.id);
+                  return (
+                    <article key={row.id} className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+                      <button type="button" className="flex w-full items-center gap-3 px-3 py-3 text-left md:px-4" onClick={() => toggle(row.id)} aria-expanded={open}>
+                        <span className="hidden h-10 w-1 shrink-0 rounded-full bg-primary sm:block" />
                         <span className="min-w-0 flex-1">
                           <span className="block text-sm font-semibold">{consultationWhen(row)}</span>
-                          <span className="block truncate text-xs font-normal text-muted-foreground">{row.doctorName}{row.motif ? ` · ${row.motif}` : ""}</span>
+                          <span className="mt-0.5 flex items-center gap-1 truncate text-xs text-muted-foreground">
+                            <Stethoscope className="h-3 w-3 shrink-0" />
+                            {row.doctorName}{row.motif ? ` · ${row.motif}` : ""}
+                          </span>
                         </span>
-                        <Badge variant="outline" className="shrink-0">{row.status === "completed" ? "Terminée" : "En cours"}</Badge>
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <ConsultationDetail row={row} />
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
-              )}
-            </CardContent>
-          </Card>
+                        <Badge variant="outline" className={row.status === "completed" ? "border-emerald-300 text-emerald-800" : "border-amber-300 text-amber-800"}>{row.status === "completed" ? "Terminée" : "En cours"}</Badge>
+                        <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
+                      </button>
+                      {open && <ConsultationDetail row={row} />}
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Historique médical</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <section className="space-y-2">
-                <h2 className="text-sm font-semibold">Antécédents médicaux</h2>
+          <section className="space-y-3 rounded-2xl border bg-card p-3 shadow-sm md:p-5">
+            <h2 className="text-sm font-semibold md:text-base">Historique médical</h2>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="space-y-2 rounded-xl bg-muted/40 p-3">
+                <h3 className="text-sm font-semibold">Antécédents</h3>
                 {dossier.history.antecedents.length === 0 ? <p className="text-sm text-muted-foreground">Aucun antécédent renseigné.</p> : dossier.history.antecedents.map((item, index) => (
-                  <div key={`${item.date}-${index}`} className="rounded-lg border px-3 py-2 text-sm">
+                  <div key={`${item.date}-${index}`} className="rounded-lg bg-background px-3 py-2 text-sm">
                     <p className="text-xs text-muted-foreground">{formatDay(item.date)} · {item.doctorName}</p>
                     <p className="mt-1 whitespace-pre-wrap">{item.text}</p>
                   </div>
                 ))}
-              </section>
-
-              <section className="space-y-2">
-                <h2 className="text-sm font-semibold">Allergies connues</h2>
-                {dossier.history.allergies.length === 0 ? <p className="text-sm text-muted-foreground">Aucune allergie connue.</p> : (
-                  <div className="flex flex-wrap gap-1">
-                    {dossier.history.allergies.map((allergy) => <Badge key={allergy} variant="destructive">{allergy}</Badge>)}
-                  </div>
-                )}
-              </section>
-
-              <section className="space-y-2">
-                <h2 className="text-sm font-semibold">Maladies chroniques</h2>
-                <p className="text-sm text-muted-foreground">Non renseignées.</p>
-              </section>
-
-              <section className="space-y-2">
-                <h2 className="text-sm font-semibold">Hospitalisations précédentes</h2>
-                {dossier.history.hospitalizations.length === 0 ? <p className="text-sm text-muted-foreground">Aucune hospitalisation enregistrée.</p> : dossier.history.hospitalizations.map((stay) => (
-                  <div key={stay.id} className="rounded-lg border px-3 py-2 text-sm">
-                    <p className="font-medium">{stayStatusLabels[stay.status] ?? stay.status}{stay.ward ? ` · ${stay.ward}` : ""}{stay.room ? ` · Ch. ${stay.room}` : ""}</p>
-                    <p className="text-xs text-muted-foreground">Admission {formatDateTime(stay.admittedAt)}{stay.dischargedAt ? ` · Sortie ${formatDateTime(stay.dischargedAt)}` : ""}</p>
-                  </div>
-                ))}
-              </section>
-
-              <section className="space-y-2">
-                <h2 className="text-sm font-semibold">Examens médicaux effectués</h2>
-                {dossier.history.exams.length === 0 ? <p className="text-sm text-muted-foreground">Aucun examen enregistré.</p> : <ExamLines exams={dossier.history.exams} />}
-              </section>
-
-              <section className="space-y-2">
-                <h2 className="text-sm font-semibold">Autres informations</h2>
-                {dossier.history.prescriptions.length === 0 ? <p className="text-sm text-muted-foreground">Aucune autre information enregistrée.</p> : dossier.history.prescriptions.map((prescription) => (
-                  <div key={prescription.id} className="rounded-lg border px-3 py-2 text-sm">
-                    <p className="text-xs text-muted-foreground">{formatDateTime(prescription.createdAt)} · {prescription.prescriberName}</p>
-                    <div className="mt-1 space-y-1">
-                      {prescription.items.map((item, index) => (
-                        <p key={`${prescription.id}-${index}`}>{item.medication}{item.posology ? ` · ${item.posology}` : ""}{item.route ? ` · ${item.route}` : ""}</p>
-                      ))}
+              </div>
+              <div className="space-y-3">
+                <div className="rounded-xl bg-muted/40 p-3">
+                  <h3 className="text-sm font-semibold">Allergies</h3>
+                  {dossier.history.allergies.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">Aucune allergie connue.</p> : (
+                    <div className="mt-2 flex flex-wrap gap-1">{dossier.history.allergies.map((allergy) => <Badge key={allergy} variant="destructive">{allergy}</Badge>)}</div>
+                  )}
+                </div>
+                <div className="rounded-xl bg-muted/40 p-3">
+                  <h3 className="text-sm font-semibold">Maladies chroniques</h3>
+                  <p className="mt-2 text-sm text-muted-foreground">Non renseignées.</p>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold">Hospitalisations</h3>
+              {dossier.history.hospitalizations.length === 0 ? <p className="text-sm text-muted-foreground">Aucune hospitalisation enregistrée.</p> : (
+                <div className="grid gap-2 md:grid-cols-2">
+                  {dossier.history.hospitalizations.map((stay) => (
+                    <div key={stay.id} className="rounded-xl border px-3 py-2 text-sm">
+                      <p className="font-medium">{stayStatusLabels[stay.status] ?? stay.status}{stay.ward ? ` · ${stay.ward}` : ""}{stay.room ? ` · Ch. ${stay.room}` : ""}</p>
+                      <p className="text-xs text-muted-foreground">Admission {formatDay(stay.admittedAt)}{stay.dischargedAt ? ` · Sortie ${formatDay(stay.dischargedAt)}` : ""}</p>
                     </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold">Examens médicaux</h3>
+              {dossier.history.exams.length === 0 ? <p className="text-sm text-muted-foreground">Aucun examen enregistré.</p> : <ExamLines exams={dossier.history.exams} />}
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold">Prescriptions</h3>
+              {dossier.history.prescriptions.length === 0 ? <p className="text-sm text-muted-foreground">Aucune autre information enregistrée.</p> : dossier.history.prescriptions.map((prescription) => (
+                <div key={prescription.id} className="rounded-xl border px-3 py-2 text-sm">
+                  <p className="text-xs text-muted-foreground">{formatDateTime(prescription.createdAt)} · {prescription.prescriberName}</p>
+                  <div className="mt-1 space-y-1">
+                    {prescription.items.map((item, index) => (
+                      <p key={`${prescription.id}-${index}`}>{item.medication}{item.posology ? ` · ${item.posology}` : ""}{item.route ? ` · ${item.route}` : ""}</p>
+                    ))}
                   </div>
-                ))}
-              </section>
-            </CardContent>
-          </Card>
+                </div>
+              ))}
+            </div>
+          </section>
         </>
       )}
     </div>

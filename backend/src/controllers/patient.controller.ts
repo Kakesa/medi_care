@@ -12,6 +12,11 @@ export const getById = asyncHandler(async (req: Request, res: Response) => {
   res.json(patient);
 });
 
+export const dossier = asyncHandler(async (req: Request, res: Response) => {
+  const record = await patientService.getPatientDossier(req.auth!, req.organizationId!, req.params.id, req.ip);
+  res.json(record);
+});
+
 export const create = asyncHandler(async (req: Request, res: Response) => {
   const patient = await patientService.createPatient(req.auth!, req.organizationId!, req.body, req.ip);
   res.status(201).json(patient);

@@ -12,6 +12,7 @@ import NotFound from "./pages/NotFound";
 import Dashboard from "./pages/Dashboard";
 import Personnel from "./pages/Personnel";
 import Patients from "./pages/Patients";
+import PatientDossier from "./pages/PatientDossier";
 import Appointments from "./pages/Appointments";
 import Consultations from "./pages/Consultations";
 import Reception from "./pages/Reception";
@@ -77,6 +78,7 @@ const App = () => (
                 <Route path="hospitals" element={<RequireRole roles={["SUPERADMIN"]}><Hospitals /></RequireRole>} />
                 <Route path="personnel" element={<RequireRole roles={["HOSPITAL_ADMIN"]}><Personnel /></RequireRole>} />
                 <Route path="patients" element={<RequireRole roles={["HOSPITAL_ADMIN", "DOCTOR", "RECEPTIONIST", "NURSE"]}><Patients /></RequireRole>} />
+                <Route path="patients/:patientId" element={<RequireRole roles={["HOSPITAL_ADMIN", "DOCTOR", "RECEPTIONIST", "NURSE"]}><PatientDossier /></RequireRole>} />
                 <Route path="appointments" element={<RequireRole roles={["HOSPITAL_ADMIN", "DOCTOR", "RECEPTIONIST"]}><Appointments /></RequireRole>} />
                 <Route path="consultations" element={<RequireRole roles={["HOSPITAL_ADMIN", "DOCTOR", "NURSE"]}><Consultations /></RequireRole>} />
                 <Route path="nursing" element={<RequireRole roles={["HOSPITAL_ADMIN", "DOCTOR", "NURSE"]}><NursingCare /></RequireRole>} />

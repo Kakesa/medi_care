@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { 
   Plus, 
   Search, 
@@ -72,6 +72,7 @@ export default function Patients() {
   const { toast } = useToast();
   const canCreatePatient = user?.role !== "NURSE";
   const [params] = useSearchParams();
+  const navigate = useNavigate();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [totals, setTotals] = useState({ total: 0, hospitalized: 0, outpatient: 0, discharged: 0 });
   const [searchQuery, setSearchQuery] = useState(() => params.get("q") ?? "");
@@ -666,9 +667,9 @@ export default function Patients() {
                   <Badge variant="secondary">{patient.room}</Badge>
                 )}
               </div>
-              <Button variant="ghost" size="sm">
+              <Button variant="ghost" size="sm" className="shrink-0" onClick={() => navigate(`/dashboard/patients/${patient.id}`)}>
                 <FileText className="h-4 w-4 mr-1" />
-                Dossier
+                Dossier patient
               </Button>
             </div>
           </Card>

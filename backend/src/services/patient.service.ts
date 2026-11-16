@@ -1,7 +1,11 @@
 import mongoose, { type FilterQuery } from 'mongoose';
 import { ROLES, type UserRole } from '../config/permissions.js';
+import { BedStay } from '../models/BedStay.js';
+import { Consultation } from '../models/Consultation.js';
+import { Exam } from '../models/Exam.js';
 import { Organization } from '../models/Organization.js';
 import { Patient } from '../models/Patient.js';
+import { Prescription } from '../models/Prescription.js';
 import { User } from '../models/User.js';
 import { ApiError } from '../utils/ApiError.js';
 import { escapeRegex } from '../utils/regex.js';
@@ -393,6 +397,144 @@ export async function archivePatient(
     success: true,
     ip,
   });
+}
+
+function visibleExamResult(
+  exam: { type?: string; labStatus?: string | null; results?: string | null },
+  actor: AuthContext,
+) {
+  const laboratory = exam.type === 'laboratory';
+  const official = !laboratory
+    || (!exam.labStatus && Boolean(exam.results))
+    || (Boolean(exam.results) && exam.labStatus !== 'ANNULE' && exam.labStatus !== 'REJETE');
+  const canSeeDraft = actor.role === ROLES.HOSPITAL_ADMIN || actor.role === ROLES.DOCTOR || actor.role === ROLES.NURSE;
+  return official || canSeeDraft ? exam.results || undefined : undefined;
+}
+
+export async function getPatientDossier(actor: AuthContext, organizationId: string, id: string, ip?: string) {
+  const patient = await findVisiblePatient(id, organizationId, actor, ip);
+  const [consultations, exams, prescriptions, stays, doctor] = await Promise.all([
+    Consultation.find({ organizationId, patientId: patient._id }).sort({ date: -1, createdAt: -1 }).limit(200),
+    Exam.find({ organizationId, patientId: patient._id })
+      .sort({ date: -1, createdAt: -1 })
+      .limit(200)
+      .select('name type category date status results labStatus doctorName notes createdAt'),
+    Prescription.find({ organizationId, patientId: patient._id, status: 'validated' })
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .select('prescriberName items createdAt validatedAt'),
+    BedStay.find({ organizationId, patientId: patient._id }).sort({ admissionDate: -1 }).limit(50),
+    patient.primaryDoctorId ? User.findById(patient.primaryDoctorId).select('firstName lastName') : null,
+  ]);
+
+  const examRows = exams.map((exam) => ({
+    id: exam.id,
+    name: exam.name,
+    category: exam.category,
+    type: exam.type,
+    date: dateOnly(exam.date),
+    status: exam.status,
+    labStatus: exam.labStatus || undefined,
+    doctorName: exam.doctorName,
+    results: visibleExamResult(exam, actor),
+    consultationId: /^Consultation ([a-f0-9]{24})$/.exec(exam.notes || '')?.[1],
+  }));
+
+  const consultationRows = consultations.map((row) => ({
+    id: row.id,
+    patientId: row.patientId.toString(),
+    date: dateOnly(row.date),
+    recordedAt: row.createdAt,
+    doctorName: row.doctorName,
+    status: row.status,
+    motif: row.plainte || undefined,
+    symptoms: row.symptoms ?? [],
+    histoireMaladie: row.histoireMaladie || undefined,
+    comportementAnamnese: row.comportementAnamnese || undefined,
+    examenPhysique: row.examenPhysique || undefined,
+    diagnosis: row.diagnosis || undefined,
+    conclusion: row.conclusion || undefined,
+    treatment: row.treatment || undefined,
+    prescription: row.prescription || undefined,
+    notes: row.notes || undefined,
+    followUpDate: dateOnly(row.followUpDate),
+    requestedExams: row.recommandationExamens || undefined,
+    antecedent: row.antecedent || undefined,
+    allergies: row.allergies ?? [],
+    exams: examRows.filter((exam) => exam.consultationId === row.id).map(({ consultationId: _link, ...exam }) => exam),
+  }));
+
+  const allergyNames = new Set<string>();
+  for (const name of patient.allergies ?? []) {
+    const trimmed = name.trim();
+    if (trimmed) allergyNames.add(trimmed);
+  }
+  for (const row of consultationRows) {
+    for (const name of row.allergies) {
+      const trimmed = name.trim();
+      if (trimmed) allergyNames.add(trimmed);
+    }
+  }
+
+  const hospitalizations = stays.length
+    ? stays.map((stay) => ({
+      id: stay.id,
+      status: stay.status,
+      ward: stay.wardName,
+      room: stay.bedNumber,
+      admittedAt: stay.admissionDate,
+      dischargedAt: stay.dischargeDate,
+    }))
+    : patient.admissionDate
+      ? [{
+        id: patient.id,
+        status: patient.status === 'discharged' ? 'completed' : 'active',
+        ward: undefined,
+        room: patient.room || undefined,
+        admittedAt: patient.admissionDate,
+        dischargedAt: patient.dischargeDate,
+      }]
+      : [];
+
+  await recordAudit({
+    actorId: actor.id,
+    actorRole: actor.role,
+    organizationId,
+    action: 'PATIENT_DOSSIER_VIEWED',
+    resourceType: 'patient',
+    resourceId: patient.id,
+    success: true,
+    ip,
+  });
+
+  return {
+    patient: {
+      ...toPatientDto(patient),
+      doctorName: doctor ? `${doctor.firstName} ${doctor.lastName}` : undefined,
+    },
+    consultations: consultationRows,
+    history: {
+      antecedents: consultationRows.flatMap((row) => (
+        row.antecedent ? [{ date: row.date, doctorName: row.doctorName, text: row.antecedent }] : []
+      )),
+      allergies: [...allergyNames],
+      hospitalizations,
+      exams: examRows.map(({ consultationId: _link, ...exam }) => exam),
+      prescriptions: prescriptions.map((row) => ({
+        id: row.id,
+        prescriberName: row.prescriberName,
+        createdAt: row.createdAt,
+        items: row.items.map((item) => ({
+          medication: item.medication,
+          dosage: item.dosage,
+          posology: item.posology,
+          route: item.administrationRoute || undefined,
+          duration: item.duration,
+          instructions: item.instructions || undefined,
+        })),
+      })),
+    },
+  };
 }
 
 export function rolesAllowedToReadPatients(): UserRole[] {

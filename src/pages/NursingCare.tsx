@@ -409,7 +409,8 @@ export default function NursingCarePage() {
       {error && <Card className="mb-4 border-destructive/50"><CardContent className="flex items-center gap-2 p-4 text-sm text-destructive"><AlertTriangle className="h-4 w-4" />{error}</CardContent></Card>}
 
       <Tabs defaultValue="patients" className="space-y-4">
-        <div className="static -mx-4 space-y-2 border-b border-border bg-background/95 px-4 py-2 md:sticky md:top-16 md:z-20 md:-mx-6 md:space-y-4 md:px-6 md:py-3 md:backdrop-blur">
+        <div className="max-md:contents md:sticky md:top-16 md:z-20 md:-mx-6 md:space-y-4 md:border-b md:border-border md:bg-background/95 md:px-6 md:py-3 md:backdrop-blur">
+        <div className="-mx-4 space-y-2 border-b border-border bg-background/95 px-4 py-2 md:mx-0 md:space-y-4 md:border-0 md:bg-transparent md:px-0 md:py-0">
           <div className="flex items-center justify-between gap-2 sm:items-end">
             <div className="min-w-0">
               <p className="text-[11px] font-medium uppercase tracking-wide text-primary md:text-sm md:normal-case md:tracking-normal">Espace clinique</p>
@@ -430,6 +431,8 @@ export default function NursingCarePage() {
             </div>
           )}
 
+        </div>
+          <div className="sticky top-16 z-20 -mx-4 border-b border-border bg-background/95 px-4 py-2 backdrop-blur md:static md:z-auto md:mx-0 md:border-0 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none">
           <TabsList className="h-auto w-full justify-start">
             <TabsTrigger value="patients">Patients et dossier</TabsTrigger>
             <TabsTrigger value="treatment">Feuille de traitement</TabsTrigger>
@@ -439,6 +442,7 @@ export default function NursingCarePage() {
             <TabsTrigger value="history">Historique</TabsTrigger>
             <TabsTrigger value="reports">Rapports</TabsTrigger>
           </TabsList>
+          </div>
         </div>
 
         <TabsContent value="patients" className="space-y-4">

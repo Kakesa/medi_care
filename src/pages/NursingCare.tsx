@@ -1,6 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Activity, AlertTriangle, BedDouble, CalendarDays, CheckCircle2, ClipboardList, Clock3,
+  Activity, AlertTriangle, BedDouble, CalendarDays, CheckCircle2, ChevronDown, ClipboardList, Clock3,
   FileText, Pencil, Plus, Stethoscope, UserRound, XCircle,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -158,16 +158,11 @@ function MetricCard({ title, short, value, icon: Icon, tone }: {
   const style = metricStyles[tone];
   return (
     <Card className={style.card}>
-      <CardContent className="flex items-center gap-1.5 p-2 sm:gap-4 sm:p-5">
-        <div className={`hidden h-12 w-12 shrink-0 items-center justify-center rounded-2xl sm:flex ${style.icon}`}>
-          <Icon className="h-6 w-6" />
-        </div>
+      <CardContent className="flex items-center gap-1.5 p-2">
+        <Icon className={`h-3.5 w-3.5 shrink-0 ${style.value}`} />
         <div className="min-w-0">
-          <p className="truncate text-[10px] font-medium leading-tight text-foreground/80 sm:text-sm sm:leading-snug">
-            <span className="sm:hidden">{short}</span>
-            <span className="hidden sm:inline">{title}</span>
-          </p>
-          <p className={`text-lg font-bold tabular-nums leading-none sm:mt-1 sm:text-3xl ${style.value}`}>{value}</p>
+          <p className="truncate text-[10px] font-medium leading-tight text-foreground/80" title={title}>{short}</p>
+          <p className={`text-lg font-bold tabular-nums leading-none ${style.value}`}>{value}</p>
         </div>
       </CardContent>
     </Card>
@@ -285,6 +280,7 @@ export default function NursingCarePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [error, setError] = useState('');
+  const [summaryOpen, setSummaryOpen] = useState(false);
   const [careType, setCareType] = useState<NursingCareType>('monitoring');
   const [careDescription, setCareDescription] = useState('');
   const [scheduledAt, setScheduledAt] = useState(localDateTime());
@@ -409,28 +405,21 @@ export default function NursingCarePage() {
       {error && <Card className="mb-4 border-destructive/50"><CardContent className="flex items-center gap-2 p-4 text-sm text-destructive"><AlertTriangle className="h-4 w-4" />{error}</CardContent></Card>}
 
       <Tabs defaultValue="patients" className="space-y-4">
-        <div className="max-md:contents md:sticky md:top-16 md:z-20 md:-mx-6 md:space-y-4 md:border-b md:border-border md:bg-background/95 md:px-6 md:py-3 md:backdrop-blur">
-        <div className="-mx-4 space-y-2 border-b border-border bg-background/95 px-4 py-2 md:mx-0 md:space-y-4 md:border-0 md:bg-transparent md:px-0 md:py-0">
-          <div className="flex items-center justify-between gap-2 sm:items-end">
+        <div className="max-md:contents md:sticky md:top-16 md:z-20 md:-mx-6 md:border-b md:border-border md:bg-background/95 md:px-6 md:backdrop-blur">
+        <div className="-mx-4 border-b border-border bg-background/95 px-4 py-2 md:mx-0 md:border-0 md:bg-transparent md:px-0">
+          <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-primary md:text-sm md:normal-case md:tracking-normal">Espace clinique</p>
-              <h1 className="text-lg font-bold leading-tight tracking-tight md:text-3xl">Soins infirmiers</h1>
-              <p className="hidden text-muted-foreground md:mt-1 md:block">Feuille de traitement, surveillance et traçabilité dans les dossiers existants.</p>
+              <p className="text-[11px] font-medium uppercase tracking-wide text-primary">Espace clinique</p>
+              <h1 className="text-lg font-bold leading-tight tracking-tight">Soins infirmiers</h1>
             </div>
-            <Button variant="outline" size="sm" className="shrink-0" onClick={() => void reload()} disabled={isLoading}><Activity className="h-4 w-4 md:mr-2" />Actualiser</Button>
+            <div className="flex shrink-0 items-center gap-1.5">
+              <Button type="button" variant="ghost" size="sm" className="h-8 px-2" onClick={() => setSummaryOpen((current) => !current)} aria-expanded={summaryOpen}>
+                {summaryOpen ? 'Masquer' : 'Afficher'}
+                <ChevronDown className={`ml-1 h-4 w-4 transition-transform ${summaryOpen ? 'rotate-180' : ''}`} />
+              </Button>
+              <Button variant="outline" size="sm" className="h-8" onClick={() => void reload()} disabled={isLoading}><Activity className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Actualiser</span></Button>
+            </div>
           </div>
-
-          {dashboard && (
-            <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3">
-              <MetricCard title="Patients sous surveillance" short="Patients" value={dashboard.stats.patientsUnderSurveillance} icon={UserRound} tone="teal" />
-              <MetricCard title="Soins à effectuer aujourd’hui" short="À faire" value={dashboard.stats.careToPerform} icon={ClipboardList} tone="sky" />
-              <MetricCard title="Soins réalisés aujourd’hui" short="Réalisés" value={dashboard.stats.careCompletedToday} icon={CheckCircle2} tone="green" />
-              <MetricCard title="Soins en retard" short="Retard" value={dashboard.stats.overdueCare} icon={Clock3} tone="red" />
-              <MetricCard title="Prescriptions à exécuter" short="Prescriptions" value={dashboard.stats.prescriptionsWaiting} icon={FileText} tone="indigo" />
-              <MetricCard title="Surveillance particulière" short="Surveillance" value={dashboard.stats.patientsRequiringAttention} icon={AlertTriangle} tone="amber" />
-            </div>
-          )}
-
         </div>
           <div className="sticky top-16 z-20 -mx-4 border-b border-border bg-background/95 px-4 py-2 backdrop-blur md:static md:z-auto md:mx-0 md:border-0 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none">
           <TabsList className="h-auto w-full justify-start">
@@ -444,6 +433,17 @@ export default function NursingCarePage() {
           </TabsList>
           </div>
         </div>
+
+        {summaryOpen && dashboard && (
+          <div className="grid grid-cols-3 gap-1.5 lg:grid-cols-6">
+            <MetricCard title="Patients sous surveillance" short="Patients" value={dashboard.stats.patientsUnderSurveillance} icon={UserRound} tone="teal" />
+            <MetricCard title="Soins à effectuer aujourd’hui" short="À faire" value={dashboard.stats.careToPerform} icon={ClipboardList} tone="sky" />
+            <MetricCard title="Soins réalisés aujourd’hui" short="Réalisés" value={dashboard.stats.careCompletedToday} icon={CheckCircle2} tone="green" />
+            <MetricCard title="Soins en retard" short="Retard" value={dashboard.stats.overdueCare} icon={Clock3} tone="red" />
+            <MetricCard title="Prescriptions à exécuter" short="Prescriptions" value={dashboard.stats.prescriptionsWaiting} icon={FileText} tone="indigo" />
+            <MetricCard title="Surveillance particulière" short="Surveillance" value={dashboard.stats.patientsRequiringAttention} icon={AlertTriangle} tone="amber" />
+          </div>
+        )}
 
         <TabsContent value="patients" className="space-y-4">
           <Card><CardHeader><CardTitle>Patients autorisés</CardTitle></CardHeader><CardContent className="space-y-3"><Input aria-label="Rechercher un patient" placeholder="Rechercher par nom ou chambre" value={patientSearch} onChange={(event) => setPatientSearch(event.target.value)} /><PatientTable patients={patients} selectedId={selectedId} onSelect={setSelectedId} /></CardContent></Card>

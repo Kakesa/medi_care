@@ -48,16 +48,12 @@ type Draft = {
   currency: "USD" | "CDF" | "EUR";
   timezone: string;
   stamp: string;
-  resubmit: boolean;
-  previousEmail: string;
-  previousPassword: string;
 };
 
 const initial: Draft = {
   firstName: "", postName: "", lastName: "", email: "", phone: "", jobTitle: "", password: "", confirmPassword: "",
   name: "", facilityType: "clinique", registrationNumber: "", address: "", commune: "", city: "", province: "", country: "République démocratique du Congo",
   centerPhone: "", centerEmail: "", logo: "", coverImage: "", primaryColor: "#0f766e", currency: "USD", timezone: "Africa/Kinshasa", stamp: "",
-  resubmit: false, previousEmail: "", previousPassword: "",
 };
 
 const selectClass = "flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm";
@@ -110,7 +106,6 @@ export default function HospitalSignup() {
     setError("");
     if (step === 0) {
       const gap = missing([
-        ...(draft.resubmit ? [["Email de la demande", draft.previousEmail], ["Mot de passe actuel", draft.previousPassword]] as Array<[string, string]> : []),
         ["Nom", draft.lastName], ["Postnom", draft.postName], ["Prénom", draft.firstName], ["Fonction", draft.jobTitle],
         ["Email", draft.email], ["Téléphone", draft.phone], ["Mot de passe", draft.password], ["Confirmation", draft.confirmPassword],
       ]);
@@ -160,9 +155,7 @@ export default function HospitalSignup() {
       },
     };
     try {
-      const result = draft.resubmit
-        ? await httpClient.post<{ message: string }>("/auth/resubmit-hospital", { email: draft.previousEmail, password: draft.previousPassword, ...body })
-        : await httpClient.post<{ message: string }>("/auth/register-hospital", body);
+      const result = await httpClient.post<{ message: string }>("/auth/register-hospital", body);
       setDone(result.message);
     } catch (caught) {
       setError(apiMessage(caught));
@@ -228,14 +221,6 @@ export default function HospitalSignup() {
 
               {step === 0 && (
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm sm:col-span-2">
-                    <input type="checkbox" checked={draft.resubmit} onChange={(event) => set({ resubmit: event.target.checked })} />
-                    Corriger une demande refusée
-                  </label>
-                  {draft.resubmit && <>
-                    <Field label="Email de la demande"><Input type="email" autoComplete="off" value={draft.previousEmail} onChange={(event) => set({ previousEmail: event.target.value })} /></Field>
-                    <Field label="Mot de passe actuel"><Input type="password" autoComplete="new-password" value={draft.previousPassword} onChange={(event) => set({ previousPassword: event.target.value })} /></Field>
-                  </>}
                   <Field label="Nom"><Input autoComplete="family-name" value={draft.lastName} onChange={(event) => set({ lastName: event.target.value })} placeholder="Mukendi" /></Field>
                   <Field label="Postnom"><Input value={draft.postName} onChange={(event) => set({ postName: event.target.value })} placeholder="Ilunga" /></Field>
                   <Field label="Prénom"><Input autoComplete="given-name" value={draft.firstName} onChange={(event) => set({ firstName: event.target.value })} placeholder="Amina" /></Field>

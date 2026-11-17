@@ -113,6 +113,7 @@ export interface PatientDossier {
       id: string;
       prescriberName: string;
       createdAt?: string;
+      recommendations?: string;
       items: { medication: string; dosage?: string; posology?: string; route?: string; duration?: string; instructions?: string }[];
     }[];
   };

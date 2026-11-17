@@ -1,7 +1,9 @@
 import mongoose from 'mongoose';
 import { ROLES } from '../config/permissions.js';
+import { Consultation } from '../models/Consultation.js';
 import { PharmacyProduct } from '../models/PharmacyProduct.js';
 import { MedicationAdministration } from '../models/MedicationAdministration.js';
+import { Personnel } from '../models/Personnel.js';
 import { Prescription } from '../models/Prescription.js';
 import { User } from '../models/User.js';
 import { ApiError } from '../utils/ApiError.js';
@@ -20,6 +22,8 @@ type Item = {
   dosage: string;
   posology: string;
   administrationRoute?: string;
+  form?: string;
+  frequency?: string;
   duration: string;
   treatmentStartDate?: string;
   treatmentEndDate?: string;
@@ -54,6 +58,8 @@ function toDto(source: object) {
     patientName: string;
     prescriberName: string;
     examId?: { toString(): string } | null;
+    consultationId?: { toString(): string } | null;
+    recommendations?: string;
     items: Item[];
     status: string;
     pharmacyStatus: string;
@@ -67,12 +73,16 @@ function toDto(source: object) {
     patientName: row.patientName,
     prescriberName: row.prescriberName,
     examId: row.examId?.toString(),
+    consultationId: row.consultationId?.toString(),
+    recommendations: row.recommendations || undefined,
     items: row.items.map((item, index) => ({
       id: itemId(item, index),
       medication: item.medication,
       dosage: item.dosage,
       posology: item.posology,
       administrationRoute: item.administrationRoute,
+      form: item.form || undefined,
+      frequency: item.frequency || undefined,
       duration: item.duration,
       treatmentStartDate: item.treatmentStartDate,
       treatmentEndDate: item.treatmentEndDate,
@@ -101,10 +111,11 @@ async function actorName(actor: AuthContext) {
   return `${title}${user.firstName} ${user.lastName}`;
 }
 
-export async function listPrescriptions(actor: AuthContext, organizationId: string, patientId?: string) {
+export async function listPrescriptions(actor: AuthContext, organizationId: string, query?: { patientId?: string; consultationId?: string }) {
   const filter: Record<string, unknown> = { organizationId };
   if (actor.role === ROLES.PHARMACIST) filter.status = 'validated';
-  if (patientId) filter.patientId = patientId;
+  if (query?.patientId) filter.patientId = query.patientId;
+  if (query?.consultationId) filter.consultationId = query.consultationId;
   const rows = await Prescription.find(filter).sort({ createdAt: -1 }).limit(200);
   return rows.map((row) => toDto(row));
 }
@@ -115,7 +126,7 @@ export async function createPrescription(
   input: {
     patientId: string;
     examId?: string;
-    items: Array<{ medication: string; dosage: string; posology: string; administrationRoute?: string; duration: string; treatmentStartDate?: string; treatmentEndDate?: string; administrationTimes?: string[]; instructions?: string; quantityPrescribed: number }>;
+    items: Array<{ medication: string; dosage: string; posology: string;     administrationRoute?: string; form?: string; frequency?: string; duration: string; treatmentStartDate?: string; treatmentEndDate?: string; administrationTimes?: string[]; instructions?: string; quantityPrescribed: number }>;
   },
   ip?: string
 ) {
@@ -135,6 +146,74 @@ export async function createPrescription(
   });
   await recordAudit({ actorId: actor.id, actorRole: actor.role, organizationId, action: 'PRESCRIPTION_CREATED', resourceType: 'prescription', resourceId: row.id, success: true, ip });
   return toDto(row);
+}
+
+type ConsultationItem = {
+  medication: string;
+  dosage: string;
+  posology: string;
+  administrationRoute?: string;
+  form?: string;
+  frequency?: string;
+  duration: string;
+  instructions?: string;
+  quantityPrescribed: number;
+};
+
+export async function saveConsultationPrescription(
+  actor: AuthContext,
+  organizationId: string,
+  input: { consultationId: string; recommendations?: string; items: ConsultationItem[] },
+  ip?: string
+) {
+  const consultation = await Consultation.findOne({ _id: input.consultationId, organizationId });
+  if (!consultation) throw new ApiError(404, 'Consultation introuvable');
+  await requireVisiblePatient(actor, organizationId, consultation.patientId.toString(), ip);
+  const current = await Prescription.findOne({ organizationId, consultationId: consultation._id });
+  if (current?.items.some((item) => item.quantityDispensed > 0)) {
+    throw new ApiError(409, 'Cette ordonnance a déjà été délivrée', 'PRESCRIPTION_DISPENSED');
+  }
+  const items = input.items.filter((item) => item.medication.trim());
+  if (!items.length) {
+    if (current?.status === 'draft') await current.deleteOne();
+    if (current && current.status !== 'draft') {
+      throw new ApiError(409, 'Une ordonnance déjà validée ne peut pas être vidée', 'PRESCRIPTION_VALIDATED');
+    }
+    return { cleared: true };
+  }
+  const doctor = await Personnel.findById(consultation.doctorId).select('userId');
+  const recommendations = input.recommendations?.trim() || '';
+  const mapped = items.map((item) => ({
+    ...item,
+    medication: item.medication.trim(),
+    instructions: item.instructions?.trim() || '',
+    quantityDispensed: 0,
+  }));
+  if (!current) {
+    const created = await Prescription.create({
+      organizationId,
+      patientId: consultation.patientId,
+      patientName: consultation.patientName,
+      prescriberId: doctor?.userId || actor.id,
+      prescriberName: consultation.doctorName,
+      consultationId: consultation._id,
+      recommendations,
+      items: mapped,
+      status: 'draft',
+      pharmacyStatus: 'new',
+      history: [{ at: new Date(), userName: consultation.doctorName, action: 'CREATION', comment: 'Ordonnance de consultation' }],
+    });
+    await recordAudit({ actorId: actor.id, actorRole: actor.role, organizationId, action: 'PRESCRIPTION_CREATED', resourceType: 'prescription', resourceId: created.id, success: true, ip });
+    return toDto(created);
+  }
+  current.patientName = consultation.patientName;
+  current.prescriberName = consultation.doctorName;
+  current.set('recommendations', recommendations);
+  current.items = mapped as typeof current.items;
+  current.history = [...(current.history || []), { at: new Date(), userName: consultation.doctorName, action: 'MODIFICATION', comment: '' }];
+  await current.save();
+  await recordAudit({ actorId: actor.id, actorRole: actor.role, organizationId, action: 'PRESCRIPTION_UPDATED', resourceType: 'prescription', resourceId: current.id, success: true, ip });
+  return toDto(current);
 }
 
 export async function validatePrescription(actor: AuthContext, organizationId: string, id: string, ip?: string) {

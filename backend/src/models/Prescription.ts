@@ -6,6 +6,8 @@ const itemSchema = new Schema(
     dosage: { type: String, required: true, trim: true },
     posology: { type: String, required: true, trim: true },
     administrationRoute: { type: String, trim: true, maxlength: 80 },
+    form: { type: String, trim: true, maxlength: 40 },
+    frequency: { type: String, trim: true, maxlength: 80 },
     duration: { type: String, required: true, trim: true },
     treatmentStartDate: { type: String, match: /^\d{4}-\d{2}-\d{2}$/ },
     treatmentEndDate: { type: String, match: /^\d{4}-\d{2}-\d{2}$/ },
@@ -37,6 +39,8 @@ const prescriptionSchema = new Schema(
     prescriberId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     prescriberName: { type: String, required: true },
     examId: { type: Schema.Types.ObjectId, ref: 'Exam' },
+    consultationId: { type: Schema.Types.ObjectId, ref: 'Consultation' },
+    recommendations: { type: String, trim: true, maxlength: 2000, default: '' },
     items: { type: [itemSchema], required: true },
     status: { type: String, enum: ['draft', 'validated'], default: 'draft' },
     pharmacyStatus: { type: String, enum: ['new', 'preparing', 'partial', 'delivered', 'closed'], default: 'new' },
@@ -55,5 +59,6 @@ const prescriptionSchema = new Schema(
 );
 
 prescriptionSchema.index({ organizationId: 1, pharmacyStatus: 1, createdAt: -1 });
+prescriptionSchema.index({ organizationId: 1, consultationId: 1 }, { unique: true, sparse: true });
 
 export const Prescription = mongoose.model('Prescription', prescriptionSchema);

@@ -19,6 +19,13 @@ export interface PublicOrganization {
   name: string;
   slug: string;
   status: 'active' | 'suspended';
+  address?: string;
+  phone?: string;
+  email?: string;
+  city?: string;
+  commune?: string;
+  logo?: string;
+  stamp?: string;
 }
 
 export interface PublicUser {
@@ -49,6 +56,13 @@ export async function toPublicUser(userId: string): Promise<PublicUser> {
         name: org.name,
         slug: org.slug,
         status: org.status as 'active' | 'suspended',
+        address: org.address,
+        phone: org.phone,
+        email: org.email,
+        city: org.city || undefined,
+        commune: org.commune || undefined,
+        logo: org.logo || undefined,
+        stamp: org.stamp || undefined,
       };
     }
   }

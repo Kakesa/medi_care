@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, ChevronDown, Droplets, FlaskConical, Phone, Stethoscope } from "lucide-react";
+import { ArrowLeft, ChevronDown, Droplets, FlaskConical, Phone, Printer, Stethoscope } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
 import { apiMessage } from "@/lib/apiError";
 import { patientService, type DossierConsultation, type DossierExam, type PatientDossier } from "@/services/patientService";
+import { downloadOrdonnance, lineFromItem, printOrdonnance, type OrdonnanceSheet } from "@/utils/ordonnance";
 
 const timeZone = "Africa/Kinshasa";
 
@@ -168,6 +170,7 @@ function ConsultationDetail({ row }: { row: DossierConsultation }) {
 export default function PatientDossier() {
   const { patientId = "" } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [dossier, setDossier] = useState<PatientDossier | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -349,16 +352,59 @@ export default function PatientDossier() {
             </div>
             <div className="space-y-2">
               <h3 className="text-sm font-semibold">Prescriptions</h3>
-              {dossier.history.prescriptions.length === 0 ? <p className="text-sm text-muted-foreground">Aucune autre information enregistrée.</p> : dossier.history.prescriptions.map((prescription) => (
-                <div key={prescription.id} className="rounded-xl border px-3 py-2 text-sm">
-                  <p className="text-xs text-muted-foreground">{formatDateTime(prescription.createdAt)} · {prescription.prescriberName}</p>
-                  <div className="mt-1 space-y-1">
-                    {prescription.items.map((item, index) => (
-                      <p key={`${prescription.id}-${index}`}>{item.medication}{item.posology ? ` · ${item.posology}` : ""}{item.route ? ` · ${item.route}` : ""}</p>
-                    ))}
+              {dossier.history.prescriptions.length === 0 ? <p className="text-sm text-muted-foreground">Aucune autre information enregistrée.</p> : dossier.history.prescriptions.map((prescription) => {
+                const sheet: OrdonnanceSheet = {
+                  organization: {
+                    name: user?.organization?.name || "Établissement",
+                    address: user?.organization?.address,
+                    phone: user?.organization?.phone,
+                    email: user?.organization?.email,
+                    city: user?.organization?.city,
+                    logo: user?.organization?.logo,
+                    stamp: user?.organization?.stamp,
+                  },
+                  patientName: `${dossier.patient.lastName} ${dossier.patient.firstName}`,
+                  age: ageOf(dossier.patient.dateOfBirth) !== undefined ? `${ageOf(dossier.patient.dateOfBirth)} ans` : "—",
+                  sex: dossier.patient.gender === "M" ? "masculin" : dossier.patient.gender === "F" ? "féminin" : "sexe non renseigné",
+                  recordNumber: dossier.patient.id.slice(-8).toUpperCase(),
+                  date: formatDateTime(prescription.createdAt),
+                  doctorName: prescription.prescriberName,
+                  lines: prescription.items.map((item) => lineFromItem({
+                    medication: item.medication,
+                    dosage: item.dosage || "",
+                    posology: item.posology || "",
+                    duration: item.duration || "",
+                    administrationRoute: item.route,
+                    instructions: item.instructions,
+                  })),
+                  recommendations: prescription.recommendations || "",
+                };
+                return (
+                  <div key={prescription.id} className="rounded-xl border px-3 py-2 text-sm">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-xs text-muted-foreground">{formatDateTime(prescription.createdAt)} · {prescription.prescriberName}</p>
+                      <Button type="button" variant="ghost" size="sm" className="h-7 px-2" onClick={() => printOrdonnance(sheet)}>
+                        <Printer className="h-3.5 w-3.5" />
+                        Imprimer
+                      </Button>
+                    </div>
+                    <div className="mt-1 space-y-1">
+                      {prescription.items.map((item, index) => {
+                        const line = sheet.lines[index];
+                        return (
+                          <div key={`${prescription.id}-${index}`}>
+                            <p><span className="font-serif font-bold">R/</span> {item.medication}</p>
+                            <p className="pl-5"><span className="font-serif font-bold">S/</span> {[item.dosage, item.posology].filter((part) => part && part !== "Selon prescription").join(" par ") || "—"}{item.duration && item.duration !== "Selon prescription" ? ` pendant ${item.duration}` : ""}</p>
+                            {line?.instructions ? <p className="pl-5 text-xs text-muted-foreground">{line.instructions}</p> : null}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {prescription.recommendations ? <p className="mt-2 text-xs text-muted-foreground">{prescription.recommendations}</p> : null}
+                    <button type="button" className="mt-1 text-xs text-primary" onClick={() => downloadOrdonnance(sheet)}>Télécharger le PDF</button>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </section>
         </>

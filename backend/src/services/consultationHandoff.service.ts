@@ -39,7 +39,28 @@ function isUnpriced(error: unknown) {
 
 async function sendPrescription(actor: AuthContext, organizationId: string, row: ConsultationRow) {
   const text = row.prescription?.trim();
-  if (!text || row.pharmacyReleasedAt) return false;
+  if (row.pharmacyReleasedAt) return false;
+  const existing = await Prescription.findOne({ organizationId, consultationId: row._id });
+  if (existing) {
+    if (existing.status !== 'validated') {
+      existing.status = 'validated';
+      existing.validatedAt = new Date();
+      existing.history = [...(existing.history || []), { at: new Date(), userName: row.doctorName, action: 'VALIDATION', comment: 'Transmise avec la consultation' }];
+      await existing.save();
+    }
+    row.set('pharmacyReleasedAt', new Date());
+    await row.save();
+    await notifyRoles({
+      organizationId,
+      roles: [ROLES.PHARMACIST],
+      type: 'pharmacy',
+      relatedId: existing.id,
+      title: 'Ordonnance à préparer',
+      message: `${row.patientName} : ordonnance de ${row.doctorName} à préparer.`,
+    });
+    return true;
+  }
+  if (!text) return false;
   const doctor = await Personnel.findById(row.doctorId).select('userId');
   const created = await Prescription.create({
     organizationId,
@@ -190,6 +211,7 @@ export async function releaseCompletedConsultation(actor: AuthContext, organizat
   row.set('examInvoiceIds', [...invoiceIds]);
   row.set('handoffAt', new Date());
   await row.save();
+  const ordonnance = Boolean(row.prescription?.trim()) || Boolean(await Prescription.exists({ organizationId, consultationId: row._id }));
   if (invoiceNumbers.length) {
     await notifyRoles({
       organizationId,
@@ -198,15 +220,15 @@ export async function releaseCompletedConsultation(actor: AuthContext, organizat
       title: 'Facture d\'examens à encaisser',
       message: `${row.patientName} : facture ${invoiceNumbers.join(', ')} envoyée à la réception.`,
     });
-  } else if (row.prescription?.trim()) {
+  } else if (ordonnance) {
     await sendPrescription(actor, organizationId, row);
   }
   return {
     examCount: exams.length,
     invoiceNumbers,
     unpriced,
-    pharmacyAfterPayment: Boolean(row.prescription?.trim()) && invoiceNumbers.length > 0,
-    pharmacyNow: Boolean(row.prescription?.trim()) && invoiceNumbers.length === 0,
+    pharmacyAfterPayment: ordonnance && invoiceNumbers.length > 0,
+    pharmacyNow: ordonnance && invoiceNumbers.length === 0,
   };
 }
 
@@ -219,10 +241,10 @@ export async function releasePharmacyForPaidInvoice(actor: AuthContext, organiza
   if (!row) return false;
   const invoices = await Invoice.find({ _id: { $in: row.examInvoiceIds || [] } }).select('status');
   if (invoices.some((invoice) => invoice.status !== 'paid' && invoice.status !== 'cancelled')) return false;
-  if (!row.prescription?.trim()) {
+  const sent = await sendPrescription(actor, organizationId, row as unknown as ConsultationRow);
+  if (!sent && !row.pharmacyReleasedAt) {
     row.pharmacyReleasedAt = new Date();
     await row.save();
-    return false;
   }
-  return sendPrescription(actor, organizationId, row as unknown as ConsultationRow);
+  return sent;
 }

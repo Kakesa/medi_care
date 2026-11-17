@@ -18,6 +18,8 @@ const item = z.object({
   dosage: z.string().trim().min(1).max(80),
   posology: z.string().trim().min(1).max(160),
   administrationRoute: z.string().trim().min(2).max(80).optional(),
+  form: z.string().trim().max(40).optional(),
+  frequency: z.string().trim().max(80).optional(),
   duration: z.string().trim().min(1).max(80),
   treatmentStartDate: calendarDate.optional(),
   treatmentEndDate: calendarDate.optional(),
@@ -39,7 +41,14 @@ const item = z.object({
 
 export const listPrescriptionsSchema = envelope(empty, z.object({
   patientId: objectIdSchema.optional(),
+  consultationId: objectIdSchema.optional(),
 }).optional().default({}));
+
+export const consultationPrescriptionSchema = envelope(z.object({
+  consultationId: objectIdSchema,
+  recommendations: z.string().trim().max(2000).optional(),
+  items: z.array(item).max(40),
+}));
 
 export const createPrescriptionSchema = envelope(z.object({
   patientId: objectIdSchema,

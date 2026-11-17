@@ -47,6 +47,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import OrdonnanceEditor from "@/components/consultations/OrdonnanceEditor";
 import { PatientSelect } from "@/components/patients/PatientSelect";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -54,13 +55,50 @@ import { consultationService } from "@/services/consultationService";
 import { examService, type ExamCatalogItem } from "@/services/examService";
 import { patientService } from "@/services/patientService";
 import { personnelService } from "@/services/personnelService";
+import { prescriptionService } from "@/services/prescriptionService";
 import type { Consultation, Patient, Personnel } from "@/types";
 import { apiMessage } from "@/lib/apiError";
+import { blankLine, lineFromItem, linesFromText, prescriptionText, rhythmOf, type OrdonnanceLine, type OrdonnanceSheet } from "@/utils/ordonnance";
 
 const statusConfig = {
   in_progress: { label: "En cours", color: "bg-warning/10 text-warning border-warning/20", icon: Clock },
   completed: { label: "Terminée", color: "bg-success/10 text-success border-success/20", icon: CheckCircle }
 };
+
+function ageOf(date?: string) {
+  if (!date) return "—";
+  const born = new Date(date);
+  if (Number.isNaN(born.getTime())) return "—";
+  const now = new Date();
+  let years = now.getFullYear() - born.getFullYear();
+  const month = now.getMonth() - born.getMonth();
+  if (month < 0 || (month === 0 && now.getDate() < born.getDate())) years -= 1;
+  return years >= 0 ? `${years} ans` : "—";
+}
+
+function sexOf(gender?: string) {
+  if (gender === "M") return "masculin";
+  if (gender === "F") return "féminin";
+  return "sexe non renseigné";
+}
+
+function itemsPayload(lines: OrdonnanceLine[]) {
+  return lines.filter((line) => line.medication.trim()).map((line) => {
+    const rhythm = rhythmOf(line);
+    const route = line.route.trim();
+    return {
+      medication: line.medication.trim(),
+      dosage: line.dosage.trim() || "Selon prescription",
+      posology: rhythm || "Selon prescription",
+      form: line.form,
+      ...(rhythm ? { frequency: rhythm } : {}),
+      duration: line.duration.trim() || "Selon prescription",
+      ...(route.length >= 2 ? { administrationRoute: route } : {}),
+      ...(line.instructions.trim() ? { instructions: line.instructions.trim() } : {}),
+      quantityPrescribed: Math.max(1, Number(line.quantity) || 1),
+    };
+  });
+}
 
 export default function Consultations() {
   const { toast } = useToast();
@@ -76,7 +114,11 @@ export default function Consultations() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedConsultation, setSelectedConsultation] = useState<Consultation | null>(null);
+  const [detailLines, setDetailLines] = useState<OrdonnanceLine[]>([blankLine()]);
+  const [detailNotes, setDetailNotes] = useState("");
   const [pendingDelete, setPendingDelete] = useState<Consultation | null>(null);
+  const [formLines, setFormLines] = useState<OrdonnanceLine[]>([blankLine()]);
+  const [formRecommendations, setFormRecommendations] = useState("");
   
   const emptyForm = {
     patientId: "",
@@ -89,7 +131,6 @@ export default function Consultations() {
     conclusion: "",
     allergies: "",
     recommandationExamens: [] as string[],
-    prescription: "",
     followUpDate: "",
   };
   const [formData, setFormData] = useState(emptyForm);
@@ -108,6 +149,12 @@ export default function Consultations() {
       toast({ variant: "destructive", title: "Erreur", description: apiMessage(error) });
     }
   };
+
+  useEffect(() => {
+    if (!isDialogOpen || editingId || formData.doctorId || user?.role !== "DOCTOR") return;
+    const mine = doctors.find((doctor) => doctor.userId === user.id);
+    if (mine) setFormData((current) => current.doctorId ? current : { ...current, doctorId: mine.id });
+  }, [isDialogOpen, editingId, formData.doctorId, doctors, user]);
 
   useEffect(() => {
     void loadConsultations();
@@ -130,13 +177,67 @@ export default function Consultations() {
     setEditingId(null);
     setExamQuery("");
     setFormData(emptyForm);
+    setFormLines([blankLine()]);
+    setFormRecommendations("");
   };
 
   const openCreate = () => {
+    const mine = user?.role === "DOCTOR" ? doctors.find((doctor) => doctor.userId === user.id) : undefined;
     setEditingId(null);
     setExamQuery("");
-    setFormData(emptyForm);
+    setFormData({ ...emptyForm, doctorId: mine?.id || "" });
+    setFormLines([blankLine()]);
+    setFormRecommendations("");
     setIsDialogOpen(true);
+  };
+
+  const loadOrdonnance = async (consultation: Consultation, target: "form" | "detail") => {
+    const apply = (lines: OrdonnanceLine[], notes: string) => {
+      if (target === "form") {
+        setFormLines(lines);
+        setFormRecommendations(notes);
+      } else {
+        setDetailLines(lines);
+        setDetailNotes(notes);
+      }
+    };
+    apply(linesFromText(consultation.prescription), "");
+    try {
+      const rows = await prescriptionService.list({ consultationId: consultation.id });
+      const row = rows[0];
+      if (row?.items.length) apply(row.items.map(lineFromItem), row.recommendations || "");
+    } catch {
+      apply(linesFromText(consultation.prescription), "");
+    }
+  };
+
+  const openDetail = (consultation: Consultation) => {
+    setSelectedConsultation(consultation);
+    void loadOrdonnance(consultation, "detail");
+  };
+
+  const sheetFor = (patientId: string, doctorId: string, date?: string): Omit<OrdonnanceSheet, "lines" | "recommendations"> => {
+    const patient = patients.find((item) => item.id === patientId);
+    const doctor = doctors.find((item) => item.id === doctorId);
+    return {
+      organization: {
+        name: user?.organization?.name || "Établissement",
+        address: user?.organization?.address,
+        phone: user?.organization?.phone,
+        email: user?.organization?.email,
+        city: user?.organization?.city,
+        commune: user?.organization?.commune,
+        logo: user?.organization?.logo,
+        stamp: user?.organization?.stamp,
+      },
+      patientName: patient ? `${patient.lastName} ${patient.firstName}` : "Patient",
+      age: ageOf(patient?.dateOfBirth),
+      sex: sexOf(patient?.gender),
+      recordNumber: patient ? patient.id.slice(-8).toUpperCase() : "—",
+      date: date || new Intl.DateTimeFormat("fr-FR", { dateStyle: "long", timeZone: "Africa/Kinshasa" }).format(new Date()),
+      doctorName: doctor ? `Dr ${doctor.lastName} ${doctor.firstName}` : user ? `${user.firstName} ${user.lastName}` : "Médecin",
+      speciality: doctor?.speciality,
+    };
   };
 
   const openEdit = (consultation: Consultation) => {
@@ -156,9 +257,9 @@ export default function Consultations() {
       conclusion: consultation.conclusion ?? "",
       allergies: (consultation.allergies ?? []).join(", "),
       recommandationExamens: examCatalog.filter((item) => names.has(item.name)).map((item) => item.id),
-      prescription: consultation.prescription ?? "",
       followUpDate: consultation.followUpDate ?? "",
     });
+    void loadOrdonnance(consultation, "form");
     setIsDialogOpen(true);
   };
 
@@ -181,20 +282,18 @@ export default function Consultations() {
       examenPhysique: formData.examenPhysique.trim(),
       conclusion: formData.conclusion.trim(),
       recommandationExamens: recommendationText(),
-      prescription: formData.prescription.trim(),
+      prescription: prescriptionText(formLines),
       followUpDate: formData.followUpDate,
     };
 
     try {
-      if (editingId) {
-        await consultationService.update(editingId, {
+      const saved = editingId
+        ? await consultationService.update(editingId, {
           patientId: formData.patientId,
           doctorId: formData.doctorId,
           ...clinical,
-        });
-        toast({ title: "Consultation modifiée", description: "Les modifications ont été enregistrées." });
-      } else {
-        await consultationService.create({
+        })
+        : await consultationService.create({
           patientId: formData.patientId,
           patientName: "",
           doctorId: formData.doctorId,
@@ -213,8 +312,15 @@ export default function Consultations() {
           prescription: clinical.prescription || undefined,
           followUpDate: clinical.followUpDate || undefined,
         });
-        toast({ title: "Consultation créée", description: "La consultation a été enregistrée avec succès" });
-      }
+      await prescriptionService.saveForConsultation({
+        consultationId: saved.id,
+        ...(formRecommendations.trim() ? { recommendations: formRecommendations.trim() } : {}),
+        items: itemsPayload(formLines),
+      });
+      toast({
+        title: editingId ? "Consultation modifiée" : "Consultation créée",
+        description: "L’ordonnance est enregistrée avec la consultation.",
+      });
       closeForm();
       await loadConsultations();
     } catch (error) {
@@ -428,15 +534,13 @@ export default function Consultations() {
                 </p>
               </div>
 
-              <div className="space-y-2">
-                <Label>Prescription</Label>
-                <Textarea 
-                  value={formData.prescription}
-                  onChange={(e) => handleChange("prescription", e.target.value)}
-                  placeholder="Médicaments prescrits..."
-                  rows={2}
-                />
-              </div>
+              <OrdonnanceEditor
+                lines={formLines}
+                recommendations={formRecommendations}
+                sheet={sheetFor(formData.patientId, formData.doctorId)}
+                onLines={setFormLines}
+                onRecommendations={setFormRecommendations}
+              />
 
               <div className="space-y-2">
                 <Label>Date de suivi</Label>
@@ -513,7 +617,7 @@ export default function Consultations() {
             <Card
               key={consultation.id}
               className="cursor-pointer p-4 transition-colors hover:bg-muted/40"
-              onClick={() => setSelectedConsultation(consultation)}
+              onClick={() => openDetail(consultation)}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-3">
@@ -532,7 +636,7 @@ export default function Consultations() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
-                    <DropdownMenuItem onClick={() => setSelectedConsultation(consultation)}>
+                    <DropdownMenuItem onClick={() => openDetail(consultation)}>
                       Voir les détails
                     </DropdownMenuItem>
                     {canWrite && (
@@ -596,13 +700,22 @@ export default function Consultations() {
                 ["Examen physique", selectedConsultation.examenPhysique],
                 ["Conclusion", selectedConsultation.conclusion],
                 ["Recommandation des examens", selectedConsultation.recommandationExamens],
-                ["Prescription", selectedConsultation.prescription],
               ] as const).filter(([, value]) => value).map(([label, value]) => (
                 <div key={label} className="space-y-1">
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
                   <p className="whitespace-pre-wrap text-sm">{value}</p>
                 </div>
               ))}
+              {(detailLines.some((line) => line.medication.trim()) || detailNotes.trim()) && (
+                <OrdonnanceEditor
+                  readOnly
+                  lines={detailLines}
+                  recommendations={detailNotes}
+                  sheet={sheetFor(selectedConsultation.patientId, selectedConsultation.doctorId, selectedConsultation.date)}
+                  onLines={setDetailLines}
+                  onRecommendations={setDetailNotes}
+                />
+              )}
               {selectedConsultation.allergies && selectedConsultation.allergies.length > 0 && (
                 <div className="space-y-1">
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">Allergies</p>

@@ -6,6 +6,7 @@ import { requireRoles } from '../middlewares/role.middleware.js';
 import { requireTenant } from '../middlewares/tenant.middleware.js';
 import { validate } from '../middlewares/validate.middleware.js';
 import {
+  consultationPrescriptionSchema,
   createPrescriptionSchema,
   dispenseSchema,
   listPrescriptionsSchema,
@@ -21,6 +22,7 @@ const pharmacy = [ROLES.PHARMACIST] as const;
 
 router.use(authenticate, requireTenant);
 router.get('/', requireRoles(...readers), validate(listPrescriptionsSchema), lab.listPrescriptions);
+router.post('/consultation', requireRoles(...prescribers), validate(consultationPrescriptionSchema), lab.saveConsultationPrescription);
 router.post('/', requireRoles(...prescribers), validate(createPrescriptionSchema), lab.createPrescription);
 router.post('/:id/validate', requireRoles(...prescribers), validate(prescriptionParamsSchema), lab.validatePrescription);
 router.patch('/:id/items/:itemId/status', requireRoles(...prescribers), validate(prescriptionItemStatusSchema), lab.updatePrescriptionItemStatus);

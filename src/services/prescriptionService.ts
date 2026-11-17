@@ -6,6 +6,8 @@ export interface PrescriptionItem {
   dosage: string;
   posology: string;
   administrationRoute?: string;
+  form?: string;
+  frequency?: string;
   duration: string;
   treatmentStartDate?: string;
   treatmentEndDate?: string;
@@ -26,6 +28,8 @@ export interface PrescriptionRecord {
   patientName: string;
   prescriberName: string;
   examId?: string;
+  consultationId?: string;
+  recommendations?: string;
   items: PrescriptionItem[];
   status: 'draft' | 'validated';
   pharmacyStatus: 'new' | 'preparing' | 'partial' | 'delivered' | 'closed';
@@ -42,8 +46,16 @@ export const pharmacyStatusLabels: Record<PrescriptionRecord['pharmacyStatus'], 
 };
 
 class PrescriptionService {
-  list(patientId?: string) {
-    return httpClient.get<PrescriptionRecord[]>('/prescriptions', patientId ? { patientId } : undefined);
+  list(query?: { patientId?: string; consultationId?: string }) {
+    return httpClient.get<PrescriptionRecord[]>('/prescriptions', query);
+  }
+
+  saveForConsultation(data: {
+    consultationId: string;
+    recommendations?: string;
+    items: Array<{ medication: string; dosage: string; posology: string; administrationRoute?: string; form?: string; frequency?: string; duration: string; instructions?: string; quantityPrescribed: number }>;
+  }) {
+    return httpClient.post<PrescriptionRecord | { cleared: true }>('/prescriptions/consultation', data);
   }
 
   create(data: {

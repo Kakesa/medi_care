@@ -524,6 +524,7 @@ export async function getPatientDossier(actor: AuthContext, organizationId: stri
         id: row.id,
         prescriberName: row.prescriberName,
         createdAt: row.createdAt,
+        recommendations: row.recommendations || undefined,
         items: row.items.map((item) => ({
           medication: item.medication,
           dosage: item.dosage,

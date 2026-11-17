@@ -20,6 +20,13 @@ export interface OrganizationSummary {
   name: string;
   slug: string;
   status: 'active' | 'suspended';
+  address?: string;
+  phone?: string;
+  email?: string;
+  city?: string;
+  commune?: string;
+  logo?: string;
+  stamp?: string;
 }
 export type PersonnelRole = 'doctor' | 'nurse' | 'secretary' | 'admin' | 'receptionist';
 export type PersonnelStatus = 'active' | 'pending' | 'inactive';

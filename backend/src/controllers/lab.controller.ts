@@ -38,10 +38,16 @@ export const cancelLab = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const listPrescriptions = asyncHandler(async (req: Request, res: Response) => {
-  res.json(await prescriptions.listPrescriptions(auth(req), org(req), req.query.patientId as string | undefined));
+  res.json(await prescriptions.listPrescriptions(auth(req), org(req), {
+    patientId: req.query.patientId as string | undefined,
+    consultationId: req.query.consultationId as string | undefined,
+  }));
 });
 export const createPrescription = asyncHandler(async (req: Request, res: Response) => {
   res.status(201).json(await prescriptions.createPrescription(auth(req), org(req), req.body, req.ip));
+});
+export const saveConsultationPrescription = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await prescriptions.saveConsultationPrescription(auth(req), org(req), req.body, req.ip));
 });
 export const validatePrescription = asyncHandler(async (req: Request, res: Response) => {
   res.json(await prescriptions.validatePrescription(auth(req), org(req), req.params.id, req.ip));

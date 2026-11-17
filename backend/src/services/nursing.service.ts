@@ -68,6 +68,14 @@ function idOf(value: { toString(): string } | null | undefined) {
   return value?.toString();
 }
 
+function remainingTreatmentDays(start: string, end: string, today: string) {
+  const startMs = Date.parse(`${start}T00:00:00.000Z`);
+  const endMs = Date.parse(`${end}T00:00:00.000Z`);
+  const todayMs = Date.parse(`${today}T00:00:00.000Z`);
+  const totalDays = Math.floor((endMs - startMs) / 86_400_000) + 1;
+  return totalDays - (Math.floor((todayMs - startMs) / 86_400_000) + 1);
+}
+
 function stayDurationDays(admissionDate: Date, endDate: Date) {
   const admissionDay = Date.UTC(admissionDate.getUTCFullYear(), admissionDate.getUTCMonth(), admissionDate.getUTCDate());
   const endDay = Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate());
@@ -368,6 +376,145 @@ export async function listNursingPatients(actor: AuthContext, organizationId: st
   const latest = await latestVitalsForPatients(organizationId, patients.map((patient) => patient._id), thresholds);
   const rows = await patientDtos(patients, organizationId, latest);
   return paginated(rows, total, page, limit);
+}
+
+export async function listActiveTreatments(actor: AuthContext, organizationId: string) {
+  const today = facilityToday();
+  const patients = await Patient.find(await patientFilter(actor, organizationId)).select('firstName lastName room');
+  if (!patients.length) return { patients: [] };
+  const ids = patients.map((patient) => patient._id);
+  const [prescriptions, stays] = await Promise.all([
+    Prescription.find({ organizationId, patientId: { $in: ids }, status: 'validated' }).select('patientId prescriberName consultationId items'),
+    BedStay.find({ organizationId, patientId: { $in: ids }, status: 'active' }).select('patientId wardName bedNumber'),
+  ]);
+  const stayByPatient = new Map(stays.map((stay) => [stay.patientId.toString(), stay]));
+  const patientById = new Map(patients.map((patient) => [patient._id.toString(), patient]));
+  const grouped = new Map<string, {
+    patientId: string;
+    firstName: string;
+    lastName: string;
+    room: string;
+    ward: string;
+    treatments: Array<{
+      prescriptionId: string;
+      itemId: string;
+      medication: string;
+      dosage: string;
+      posology: string;
+      prescriberName: string;
+      consultationId: string;
+      treatmentStartDate: string;
+      treatmentEndDate: string;
+      remainingDays: number;
+    }>;
+  }>();
+  for (const prescription of prescriptions) {
+    const patientId = prescription.patientId.toString();
+    const patient = patientById.get(patientId);
+    if (!patient) continue;
+    for (const item of prescription.items) {
+      const status = item.treatmentStatus || 'active';
+      if (status !== 'active' || !item.treatmentStartDate || !item.treatmentEndDate) continue;
+      if (today < item.treatmentStartDate || today > item.treatmentEndDate) continue;
+      const stay = stayByPatient.get(patientId);
+      const row = grouped.get(patientId) ?? {
+        patientId,
+        firstName: patient.firstName,
+        lastName: patient.lastName,
+        room: stay?.bedNumber || patient.room || '',
+        ward: stay?.wardName || '',
+        treatments: [],
+      };
+      row.treatments.push({
+        prescriptionId: prescription.id,
+        itemId: item.id,
+        medication: item.medication,
+        dosage: item.dosage,
+        posology: item.posology,
+        prescriberName: prescription.prescriberName,
+        consultationId: prescription.consultationId?.toString() || '',
+        treatmentStartDate: item.treatmentStartDate,
+        treatmentEndDate: item.treatmentEndDate,
+        remainingDays: Math.max(0, remainingTreatmentDays(item.treatmentStartDate, item.treatmentEndDate, today)),
+      });
+      grouped.set(patientId, row);
+    }
+  }
+  const lines = [...grouped.values()].flatMap((row) => row.treatments.map((line) => ({ ...line, patientId: row.patientId, patientName: `${row.lastName} ${row.firstName}`.trim() })));
+  if (!lines.length) return { rows: [] };
+  const patientIds = [...new Set(lines.map((line) => line.patientId))];
+  const consultationIds = [...new Set(lines.map((line) => line.consultationId).filter((id): id is string => Boolean(id)))];
+  const [linkedConsultations, patientConsultations, exams, administrations] = await Promise.all([
+    consultationIds.length
+      ? Consultation.find({ _id: { $in: consultationIds }, organizationId }).select('conclusion')
+      : [],
+    Consultation.find({ organizationId, patientId: { $in: patientIds }, conclusion: { $nin: [null, ''] } }).sort({ date: -1 }).select('patientId conclusion'),
+    Exam.find({ organizationId, patientId: { $in: patientIds }, type: 'laboratory', results: { $nin: [null, ''] } }).sort({ date: -1 }).select('patientId name results'),
+    MedicationAdministration.find({
+      organizationId,
+      prescriptionItemId: { $in: lines.map((line) => line.itemId) },
+      status: { $in: ['administered_on_time', 'administered_late'] },
+    }).sort({ administeredAt: -1 }).select('prescriptionItemId administeredAt administeredBy'),
+  ]);
+  const conclusionByConsultation = new Map(linkedConsultations.map((row) => [row.id, (row.conclusion || '').trim()]));
+  const conclusionByPatient = new Map<string, string>();
+  for (const row of patientConsultations) {
+    const patientId = row.patientId.toString();
+    if (!conclusionByPatient.has(patientId) && row.conclusion?.trim()) conclusionByPatient.set(patientId, row.conclusion.trim());
+  }
+  const analysisByPatient = new Map<string, string>();
+  for (const exam of exams) {
+    const patientId = exam.patientId.toString();
+    if (analysisByPatient.has(patientId) || !exam.results?.trim()) continue;
+    analysisByPatient.set(patientId, `${exam.name} : ${exam.results.trim()}`);
+  }
+  const careByItem = new Map<string, { at: Date; nurseId: string }>();
+  for (const dose of administrations) {
+    const itemId = dose.prescriptionItemId.toString();
+    if (careByItem.has(itemId) || !dose.administeredAt || !dose.administeredBy) continue;
+    careByItem.set(itemId, { at: dose.administeredAt, nurseId: dose.administeredBy.toString() });
+  }
+  const nurses = await User.find({ _id: { $in: [...new Set([...careByItem.values()].map((care) => care.nurseId))] }, organizationId }).select('firstName lastName');
+  const nurseById = new Map(nurses.map((nurse) => [nurse.id, `${nurse.firstName} ${nurse.lastName}`.trim()]));
+  const byPatient = new Map<string, {
+    patientId: string;
+    at: string;
+    patientName: string;
+    products: string[];
+    conclusion: string;
+    analysis: string;
+    nurseName: string;
+  }>();
+  for (const line of lines) {
+    const care = careByItem.get(line.itemId);
+    const at = care?.at.toISOString() || line.treatmentStartDate;
+    const nurseName = care ? nurseById.get(care.nurseId) || '' : '';
+    const product = [line.medication, line.dosage].filter(Boolean).join(' · ');
+    const current = byPatient.get(line.patientId);
+    if (!current) {
+      const linked = line.consultationId ? conclusionByConsultation.get(line.consultationId) : '';
+      byPatient.set(line.patientId, {
+        patientId: line.patientId,
+        at,
+        patientName: line.patientName,
+        products: [product],
+        conclusion: linked || conclusionByPatient.get(line.patientId) || '',
+        analysis: analysisByPatient.get(line.patientId) || '',
+        nurseName,
+      });
+      continue;
+    }
+    if (!current.products.includes(product)) current.products.push(product);
+    if (at > current.at) current.at = at;
+    if (nurseName && !current.nurseName.split(', ').includes(nurseName)) {
+      current.nurseName = [current.nurseName, nurseName].filter(Boolean).join(', ');
+    }
+    if (!current.conclusion && line.consultationId) {
+      current.conclusion = conclusionByConsultation.get(line.consultationId) || current.conclusion;
+    }
+  }
+  const rows = [...byPatient.values()].sort((left, right) => right.at.localeCompare(left.at) || left.patientName.localeCompare(right.patientName, 'fr'));
+  return { rows };
 }
 
 export async function getNursingDashboard(actor: AuthContext, organizationId: string) {
@@ -1131,14 +1278,27 @@ export async function listTreatmentJournal(organizationId: string, from: string,
   }).sort({ administeredAt: 1 }).limit(2000);
   const patientIds = [...new Set(rows.map((row) => row.patientId.toString()))];
   const nurseIds = [...new Set(rows.map((row) => row.administeredBy?.toString()).filter((id): id is string => Boolean(id)))];
-  const [patients, nurses] = await Promise.all([
+  const [patients, nurses, consultations, exams] = await Promise.all([
     Patient.find({ _id: { $in: patientIds }, organizationId }).select('firstName lastName room'),
     User.find({ _id: { $in: nurseIds }, organizationId }).select('firstName lastName'),
+    patientIds.length ? Consultation.find({ organizationId, patientId: { $in: patientIds }, conclusion: { $nin: [null, ''] } }).sort({ date: -1 }).select('patientId conclusion') : [],
+    patientIds.length ? Exam.find({ organizationId, patientId: { $in: patientIds }, type: 'laboratory', results: { $nin: [null, ''] } }).sort({ date: -1 }).select('patientId name results') : [],
   ]);
   const patientById = new Map(patients.map((patient) => [patient.id, patient]));
   const nurseById = new Map(nurses.map((nurse) => [nurse.id, `${nurse.firstName} ${nurse.lastName}`]));
+  const conclusionByPatient = new Map<string, string>();
+  for (const row of consultations) {
+    const patientId = row.patientId.toString();
+    if (!conclusionByPatient.has(patientId) && row.conclusion?.trim()) conclusionByPatient.set(patientId, row.conclusion.trim());
+  }
+  const analysisByPatient = new Map<string, string>();
+  for (const exam of exams) {
+    const patientId = exam.patientId.toString();
+    if (analysisByPatient.has(patientId) || !exam.results?.trim()) continue;
+    analysisByPatient.set(patientId, `${exam.name} : ${exam.results.trim()}`);
+  }
   const days = new Map<string, Map<string, {
-    patientId: string; firstName: string; lastName: string; room: string;
+    patientId: string; firstName: string; lastName: string; room: string; conclusion: string; analysis: string;
     doses: Array<{ medication: string; route: string; status: string; scheduledAt: Date; administeredAt: Date; nurseName: string }>;
   }>>();
   for (const row of rows) {
@@ -1152,6 +1312,8 @@ export async function listTreatmentJournal(organizationId: string, from: string,
       firstName: patient.firstName,
       lastName: patient.lastName,
       room: patient.room ?? '',
+      conclusion: conclusionByPatient.get(patient.id) || '',
+      analysis: analysisByPatient.get(patient.id) || '',
       doses: [],
     };
     current.doses.push({

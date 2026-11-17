@@ -33,6 +33,7 @@ const readers = [ROLES.HOSPITAL_ADMIN, ROLES.DOCTOR, ROLES.NURSE] as const;
 router.use(authenticate, requireTenant);
 router.get('/dashboard', requireRoles(...readers), nursing.dashboard);
 router.get('/patients', requireRoles(...readers), validate(nursingPatientListSchema), nursing.patients);
+router.get('/active-treatments', requireRoles(...readers), nursing.activeTreatments);
 router.get('/patients/:patientId', requireRoles(...readers), validate(nursingPatientParamsSchema), nursing.patient);
 router.get('/care', requireRoles(...readers), validate(nursingListSchema), nursing.care);
 router.post('/care', requireRoles(ROLES.NURSE), validate(nursingCreateCareSchema), nursing.createCare);

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { nursingService, type TreatmentJournal } from '@/services/nursingService';
+import { LineExcerpt, TextExcerpt } from '@/pages/nursing/TextExcerpt';
 
 type Period = 'day' | 'week' | 'month' | 'custom';
 
@@ -67,7 +68,7 @@ export function ReceivedTreatments() {
     if (!journal || !query) return journal?.days ?? [];
     return journal.days.map((day) => ({
       ...day,
-      patients: day.patients.filter((patient) => `${patient.firstName} ${patient.lastName} ${patient.room}`.toLowerCase().includes(query)),
+      patients: day.patients.filter((patient) => `${patient.firstName} ${patient.lastName} ${patient.room} ${patient.conclusion} ${patient.analysis}`.toLowerCase().includes(query)),
     })).filter((day) => day.patients.length > 0);
   }, [journal, search]);
   const rows = days.flatMap((day) => day.patients.map((patient) => {
@@ -82,6 +83,8 @@ export function ReceivedTreatments() {
         late: dose.status === 'administered_late',
       })),
       nurse: nurses.join(', ') || '—',
+      conclusion: patient.conclusion,
+      analysis: patient.analysis,
     };
   }));
   const shownPatients = new Set(days.flatMap((day) => day.patients.map((patient) => patient.patientId))).size;
@@ -110,22 +113,24 @@ export function ReceivedTreatments() {
       {!error && rows.length === 0 && <p className="rounded-lg border px-3 py-6 text-center text-sm text-muted-foreground">Aucun traitement administré sur cette période.</p>}
       {rows.length > 0 && (
         <div className="overflow-x-auto rounded-lg border">
-          <div className="min-w-[44rem]">
-            <div className="grid grid-cols-[9rem_1.3fr_1.2fr_1fr] bg-muted/60 text-xs font-semibold text-muted-foreground">
+          <div className="min-w-[64rem]">
+            <div className="grid grid-cols-[9rem_1.1fr_1.1fr_1.3fr_1.3fr_1fr] bg-muted/60 text-xs font-semibold text-muted-foreground">
               <div className="border-r px-3 py-2">Date et heure</div>
               <div className="border-r px-3 py-2">Nom</div>
               <div className="border-r px-3 py-2">Produits</div>
+              <div className="border-r px-3 py-2">Conclusion</div>
+              <div className="border-r px-3 py-2">Analyse</div>
               <div className="px-3 py-2">Infirmier</div>
             </div>
             {rows.map((row) => (
-              <div key={row.key} className="grid grid-cols-[9rem_1.3fr_1.2fr_1fr] border-t text-sm">
+              <div key={row.key} className="grid grid-cols-[9rem_1.1fr_1.1fr_1.3fr_1.3fr_1fr] border-t text-sm">
                 <div className="border-r px-3 py-2 whitespace-nowrap">{row.when}</div>
                 <div className="border-r px-3 py-2 font-medium">{row.patient}</div>
                 <div className="border-r px-3 py-2">
-                  {row.products.map((product, index) => (
-                    <p key={`${product.label}-${index}`}>{product.label}{product.late ? <span className="ml-1 text-xs text-amber-700">en retard</span> : null}</p>
-                  ))}
+                  <LineExcerpt lines={row.products.map((product) => `${product.label}${product.late ? ' · en retard' : ''}`)} />
                 </div>
+                <div className="border-r px-3 py-2"><TextExcerpt text={row.conclusion} /></div>
+                <div className="border-r px-3 py-2"><TextExcerpt text={row.analysis} /></div>
                 <div className="px-3 py-2">{row.nurse}</div>
               </div>
             ))}

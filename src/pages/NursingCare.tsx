@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiMessage } from '@/lib/apiError';
 import { useToast } from '@/hooks/use-toast';
+import { ActiveTreatments } from '@/pages/nursing/ActiveTreatments';
 import { SurveillanceSheet } from '@/pages/nursing/SurveillanceSheet';
 import { ReceivedTreatments } from '@/pages/nursing/ReceivedTreatments';
 import { TreatmentSheet } from '@/pages/nursing/TreatmentSheet';
@@ -277,6 +278,7 @@ export default function NursingCarePage() {
   const [thresholds, setThresholds] = useState<NursingThresholds | null>(null);
   const [selectedDate, setSelectedDate] = useState(localDate());
   const [patientSearch, setPatientSearch] = useState('');
+  const [section, setSection] = useState('patients');
   const [isLoading, setIsLoading] = useState(true);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [error, setError] = useState('');
@@ -404,7 +406,7 @@ export default function NursingCarePage() {
     <div className="mx-auto max-w-7xl">
       {error && <Card className="mb-4 border-destructive/50"><CardContent className="flex items-center gap-2 p-4 text-sm text-destructive"><AlertTriangle className="h-4 w-4" />{error}</CardContent></Card>}
 
-      <Tabs defaultValue="patients" className="space-y-4">
+      <Tabs value={section} onValueChange={setSection} className="space-y-4">
         <div className="max-md:contents md:sticky md:top-16 md:z-20 md:-mx-6 md:border-b md:border-border md:bg-background/95 md:px-6 md:backdrop-blur">
         <div className="-mx-4 border-b border-border bg-background/95 px-4 py-2 md:mx-0 md:border-0 md:bg-transparent md:px-0">
           <div className="flex items-center justify-between gap-2">
@@ -425,6 +427,7 @@ export default function NursingCarePage() {
           <TabsList className="h-auto w-full justify-start">
             <TabsTrigger value="patients">Patients et dossier</TabsTrigger>
             <TabsTrigger value="treatment">Feuille de traitement</TabsTrigger>
+            <TabsTrigger value="ongoing">Traitements en cours</TabsTrigger>
             {canConfigure && <TabsTrigger value="received">Traitements reçus</TabsTrigger>}
             <TabsTrigger value="surveillance">Feuille de surveillance</TabsTrigger>
             <TabsTrigger value="schedule">Planning</TabsTrigger>
@@ -570,6 +573,10 @@ export default function NursingCarePage() {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        <TabsContent value="ongoing" className="space-y-4">
+          <ActiveTreatments onOpen={(patientId) => { setSelectedId(patientId); setSection('treatment'); }} />
         </TabsContent>
 
         <TabsContent value="treatment" className="space-y-4">

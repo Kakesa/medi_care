@@ -15,6 +15,10 @@ class NursingService {
     });
   }
 
+  getActiveTreatments() {
+    return httpClient.get<ActiveTreatments>(`${this.basePath}/active-treatments`);
+  }
+
   getPatient(patientId: string) {
     return httpClient.get<NursingPatientDetail>(`${this.basePath}/patients/${patientId}`);
   }
@@ -148,6 +152,8 @@ export type TreatmentJournal = {
       firstName: string;
       lastName: string;
       room: string;
+      conclusion: string;
+      analysis: string;
       doses: Array<{
         medication: string;
         route: string;
@@ -159,5 +165,19 @@ export type TreatmentJournal = {
     }>;
   }>;
 };
+
+export interface ActiveTreatmentRow {
+  patientId: string;
+  at: string;
+  patientName: string;
+  products: string[];
+  conclusion: string;
+  analysis: string;
+  nurseName: string;
+}
+
+export interface ActiveTreatments {
+  rows: ActiveTreatmentRow[];
+}
 
 export const nursingService = new NursingService();

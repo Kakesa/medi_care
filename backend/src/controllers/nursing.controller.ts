@@ -20,6 +20,11 @@ export const patients = asyncHandler(async (req: Request, res: Response) => {
   res.json(await nursing.listNursingPatients(actor, organizationId, req.query as unknown as { page?: number; limit?: number; search?: string }));
 });
 
+export const activeTreatments = asyncHandler(async (req: Request, res: Response) => {
+  const { actor, organizationId } = context(req);
+  res.json(await nursing.listActiveTreatments(actor, organizationId));
+});
+
 export const patient = asyncHandler(async (req: Request, res: Response) => {
   const { actor, organizationId } = context(req);
   res.json(await nursing.getNursingPatient(actor, organizationId, req.params.patientId, req.ip));

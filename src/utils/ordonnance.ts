@@ -34,11 +34,10 @@ export type OrdonnanceSheet = {
   recommendations: string;
 };
 
-export const formOptions = ["comp", "gélule", "sirop", "inj.", "pommade", "sachet", "gouttes"] as const;
 export const periodOptions = ["jour", "matin", "soir", "8 h", "12 h"] as const;
 
 export function blankLine(): OrdonnanceLine {
-  return { medication: "", dosage: "", form: "comp", times: "2", period: "jour", duration: "", route: "", quantity: "", instructions: "" };
+  return { medication: "", dosage: "", form: "", times: "", period: "jour", duration: "", route: "", quantity: "", instructions: "" };
 }
 
 export function rhythmOf(line: OrdonnanceLine) {
@@ -47,6 +46,9 @@ export function rhythmOf(line: OrdonnanceLine) {
 }
 
 export function sentenceOf(line: OrdonnanceLine) {
+  if (!line.times.trim() && !line.form.trim() && !line.duration.trim()) {
+    return line.dosage.trim() ? `${line.dosage.trim()}/j` : "";
+  }
   const rhythm = rhythmOf(line);
   const head = [line.dosage.trim(), rhythm ? `par ${rhythm}` : ""].filter(Boolean).join(" ");
   const duration = line.duration.trim() ? `pendant ${line.duration.trim()}` : "";
@@ -78,31 +80,19 @@ export function linesFromText(text?: string): OrdonnanceLine[] {
   const lines = chunks.map((chunk) => {
     const [first, ...rest] = chunk.split("\n");
     const medication = first.replace(/^R\/\s*/, "").trim();
-    const sentence = rest.join(" ").replace(/^S\/\s*/, "").trim();
-    const match = sentence.match(/^(.*?)(?:\s+par\s+(\d+)\s+(\S+)\s+\/\s+([^ ]+))?(?:\s+pendant\s+(.+))?$/);
-    return {
-      ...blankLine(),
-      medication,
-      dosage: match?.[1]?.trim() || "",
-      times: match?.[2] || "",
-      form: match?.[3] || "comp",
-      period: match?.[4] || "jour",
-      duration: match?.[5]?.trim() || "",
-    };
+    const sentence = rest.join(" ").replace(/^S\/\s*/, "").trim().replace(/\/j$/, "");
+    return { ...blankLine(), medication, dosage: sentence };
   });
   return lines.length ? lines : [blankLine()];
 }
 
 export function lineFromItem(item: { medication: string; dosage: string; posology: string; form?: string; frequency?: string; duration: string; administrationRoute?: string; quantityPrescribed?: number; instructions?: string }): OrdonnanceLine {
-  const frequency = item.frequency || (item.posology !== "Selon prescription" ? item.posology : "");
-  const match = frequency.match(/^(\d+)\s+(\S+)\s+\/\s+(.+)$/);
+  const fromDosage = item.dosage && item.dosage !== "Selon prescription" ? item.dosage.replace(/\/j$/, "") : "";
+  const fromPosology = item.posology && item.posology !== "Selon prescription" ? item.posology.replace(/\/j$/, "") : "";
   return {
+    ...blankLine(),
     medication: item.medication,
-    dosage: item.dosage === "Selon prescription" ? "" : item.dosage,
-    form: item.form || match?.[2] || "comp",
-    times: match?.[1] || "",
-    period: match?.[3] || "jour",
-    duration: item.duration === "Selon prescription" ? "" : item.duration,
+    dosage: fromDosage || fromPosology,
     route: item.administrationRoute || "",
     quantity: item.quantityPrescribed ? String(item.quantityPrescribed) : "",
     instructions: item.instructions || "",

@@ -89,7 +89,7 @@ function itemsPayload(lines: OrdonnanceLine[]) {
     return {
       medication: line.medication.trim(),
       dosage: line.dosage.trim() || "Selon prescription",
-      posology: rhythm || "Selon prescription",
+      posology: line.dosage.trim() ? `${line.dosage.trim()}/j` : rhythm || "Selon prescription",
       form: line.form,
       ...(rhythm ? { frequency: rhythm } : {}),
       duration: line.duration.trim() || "Selon prescription",

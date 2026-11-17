@@ -394,7 +394,7 @@ export default function PatientDossier() {
                         return (
                           <div key={`${prescription.id}-${index}`}>
                             <p><span className="font-serif font-bold">R/</span> {item.medication}</p>
-                            <p className="pl-5"><span className="font-serif font-bold">S/</span> {[item.dosage, item.posology].filter((part) => part && part !== "Selon prescription").join(" par ") || "—"}{item.duration && item.duration !== "Selon prescription" ? ` pendant ${item.duration}` : ""}</p>
+                            <p className="pl-5"><span className="font-serif font-bold">S/</span> {(item.posology && item.posology !== "Selon prescription" ? item.posology : item.dosage) || "—"}</p>
                             {line?.instructions ? <p className="pl-5 text-xs text-muted-foreground">{line.instructions}</p> : null}
                           </div>
                         );

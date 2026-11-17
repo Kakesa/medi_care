@@ -427,7 +427,7 @@ export default function NursingCarePage() {
           <TabsList className="h-auto w-full justify-start">
             <TabsTrigger value="patients">Patients et dossier</TabsTrigger>
             <TabsTrigger value="treatment">Feuille de traitement</TabsTrigger>
-            <TabsTrigger value="ongoing">Traitements en cours</TabsTrigger>
+            {!canConfigure && <TabsTrigger value="ongoing">Traitements en cours</TabsTrigger>}
             {canConfigure && <TabsTrigger value="received">Traitements reçus</TabsTrigger>}
             <TabsTrigger value="surveillance">Feuille de surveillance</TabsTrigger>
             <TabsTrigger value="schedule">Planning</TabsTrigger>
@@ -575,9 +575,11 @@ export default function NursingCarePage() {
           )}
         </TabsContent>
 
-        <TabsContent value="ongoing" className="space-y-4">
-          <ActiveTreatments onOpen={(patientId) => { setSelectedId(patientId); setSection('treatment'); }} />
-        </TabsContent>
+        {!canConfigure && (
+          <TabsContent value="ongoing" className="space-y-4">
+            <ActiveTreatments onOpen={(patientId) => { setSelectedId(patientId); setSection('treatment'); }} />
+          </TabsContent>
+        )}
 
         <TabsContent value="treatment" className="space-y-4">
           <TreatmentSheet

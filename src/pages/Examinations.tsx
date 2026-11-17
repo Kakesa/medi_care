@@ -62,13 +62,49 @@ import type { Consultation, Exam, Patient, Personnel } from "@/types";
 import { apiMessage } from "@/lib/apiError";
 import { toast } from "sonner";
 
+const pageSize = 2;
+
+function PageSlice<T>({ items, resetKey, children }: { items: T[]; resetKey: string; children: (visible: T[]) => JSX.Element }) {
+  const [page, setPage] = useState(1);
+  const [key, setKey] = useState(resetKey);
+  if (key !== resetKey) {
+    setKey(resetKey);
+    setPage(1);
+  }
+  const pageCount = Math.max(1, Math.ceil(items.length / pageSize));
+  const current = Math.min(page, pageCount);
+  const start = (current - 1) * pageSize;
+  const visible = items.slice(start, start + pageSize);
+  return (
+    <div className="space-y-3">
+      {children(visible)}
+      {pageCount > 1 && (
+        <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
+          <p className="text-sm text-muted-foreground">
+            {start + 1} à {Math.min(start + pageSize, items.length)} sur {items.length}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="outline" size="sm" disabled={current === 1} onClick={() => setPage(current - 1)}>Précédent</Button>
+            <span className="text-sm text-muted-foreground">{current} / {pageCount}</span>
+            <Button type="button" variant="outline" size="sm" disabled={current === pageCount} onClick={() => setPage(current + 1)}>Suivant</Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CatalogGrid({ items, currency, empty }: { items: ExamCatalogItem[]; currency: string; empty?: boolean }) {
   if (items.length === 0) {
     return empty ? <p className="text-sm text-muted-foreground">Aucun examen dans cette catégorie.</p> : null;
   }
   return (
+    <section className="space-y-3">
+      <h2 className="text-lg font-semibold">Examens du catalogue</h2>
+      <PageSlice items={items} resetKey={items.map((item) => item.id).join("|")}>
+        {(visible) => (
     <div className="grid gap-4 md:grid-cols-2">
-      {items.map((item) => (
+      {visible.map((item) => (
         <Card key={`${item.type}-${item.id}`} className="card-elevated">
           <CardContent className="pt-6">
             <div className="flex items-start justify-between gap-3">
@@ -89,6 +125,9 @@ function CatalogGrid({ items, currency, empty }: { items: ExamCatalogItem[]; cur
         </Card>
       ))}
     </div>
+        )}
+      </PageSlice>
+    </section>
   );
 }
 
@@ -856,63 +895,84 @@ export default function Examinations() {
           {seesPrices && <TabsTrigger value="tarifs">Tarifs</TabsTrigger>}
         </TabsList>
 
-        <TabsContent value="all" className="space-y-4">
-          <CatalogGrid items={visibleCatalog} currency={orgCurrency} empty={filteredExams.length === 0} />
+        <TabsContent value="all" className="space-y-6">
           {filteredExams.length > 0 && (
-            <>
+            <section className="space-y-3">
               <h2 className="text-lg font-semibold">Examens des patients</h2>
-              <div className="grid gap-4 md:grid-cols-2">
-                {filteredExams.map(exam => <ExamCard key={exam.id} exam={exam} />)}
-              </div>
-            </>
+              <PageSlice items={filteredExams} resetKey={`all|${searchTerm}|${statusFilter}|${filteredExams.map((exam) => exam.id).join("|")}`}>
+                {(visible) => (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {visible.map((exam) => <ExamCard key={exam.id} exam={exam} />)}
+                  </div>
+                )}
+              </PageSlice>
+            </section>
           )}
+          <CatalogGrid items={visibleCatalog} currency={orgCurrency} empty={filteredExams.length === 0} />
         </TabsContent>
 
-        <TabsContent value="laboratory" className="space-y-4">
-          <CatalogGrid items={laboratoryCatalog} currency={orgCurrency} empty={laboratoryExams.length === 0} />
+        <TabsContent value="laboratory" className="space-y-6">
           {laboratoryExams.length > 0 && (
-            <>
+            <section className="space-y-3">
               <h2 className="text-lg font-semibold">Examens des patients</h2>
-              <div className="grid gap-4 md:grid-cols-2">
-                {laboratoryExams.map(exam => <ExamCard key={exam.id} exam={exam} />)}
-              </div>
-            </>
+              <PageSlice items={laboratoryExams} resetKey={`lab|${searchTerm}|${statusFilter}|${laboratoryExams.map((exam) => exam.id).join("|")}`}>
+                {(visible) => (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {visible.map((exam) => <ExamCard key={exam.id} exam={exam} />)}
+                  </div>
+                )}
+              </PageSlice>
+            </section>
           )}
+          <CatalogGrid items={laboratoryCatalog} currency={orgCurrency} empty={laboratoryExams.length === 0} />
         </TabsContent>
 
-        <TabsContent value="imaging" className="space-y-4">
-          <CatalogGrid items={imagingCatalog} currency={orgCurrency} empty={imagingExams.length === 0} />
+        <TabsContent value="imaging" className="space-y-6">
           {imagingExams.length > 0 && (
-            <>
+            <section className="space-y-3">
               <h2 className="text-lg font-semibold">Examens des patients</h2>
-              <div className="grid gap-4 md:grid-cols-2">
-                {imagingExams.map(exam => <ExamCard key={exam.id} exam={exam} />)}
-              </div>
-            </>
+              <PageSlice items={imagingExams} resetKey={`img|${searchTerm}|${statusFilter}|${imagingExams.map((exam) => exam.id).join("|")}`}>
+                {(visible) => (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {visible.map((exam) => <ExamCard key={exam.id} exam={exam} />)}
+                  </div>
+                )}
+              </PageSlice>
+            </section>
           )}
+          <CatalogGrid items={imagingCatalog} currency={orgCurrency} empty={imagingExams.length === 0} />
         </TabsContent>
 
         <TabsContent value="recommandes" className="space-y-4">
+          <h2 className="text-lg font-semibold">Examens recommandés</h2>
           {recommendedGroups.length === 0 ? (
             <p className="text-sm text-muted-foreground">Aucun examen recommandé pour le moment.</p>
-          ) : recommendedGroups.map((group) => (
-            <Card key={group.patientId}>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">{group.patientName}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {group.lines.map((line) => (
-                  <div key={`${line.name}-${line.date}`} className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                    <div>
-                      <p className="font-medium">{line.name}</p>
-                      <p className="text-xs text-muted-foreground">{line.doctorName} · {line.date}</p>
-                    </div>
-                    <Badge variant={line.status === "Recommandé" ? "secondary" : "outline"}>{line.status}</Badge>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          ))}
+          ) : (
+            <PageSlice items={recommendedGroups} resetKey={`reco|${searchTerm}|${recommendedGroups.map((group) => group.patientId).join("|")}`}>
+              {(visible) => (
+                <div className="space-y-4">
+                  {visible.map((group) => (
+                    <Card key={group.patientId}>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base">{group.patientName}</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        {group.lines.map((line) => (
+                          <div key={`${line.name}-${line.date}`} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                            <div>
+                              <p className="font-medium">{line.name}</p>
+                              <p className="text-xs text-muted-foreground">{line.doctorName} · {line.date}</p>
+                            </div>
+                            <Badge variant={line.status === "Recommandé" ? "secondary" : "outline"}>{line.status}</Badge>
+                          </div>
+                        ))}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </PageSlice>
+          )}
         </TabsContent>
 
         <TabsContent value="somme" className="space-y-4">

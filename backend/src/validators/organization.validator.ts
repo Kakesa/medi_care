@@ -78,8 +78,10 @@ const hospitalApplicationFields = {
   }).strict(),
 };
 
+const website = z.string().max(0, 'Requête refusée').optional();
+
 export const hospitalApplicationSchema = z.object({
-  body: z.object(hospitalApplicationFields).strict(),
+  body: z.object({ ...hospitalApplicationFields, website }).strict(),
   query: z.object({}).strict().optional().default({}),
   params: z.object({}).strict().optional().default({}),
 });
@@ -89,6 +91,7 @@ export const hospitalResubmitSchema = z.object({
     email: z.string().email().max(160),
     password: z.string().min(8).max(128),
     ...hospitalApplicationFields,
+    website,
   }).strict(),
   query: z.object({}).strict().optional().default({}),
   params: z.object({}).strict().optional().default({}),

@@ -599,8 +599,6 @@ addNotification({
 
 ```env
 VITE_API_URL=http://localhost:3001/api
-VITE_SUPABASE_URL=<your-supabase-url>
-VITE_SUPABASE_PUBLISHABLE_KEY=<your-supabase-key>
 ```
 
 ### Scripts disponibles

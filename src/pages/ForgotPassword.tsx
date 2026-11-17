@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { authService } from "@/services/authService";
 import { apiMessage } from "@/lib/apiError";
+import { HoneypotField } from "@/components/forms/HoneypotField";
+import { isEmail, spamTrapFilled } from "@/lib/formChecks";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -16,6 +18,11 @@ export default function ForgotPassword() {
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (spamTrapFilled(event.currentTarget)) return;
+    if (!isEmail(email)) {
+      setError("Indiquez une adresse e-mail complète.");
+      return;
+    }
     setSending(true);
     setError("");
     try {
@@ -46,12 +53,13 @@ export default function ForgotPassword() {
             <p className="text-sm">{sent}</p>
           ) : (
             <form onSubmit={submit} className="space-y-4">
+              <HoneypotField />
               <div className="space-y-2">
                 <Label htmlFor="email" className="flex items-center gap-2">
                   <Mail className="h-4 w-4 text-primary" />
                   Email
                 </Label>
-                <Input id="email" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="votre@email.fr" />
+                <Input id="email" type="email" required maxLength={160} value={email} onChange={(event) => setEmail(event.target.value)} placeholder="votre@email.fr" />
               </div>
               {error && <p className="text-sm text-destructive">{error}</p>}
               <Button type="submit" variant="hero" className="w-full" disabled={sending}>
@@ -61,6 +69,8 @@ export default function ForgotPassword() {
           )}
           <div className="mt-6 text-center text-sm">
             <Link to="/login" className="font-medium text-primary hover:underline">Retour à la connexion</Link>
+            <span className="mx-2 text-muted-foreground">·</span>
+            <Link to="/confidentialite" className="text-muted-foreground hover:text-primary hover:underline">Confidentialité</Link>
           </div>
         </Card>
       </div>

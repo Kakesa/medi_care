@@ -47,15 +47,15 @@ export function ForcePasswordChange() {
         <form onSubmit={submit} className="mt-6 space-y-4">
           <div className="space-y-2">
             <Label htmlFor="currentPassword">Mot de passe reçu par e-mail</Label>
-            <Input id="currentPassword" type="password" required value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} />
+            <Input id="currentPassword" type="password" required maxLength={128} value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="newPassword">Nouveau mot de passe</Label>
-            <Input id="newPassword" type="password" required value={newPassword} onChange={(event) => setNewPassword(event.target.value)} />
+            <Input id="newPassword" type="password" required minLength={8} maxLength={128} value={newPassword} onChange={(event) => setNewPassword(event.target.value)} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="confirmPassword">Confirmer le nouveau mot de passe</Label>
-            <Input id="confirmPassword" type="password" required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} />
+            <Input id="confirmPassword" type="password" required minLength={8} maxLength={128} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} />
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
           <Button type="submit" className="w-full" disabled={isSaving}>

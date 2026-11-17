@@ -14,6 +14,8 @@ import {
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { httpClient } from "@/services/httpClient";
+import { HoneypotField } from "@/components/forms/HoneypotField";
+import { isEmail, spamTrapFilled, todayStamp } from "@/lib/formChecks";
 
 interface PublicHospital {
   name: string;
@@ -88,11 +90,46 @@ export function AppointmentRequestForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (spamTrapFilled(e.currentTarget)) return;
+    const today = todayStamp();
+    if (formData.firstName.trim().length < 2 || formData.lastName.trim().length < 2) {
+      toast({ variant: "destructive", title: "Identité requise", description: "Indiquez votre prénom et votre nom." });
+      return;
+    }
+    if (!isEmail(formData.email)) {
+      toast({ variant: "destructive", title: "Email invalide", description: "Indiquez une adresse e-mail complète." });
+      return;
+    }
+    if (formData.phone.trim().length < 6) {
+      toast({ variant: "destructive", title: "Téléphone invalide", description: "Le numéro doit contenir au moins 6 caractères." });
+      return;
+    }
+    if (!formData.dateOfBirth || formData.dateOfBirth >= today) {
+      toast({ variant: "destructive", title: "Date de naissance invalide", description: "La date doit être antérieure à aujourd'hui." });
+      return;
+    }
+    if (!formData.preferredDate || formData.preferredDate < today) {
+      toast({ variant: "destructive", title: "Date de rendez-vous invalide", description: "Choisissez aujourd'hui ou une date à venir." });
+      return;
+    }
+    if (!formData.preferredTime || !formData.reason) {
+      toast({ variant: "destructive", title: "Rendez-vous incomplet", description: "Choisissez une heure et un motif." });
+      return;
+    }
     if (!formData.organizationSlug || !formData.doctorId) {
       toast({
         variant: "destructive",
         title: "Médecin requis",
         description: "Choisissez un établissement et un médecin enregistré.",
+      });
+      return;
+    }
+    const lastSent = Number(sessionStorage.getItem("rdv-sent-at") || 0);
+    if (Date.now() - lastSent < 60_000) {
+      toast({
+        variant: "destructive",
+        title: "Demande déjà envoyée",
+        description: "Patientez une minute avant une nouvelle demande.",
       });
       return;
     }
@@ -102,6 +139,7 @@ export function AppointmentRequestForm() {
 
     try {
       await new Promise(resolve => setTimeout(resolve, 1000));
+      sessionStorage.setItem("rdv-sent-at", String(Date.now()));
 
       toast({
         title: "Demande envoyée !",
@@ -135,6 +173,7 @@ export function AppointmentRequestForm() {
   return (
     <Card className="p-8 bg-card/80 backdrop-blur-sm border-border/50">
       <form onSubmit={handleSubmit} className="space-y-6">
+        <HoneypotField />
         {/* Personal info */}
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
@@ -302,6 +341,7 @@ export function AppointmentRequestForm() {
             id="notes"
             value={formData.notes}
             onChange={(e) => handleChange("notes", e.target.value)}
+            maxLength={2000}
             placeholder="Décrivez brièvement vos symptômes ou le motif de votre visite..."
             rows={4}
           />

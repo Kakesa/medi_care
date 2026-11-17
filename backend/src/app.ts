@@ -10,7 +10,20 @@ export function createApp() {
   const app = express();
 
   app.disable('x-powered-by');
-  app.use(helmet());
+  if (env.NODE_ENV === 'production') {
+    app.set('trust proxy', 1);
+    app.use((req, res, next) => {
+      if (req.secure) return next();
+      const host = req.headers.host;
+      if (!host) return next();
+      res.redirect(301, `https://${host}${req.originalUrl}`);
+    });
+  }
+  app.use(helmet({
+    hsts: env.NODE_ENV === 'production'
+      ? { maxAge: 15_552_000, includeSubDomains: true }
+      : false,
+  }));
   app.use(cors({ origin: env.CORS_ORIGIN, credentials: false }));
   app.use(express.json({ limit: '8mb' }));
 

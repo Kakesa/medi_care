@@ -362,6 +362,7 @@ export default function Index() {
             <a href="#galerie" className="hover:text-background">Établissement</a>
             <a href="#rdv-form" className="hover:text-background">Demander un rendez-vous</a>
             <Link to="/login" className="hover:text-background">Connexion</Link>
+            <Link to="/confidentialite" className="hover:text-background">Confidentialité</Link>
           </div>
           <p className="text-sm text-background/75">
             © 2024 MediCare SIH. Système conforme RGPD et normes HL7.

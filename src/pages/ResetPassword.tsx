@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { authService } from "@/services/authService";
 import { apiMessage } from "@/lib/apiError";
+import { HoneypotField } from "@/components/forms/HoneypotField";
+import { spamTrapFilled } from "@/lib/formChecks";
 
 export default function ResetPassword() {
   const [params] = useSearchParams();
@@ -19,6 +21,11 @@ export default function ResetPassword() {
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (spamTrapFilled(event.currentTarget)) return;
+    if (token.trim().length < 20) {
+      setError("Le lien de réinitialisation est incomplet. Redemandez un e-mail.");
+      return;
+    }
     if (password.length < 8) {
       setError("Le mot de passe doit contenir au moins 8 caractères.");
       return;
@@ -58,16 +65,17 @@ export default function ResetPassword() {
             <p className="text-sm">{done}</p>
           ) : (
             <form onSubmit={submit} className="space-y-4">
+              <HoneypotField />
               <div className="space-y-2">
                 <Label htmlFor="password" className="flex items-center gap-2">
                   <Lock className="h-4 w-4 text-primary" />
                   Nouveau mot de passe
                 </Label>
-                <Input id="password" type="password" required value={password} onChange={(event) => setPassword(event.target.value)} />
+                <Input id="password" type="password" required minLength={8} maxLength={128} value={password} onChange={(event) => setPassword(event.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="confirm">Confirmer le mot de passe</Label>
-                <Input id="confirm" type="password" required value={confirm} onChange={(event) => setConfirm(event.target.value)} />
+                <Input id="confirm" type="password" required minLength={8} maxLength={128} value={confirm} onChange={(event) => setConfirm(event.target.value)} />
               </div>
               {error && <p className="text-sm text-destructive">{error}</p>}
               <Button type="submit" variant="hero" className="w-full" disabled={saving}>
@@ -77,6 +85,8 @@ export default function ResetPassword() {
           )}
           <div className="mt-6 text-center text-sm">
             <Link to="/login" className="font-medium text-primary hover:underline">Retour à la connexion</Link>
+            <span className="mx-2 text-muted-foreground">·</span>
+            <Link to="/confidentialite" className="text-muted-foreground hover:text-primary hover:underline">Confidentialité</Link>
           </div>
         </Card>
       </div>

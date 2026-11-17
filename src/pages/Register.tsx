@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { HoneypotField } from "@/components/forms/HoneypotField";
+import { isEmail, isSlug, spamTrapFilled } from "@/lib/formChecks";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -32,7 +34,24 @@ export default function Register() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    if (spamTrapFilled(e.currentTarget)) return;
+
+    if (!formData.firstName.trim() || !formData.lastName.trim()) {
+      toast({ variant: "destructive", title: "Identité requise", description: "Indiquez votre prénom et votre nom." });
+      return;
+    }
+    if (!isEmail(formData.email)) {
+      toast({ variant: "destructive", title: "Email invalide", description: "Indiquez une adresse e-mail complète." });
+      return;
+    }
+    if (formData.phone.trim() && formData.phone.trim().length < 6) {
+      toast({ variant: "destructive", title: "Téléphone invalide", description: "Le numéro doit contenir au moins 6 caractères." });
+      return;
+    }
+    if (!isSlug(formData.organizationSlug) || formData.organizationSlug.trim().length < 3) {
+      toast({ variant: "destructive", title: "Établissement invalide", description: "Le code utilise des minuscules, des chiffres et des tirets. Exemple : clinique-nord." });
+      return;
+    }
     if (formData.password !== formData.confirmPassword) {
       toast({
         variant: "destructive",
@@ -104,6 +123,7 @@ export default function Register() {
         {/* Register form */}
         <Card className="p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
+            <HoneypotField />
             <div className="space-y-2">
               <Label htmlFor="accountType">Compte</Label>
               <select
@@ -127,6 +147,7 @@ export default function Register() {
                 <Input
                   id="firstName"
                   required
+                  maxLength={80}
                   value={formData.firstName}
                   onChange={(e) => handleChange("firstName", e.target.value)}
                   placeholder="Jean"
@@ -137,6 +158,7 @@ export default function Register() {
                 <Input
                   id="lastName"
                   required
+                  maxLength={80}
                   value={formData.lastName}
                   onChange={(e) => handleChange("lastName", e.target.value)}
                   placeholder="Dupont"
@@ -153,6 +175,7 @@ export default function Register() {
                 id="email"
                 type="email"
                 required
+                maxLength={160}
                 value={formData.email}
                 onChange={(e) => handleChange("email", e.target.value)}
                 placeholder="votre@email.fr"
@@ -167,6 +190,7 @@ export default function Register() {
               <Input
                 id="phone"
                 type="tel"
+                maxLength={30}
                 value={formData.phone}
                 onChange={(e) => handleChange("phone", e.target.value)}
                 placeholder="06 XX XX XX XX"
@@ -178,6 +202,7 @@ export default function Register() {
               <Input
                 id="organizationSlug"
                 required
+                maxLength={80}
                 value={formData.organizationSlug}
                 onChange={(e) => handleChange("organizationSlug", e.target.value)}
                 placeholder="clinique-nord"
@@ -197,6 +222,8 @@ export default function Register() {
                   id="password"
                   type={showPassword ? "text" : "password"}
                   required
+                  minLength={8}
+                  maxLength={128}
                   value={formData.password}
                   onChange={(e) => handleChange("password", e.target.value)}
                   placeholder="••••••••"
@@ -217,6 +244,8 @@ export default function Register() {
                 id="confirmPassword"
                 type="password"
                 required
+                minLength={8}
+                maxLength={128}
                 value={formData.confirmPassword}
                 onChange={(e) => handleChange("confirmPassword", e.target.value)}
                 placeholder="••••••••"
@@ -237,6 +266,10 @@ export default function Register() {
             <span className="text-muted-foreground">Déjà un compte ?</span>{" "}
             <Link to="/login" className="text-primary hover:underline font-medium">
               Se connecter
+            </Link>
+            <span className="mx-2 text-muted-foreground">·</span>
+            <Link to="/confidentialite" className="text-muted-foreground hover:text-primary hover:underline">
+              Confidentialité
             </Link>
           </div>
         </Card>

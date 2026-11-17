@@ -30,6 +30,7 @@ import Register from "./pages/Register";
 import Hospitals from "./pages/Hospitals";
 import HospitalDetail from "./pages/HospitalDetail";
 import HospitalSignup from "./pages/HospitalSignup";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 import PatientAppointments from "./pages/patient/PatientAppointments";
 import PatientExams from "./pages/patient/PatientExams";
 import PatientInvoices from "./pages/patient/PatientInvoices";
@@ -75,6 +76,7 @@ const App = () => (
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/register" element={<Register />} />
               <Route path="/inscription-centre" element={<HospitalSignup />} />
+              <Route path="/confidentialite" element={<PrivacyPolicy />} />
               <Route path="/dashboard" element={<DashboardLayout />}>
                 <Route index element={<Dashboard />} />
                 <Route path="hospitals" element={<RequireRole roles={["SUPERADMIN"]}><Hospitals /></RequireRole>} />

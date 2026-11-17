@@ -1,11 +1,13 @@
 import { z } from 'zod';
 
 const passwordSchema = z.string().min(8, 'Le mot de passe doit contenir au moins 8 caractères').max(128);
+const website = z.string().max(0, 'Requête refusée').optional();
 
 export const loginSchema = z.object({
   body: z.object({
     email: z.string().email('Email invalide').max(160),
     password: z.string().min(1, 'Mot de passe requis').max(128),
+    website,
   }).strict(),
   query: z.object({}).strict().optional().default({}),
   params: z.object({}).strict().optional().default({}),
@@ -19,6 +21,7 @@ export const registerSchema = z.object({
     email: z.string().email('Email invalide').max(160),
     phone: z.string().max(30).optional(),
     password: passwordSchema,
+    website,
   }).strict(),
   query: z.object({}).strict().optional().default({}),
   params: z.object({}).strict().optional().default({}),
@@ -38,6 +41,7 @@ export const updateProfileSchema = z.object({
 export const forgotPasswordSchema = z.object({
   body: z.object({
     email: z.string().email('Email invalide').max(160),
+    website,
   }).strict(),
   query: z.object({}).strict().optional().default({}),
   params: z.object({}).strict().optional().default({}),
@@ -47,6 +51,7 @@ export const resetPasswordSchema = z.object({
   body: z.object({
     token: z.string().min(20).max(200),
     newPassword: passwordSchema,
+    website,
   }).strict(),
   query: z.object({}).strict().optional().default({}),
   params: z.object({}).strict().optional().default({}),

@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { httpClient } from "@/services/httpClient";
 import { apiMessage } from "@/lib/apiError";
+import { HoneypotField } from "@/components/forms/HoneypotField";
+import { isEmail, spamTrapFilled } from "@/lib/formChecks";
 
 const steps = [
   { short: "Admin", label: "Administrateur" },
@@ -113,6 +115,18 @@ export default function HospitalSignup() {
         setError(`${gap} est obligatoire`);
         return;
       }
+      if (!isEmail(draft.email)) {
+        setError("L'email de l'administrateur est invalide");
+        return;
+      }
+      if (draft.phone.trim().length < 6) {
+        setError("Le téléphone doit contenir au moins 6 caractères");
+        return;
+      }
+      if (draft.password.length < 8 || draft.password.length > 128) {
+        setError("Le mot de passe doit contenir entre 8 et 128 caractères");
+        return;
+      }
       if (draft.password !== draft.confirmPassword) {
         setError("La confirmation du mot de passe ne correspond pas");
         return;
@@ -128,6 +142,14 @@ export default function HospitalSignup() {
         setError(`${gap} est obligatoire`);
         return;
       }
+      if (!isEmail(draft.centerEmail)) {
+        setError("L'email professionnel est invalide");
+        return;
+      }
+      if (draft.centerPhone.trim().length < 6) {
+        setError("Le téléphone professionnel doit contenir au moins 6 caractères");
+        return;
+      }
     }
     if (step === 2 && !draft.logo) {
       setError("Le logo est obligatoire");
@@ -136,11 +158,13 @@ export default function HospitalSignup() {
     setStep((current) => Math.min(current + 1, steps.length - 1));
   };
 
-  const submit = async (event: FormEvent) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (spamTrapFilled(event.currentTarget)) return;
     setSending(true);
     setError("");
     const body = {
+      website: "",
       admin: {
         firstName: draft.firstName, lastName: draft.lastName, postName: draft.postName, email: draft.email,
         phone: draft.phone, jobTitle: draft.jobTitle, password: draft.password, confirmPassword: draft.confirmPassword,
@@ -214,6 +238,7 @@ export default function HospitalSignup() {
             </div>
           ) : (
             <form className="space-y-4" autoComplete="off" onSubmit={submit}>
+              <HoneypotField />
               <div>
                 <p className="text-xs font-medium uppercase tracking-wide text-primary">Étape {step + 1} sur {steps.length}</p>
                 <h2 className="text-lg font-semibold">{steps[step].label}</h2>
@@ -339,6 +364,8 @@ export default function HospitalSignup() {
               <ArrowLeft className="h-4 w-4" />
               Retour à la connexion
             </Link>
+            <span className="mx-2 text-muted-foreground">·</span>
+            <Link to="/confidentialite" className="text-muted-foreground hover:text-primary hover:underline">Confidentialité</Link>
           </p>
         )}
       </div>

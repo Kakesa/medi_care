@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { roleLabels } from "@/lib/roles";
+import { isEmail } from "@/lib/formChecks";
 
 export default function Profile() {
   const { toast } = useToast();
@@ -47,6 +48,18 @@ export default function Profile() {
 
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!profileData.firstName.trim() || !profileData.lastName.trim()) {
+      toast({ variant: "destructive", title: "Identité requise", description: "Le prénom et le nom sont obligatoires." });
+      return;
+    }
+    if (!isEmail(profileData.email)) {
+      toast({ variant: "destructive", title: "Email invalide", description: "Indiquez une adresse e-mail complète." });
+      return;
+    }
+    if (profileData.phone.trim() && (profileData.phone.trim().length < 6 || profileData.phone.trim().length > 30)) {
+      toast({ variant: "destructive", title: "Téléphone invalide", description: "Le numéro doit contenir entre 6 et 30 caractères." });
+      return;
+    }
     if (profileLock.current) return;
     profileLock.current = true;
     setIsUpdating(true);
@@ -144,6 +157,8 @@ export default function Profile() {
                 </Label>
                 <Input
                   id="firstName"
+                  required
+                  maxLength={80}
                   value={profileData.firstName}
                   onChange={(e) => handleProfileChange("firstName", e.target.value)}
                 />
@@ -152,6 +167,8 @@ export default function Profile() {
                 <Label htmlFor="lastName">Nom</Label>
                 <Input
                   id="lastName"
+                  required
+                  maxLength={80}
                   value={profileData.lastName}
                   onChange={(e) => handleProfileChange("lastName", e.target.value)}
                 />
@@ -166,6 +183,8 @@ export default function Profile() {
               <Input
                 id="email"
                 type="email"
+                required
+                maxLength={160}
                 value={profileData.email}
                 onChange={(e) => handleProfileChange("email", e.target.value)}
               />
@@ -179,6 +198,7 @@ export default function Profile() {
               <Input
                 id="phone"
                 type="tel"
+                maxLength={30}
                 value={profileData.phone}
                 onChange={(e) => handleProfileChange("phone", e.target.value)}
               />

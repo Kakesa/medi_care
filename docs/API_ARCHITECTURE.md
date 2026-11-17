@@ -848,8 +848,4 @@ JWT_EXPIRES_IN=7d
 
 # Database (Backend)
 DATABASE_URL=postgresql://user:password@localhost:5432/medicare_db
-
-# Supabase (Alternative)
-VITE_SUPABASE_URL=your-supabase-url
-VITE_SUPABASE_PUBLISHABLE_KEY=your-supabase-anon-key
 ```

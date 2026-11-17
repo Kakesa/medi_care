@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { HoneypotField } from "@/components/forms/HoneypotField";
+import { isEmail, spamTrapFilled } from "@/lib/formChecks";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -21,6 +23,15 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (spamTrapFilled(e.currentTarget)) return;
+    if (!isEmail(email)) {
+      toast({ variant: "destructive", title: "Email invalide", description: "Indiquez une adresse e-mail complète." });
+      return;
+    }
+    if (!password.trim()) {
+      toast({ variant: "destructive", title: "Mot de passe requis", description: "Saisissez votre mot de passe." });
+      return;
+    }
     if (submitLock.current) return;
     submitLock.current = true;
     setIsLoading(true);
@@ -67,6 +78,7 @@ export default function Login() {
         {/* Login form */}
         <Card className="p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
+            <HoneypotField />
             <div className="space-y-2">
               <Label htmlFor="email" className="flex items-center gap-2">
                 <Mail className="h-4 w-4 text-primary" />
@@ -76,6 +88,7 @@ export default function Login() {
                 id="email"
                 type="email"
                 required
+                maxLength={160}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="votre@email.fr"
@@ -92,6 +105,7 @@ export default function Login() {
                   id="password"
                   type={showPassword ? "text" : "password"}
                   required
+                  maxLength={128}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
@@ -130,6 +144,10 @@ export default function Login() {
             <span className="text-muted-foreground">Pas encore de compte ?</span>{" "}
             <Link to="/register" className="text-primary hover:underline font-medium">
               S'inscrire
+            </Link>
+            <span className="mx-2 text-muted-foreground">·</span>
+            <Link to="/confidentialite" className="text-muted-foreground hover:text-primary hover:underline">
+              Confidentialité
             </Link>
           </div>
         </Card>

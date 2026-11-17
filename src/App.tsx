@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
+import { BrowserRouter, Navigate, Routes, Route, useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "./contexts/AuthContext";
@@ -33,7 +33,6 @@ import HospitalSignup from "./pages/HospitalSignup";
 import PatientAppointments from "./pages/patient/PatientAppointments";
 import PatientExams from "./pages/patient/PatientExams";
 import PatientInvoices from "./pages/patient/PatientInvoices";
-import LaborantinWorkspace from "./pages/laboratory/LaborantinWorkspace";
 import LabSupervision from "./pages/laboratory/LabSupervision";
 import ReceptionLab from "./pages/laboratory/ReceptionLab";
 import ClinicalPrescriptions from "./pages/laboratory/ClinicalPrescriptions";
@@ -97,7 +96,7 @@ const App = () => (
                 <Route path="rendez-vous" element={<RequireRole roles={["PATIENT"]}><PatientAppointments /></RequireRole>} />
                 <Route path="examen" element={<RequireRole roles={["PATIENT"]}><PatientExams /></RequireRole>} />
                 <Route path="facture" element={<RequireRole roles={["PATIENT"]}><PatientInvoices /></RequireRole>} />
-                <Route path="laboratoire" element={<RequireRole roles={["LABORANTIN"]}><LaborantinWorkspace /></RequireRole>} />
+                <Route path="laboratoire" element={<Navigate to="/dashboard" replace />} />
                 <Route path="supervision-lab" element={<RequireRole roles={["HOSPITAL_ADMIN"]}><LabSupervision /></RequireRole>} />
                 <Route path="demandes-lab" element={<RequireRole roles={["RECEPTIONIST"]}><ReceptionLab /></RequireRole>} />
                 <Route path="ordonnances" element={<RequireRole roles={["DOCTOR", "HOSPITAL_ADMIN"]}><ClinicalPrescriptions /></RequireRole>} />

@@ -134,7 +134,7 @@ export async function workBadges(actor: AuthContext, organizationId: string) {
   };
 
   if (role === ROLES.LABORANTIN) {
-    put('/dashboard/laboratoire', Exam.countDocuments({
+    put('/dashboard', Exam.countDocuments({
       ...base,
       type: 'laboratory',
       $or: [

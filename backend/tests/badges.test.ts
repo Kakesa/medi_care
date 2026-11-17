@@ -39,7 +39,7 @@ describe('Badges de travail', () => {
 
     const lab = await request(app).get('/api/badges').set(bearer(laborantin.token));
     expect(lab.status).toBe(200);
-    expect(lab.body.counts['/dashboard/laboratoire']).toBe(1);
+    expect(lab.body.counts['/dashboard']).toBe(1);
     expect(lab.body.counts['/dashboard/supervision-lab']).toBeUndefined();
 
     const waiting = await request(app).get('/api/badges').set(bearer(admin.token));
@@ -51,7 +51,7 @@ describe('Badges de travail', () => {
     expect(desk.body.counts['/dashboard/demandes-lab']).toBe(1);
 
     const foreign = await request(app).get('/api/badges').set(bearer(outsider.token));
-    expect(foreign.body.counts['/dashboard/laboratoire']).toBeUndefined();
+    expect(foreign.body.counts['/dashboard']).toBeUndefined();
 
     const global = await request(app).get('/api/badges').set(bearer(superadmin.token));
     expect(global.status).toBe(403);
@@ -80,7 +80,7 @@ describe('Badges de travail', () => {
     expect(review.body.counts['/dashboard/supervision-lab']).toBe(1);
 
     const bench = await request(app).get('/api/badges').set(bearer(laborantin.token));
-    expect(bench.body.counts['/dashboard/laboratoire']).toBeUndefined();
+    expect(bench.body.counts['/dashboard']).toBeUndefined();
   });
 
   it('retire le badge du résultat dès qu\'il a été consulté', async () => {

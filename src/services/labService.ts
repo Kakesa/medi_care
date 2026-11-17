@@ -57,6 +57,37 @@ export interface LabExam {
   };
 }
 
+export function consultationReference(notes: string) {
+  const match = notes.trim().match(/^Consultation ([a-f0-9]{24})$/i);
+  if (!match) return notes;
+  return `Consultation n° ${match[1].slice(-8).toUpperCase()}`;
+}
+
+export function labOriginLabel(exam: { instructions: string; date?: string; doctorName?: string }) {
+  const reference = consultationReference(exam.instructions);
+  if (!reference) return "Aucune instruction";
+  if (reference === exam.instructions) return exam.instructions;
+  const date = exam.date ? new Date(`${exam.date}T12:00:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }) : "";
+  return [reference, date, exam.doctorName].filter(Boolean).join(" · ");
+}
+
+export function labActionLabel(action: string) {
+  const labels: Record<string, string> = {
+    DEMANDE: "Demande",
+    DEMARRAGE: "Démarrage",
+    BROUILLON: "Enregistrement",
+    SOUMISSION: "Soumission",
+    VALIDATION: "Validation",
+    VALIDE: "Validation",
+    CORRECTION: "Correction",
+    CORRECTION_DEMANDEE: "Correction demandée",
+    REJETE: "Rejet",
+    REJET_VERSION: "Rejet de la version",
+    ANNULE: "Annulation",
+  };
+  return labels[action] || action;
+}
+
 export const labStatusLabels: Record<LabStatus, string> = {
   EN_ATTENTE: 'En attente',
   EN_COURS: 'En cours',

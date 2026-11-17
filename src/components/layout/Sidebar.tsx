@@ -51,7 +51,6 @@ export const allNavigation: { name: string; href: string; icon: typeof LayoutDas
   { name: "Comptabilité", href: "/dashboard/accounting", icon: Landmark, roles: ['HOSPITAL_ADMIN', 'ACCOUNTANT', 'RECEPTIONIST'] },
   { name: "Gestion des lits", href: "/dashboard/beds", icon: BedDouble, roles: ['HOSPITAL_ADMIN', 'RECEPTIONIST'] },
   { name: "Pharmacie", href: "/dashboard/pharmacy", icon: Pill, roles: ['HOSPITAL_ADMIN', 'PHARMACIST'] },
-  { name: "Laboratoire", href: "/dashboard/laboratoire", icon: FlaskConical, roles: ['LABORANTIN'] },
   { name: "Supervision labo", href: "/dashboard/supervision-lab", icon: FlaskConical, roles: ['HOSPITAL_ADMIN'] },
   { name: "Demandes labo", href: "/dashboard/demandes-lab", icon: FlaskConical, roles: ['RECEPTIONIST'] },
   { name: "Ordonnances", href: "/dashboard/ordonnances", icon: FileText, roles: ['DOCTOR', 'HOSPITAL_ADMIN'] },

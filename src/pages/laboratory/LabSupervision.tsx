@@ -16,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAckExamResults } from "@/contexts/WorkBadgeContext";
 import { useToast } from "@/hooks/use-toast";
 import { apiMessage } from "@/lib/apiError";
-import { labService, labStatusLabels, type LabExam, type LabStatus } from "@/services/labService";
+import { labActionLabel, labOriginLabel, labService, labStatusLabels, type LabExam, type LabStatus } from "@/services/labService";
 import { userAdminService } from "@/services/userAdminService";
 
 const groups: LabStatus[] = ["EN_ATTENTE_VALIDATION", "EN_COURS", "CORRECTION_DEMANDEE", "REJETE", "VALIDE", "EN_ATTENTE"];
@@ -234,7 +234,7 @@ export default function LabSupervision() {
           <Card>
             <CardContent className="space-y-3 p-4">
               <p className="font-medium">{selected.name} · {selected.patientName}</p>
-              <p className="text-sm text-muted-foreground">{selected.instructions || "Aucune instruction"}</p>
+              <p className="text-sm text-muted-foreground">{labOriginLabel(selected)}</p>
               <p className="text-sm">Brouillon : {selected.draftResults || "—"}</p>
               <p className="text-sm">Observations : {selected.technicalNotes || "—"}</p>
               <p className="text-sm">Résultat officiel : {selected.official ? selected.results : "Pas encore validé"}</p>
@@ -244,7 +244,7 @@ export default function LabSupervision() {
               {selected.attachments.map((file) => file.data ? <a key={file.name} className="block text-sm text-primary" href={file.data} download={file.name}>{file.name}</a> : <p key={file.name} className="text-sm">{file.name}</p>)}
               <div className="space-y-1 text-xs text-muted-foreground">
                 {selected.versions.map((version) => (
-                  <p key={version.version}>Version {version.version} · {version.submittedByName} · {version.decision || "en attente"} {version.comment}</p>
+                  <p key={version.version}>Version {version.version} · {version.submittedByName} · {version.decision ? labActionLabel(version.decision) : "en attente"} {version.comment}</p>
                 ))}
               </div>
               <Textarea value={comment} placeholder="Observation, correction ou motif de rejet" onChange={(event) => setComment(event.target.value)} />

@@ -92,7 +92,7 @@ export function NotificationDropdown() {
                       navigate('/dashboard');
                     }
                     if (notification.type === 'exam_result') {
-                      navigate(user?.role === 'LABORANTIN' ? '/dashboard/laboratoire' : user?.role === 'RECEPTIONIST' ? '/dashboard/demandes-lab' : '/dashboard/supervision-lab');
+                      navigate(user?.role === 'LABORANTIN' ? '/dashboard' : user?.role === 'RECEPTIONIST' ? '/dashboard/demandes-lab' : '/dashboard/supervision-lab');
                     }
                     if (notification.type === 'pharmacy') {
                       navigate('/dashboard/pharmacie-ordonnances');

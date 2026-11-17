@@ -52,6 +52,7 @@ import { useAckExamResults } from "@/contexts/WorkBadgeContext";
 import { chargeService, type CatalogOption, type PatientChargeRecord } from "@/services/chargeService";
 import { consultationService } from "@/services/consultationService";
 import { examService, type ExamCatalogItem } from "@/services/examService";
+import { consultationReference } from "@/services/labService";
 import { billingService } from "@/services/billingService";
 import { formatMoney, type BillingCurrency } from "@/lib/money";
 import { patientService } from "@/services/patientService";
@@ -1017,7 +1018,7 @@ export default function Examinations() {
                 {selectedExam.notes && (
                   <div>
                     <p className="text-sm text-muted-foreground">Notes</p>
-                    <p className="text-sm">{selectedExam.notes}</p>
+                    <p className="text-sm">{consultationReference(selectedExam.notes)}</p>
                   </div>
                 )}
 

@@ -3,3 +3,7 @@
 interface Window {
   __bootAt?: number;
 }
+
+interface Navigator {
+  standalone?: boolean;
+}

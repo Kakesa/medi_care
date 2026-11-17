@@ -9,6 +9,7 @@ import { ApiError } from '../utils/ApiError.js';
 import { signAccessToken } from '../utils/tokens.js';
 import { recordAudit } from './audit.service.js';
 import { sendMail } from './mailer.js';
+import { removeAllPushSubscriptions } from './push.service.js';
 
 const RESET_SENT = 'Si un compte existe pour cette adresse, un e-mail de réinitialisation a été envoyé.';
 
@@ -366,6 +367,7 @@ export async function logout(userId: string, ip?: string) {
   }
   user.tokenVersion += 1;
   await user.save();
+  await removeAllPushSubscriptions(user.id);
   await recordAudit({
     actorId: user.id,
     actorRole: user.role,

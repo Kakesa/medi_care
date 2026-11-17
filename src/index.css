@@ -300,3 +300,21 @@
 .grid > * {
   min-width: 0;
 }
+
+body {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+@media (max-width: 767px) {
+  main {
+    padding-bottom: calc(6rem + env(safe-area-inset-bottom));
+  }
+
+  main table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}

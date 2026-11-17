@@ -19,8 +19,19 @@ export function pushPublicKey() {
   return keys()?.publicKey ?? '';
 }
 
+export function publicNotice(payload: { title: string; body: string; url?: string }) {
+  const url = payload.url && payload.url.startsWith('/') && !payload.url.startsWith('//')
+    ? payload.url.slice(0, 200)
+    : '/dashboard';
+  return {
+    title: payload.title.replace(/\s+/g, ' ').trim().slice(0, 80) || 'Medicare',
+    body: payload.body.replace(/\s+/g, ' ').trim().slice(0, 140) || 'Ouvrez Medicare pour voir le détail.',
+    url,
+  };
+}
+
 export async function savePushSubscription(input: {
-  organizationId: string;
+  organizationId: string | null;
   userId: string;
   endpoint: string;
   p256dh: string;
@@ -33,15 +44,24 @@ export async function savePushSubscription(input: {
   );
 }
 
+export async function removePushSubscription(userId: string, endpoint: string) {
+  await PushSubscription.deleteOne({ userId, endpoint });
+}
+
+export async function removeAllPushSubscriptions(userId: string) {
+  await PushSubscription.deleteMany({ userId });
+}
+
 export async function sendPush(userId: string, payload: { title: string; body: string; url?: string }) {
   if (!keys()) return;
   const rows = await PushSubscription.find({ userId });
+  const notice = publicNotice(payload);
   await Promise.all(rows.map(async (row) => {
     try {
       await sendNotification({
         endpoint: row.endpoint,
         keys: { p256dh: row.p256dh, auth: row.auth },
-      }, JSON.stringify(payload));
+      }, JSON.stringify(notice));
     } catch (error) {
       const status = typeof error === 'object' && error && 'statusCode' in error ? Number(error.statusCode) : 0;
       if (status === 404 || status === 410) await PushSubscription.deleteOne({ _id: row._id });

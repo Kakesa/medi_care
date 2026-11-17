@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { clearInstalledCache } from '@/pwa/register';
 import { authService } from '@/services/authService';
 import { getAuthToken, removeAuthToken, setAuthToken } from '@/services/config';
 import type { ApiError, User } from '@/types';
@@ -72,6 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const onExpired = () => {
       setUser(null);
       localStorage.removeItem('medicare_user');
+      void clearInstalledCache();
     };
     window.addEventListener('auth:expired', onExpired);
 
@@ -93,7 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    void authService.logout();
+    void authService.logout().finally(() => { void clearInstalledCache(); });
     setUser(null);
     localStorage.removeItem('medicare_user');
   };

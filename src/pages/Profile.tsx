@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { roleLabels } from "@/lib/roles";
+import { PushSettings } from "@/components/pwa/PushSettings";
 import { isEmail } from "@/lib/formChecks";
 
 export default function Profile() {
@@ -134,6 +135,8 @@ export default function Profile() {
           Gérez vos informations personnelles et vos paramètres
         </p>
       </div>
+
+      <PushSettings />
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Profile info */}

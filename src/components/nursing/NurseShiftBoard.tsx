@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { enablePush as enablePushNotifications } from '@/pwa/push';
 import { shiftService, type NurseShift, type ShiftBoard } from '@/services/shiftService';
 
 const statusLabel: Record<NurseShift['status'], string> = {
@@ -39,12 +40,6 @@ function apiMessage(reason: unknown) {
   return 'Réessayez dans un instant.';
 }
 
-function keyToBytes(value: string) {
-  const padding = '='.repeat((4 - (value.length % 4)) % 4);
-  const base64 = (value + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const raw = atob(base64);
-  return Uint8Array.from(raw, (char) => char.charCodeAt(0));
-}
 
 function ShiftLine({ shift }: { shift: NurseShift }) {
   return (
@@ -86,29 +81,17 @@ export function NurseShiftBoard() {
   };
 
   const enablePush = async () => {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      toast({ title: 'Rappels dans l’application', description: 'Cet appareil ne reçoit pas les notifications push. Les rappels restent dans le centre de notifications.' });
+    const result = await enablePushNotifications();
+    if (result === 'enabled') {
+      toast({ title: 'Rappels activés', description: 'Vous serez prévenu(e) la veille, avant la prise de service et au début de la garde. Aucun dossier médical n’apparaît sur l’écran verrouillé.' });
       return;
     }
-    const permission = await Notification.requestPermission();
-    if (permission !== 'granted') {
-      toast({ title: 'Rappels dans l’application', description: 'Les notifications du téléphone sont désactivées. Les rappels restent visibles dans MediCare.' });
-      return;
-    }
-    const { publicKey } = await shiftService.pushKey();
-    if (!publicKey) {
-      toast({ title: 'Rappels dans l’application', description: 'Les notifications push ne sont pas encore activées sur le serveur. Les rappels internes continuent.' });
-      return;
-    }
-    const registration = await navigator.serviceWorker.register('/sw.js');
-    const subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: keyToBytes(publicKey),
-    });
-    const json = subscription.toJSON();
-    if (!json.endpoint || !json.keys?.p256dh || !json.keys.auth) return;
-    await shiftService.subscribe({ endpoint: json.endpoint, keys: { p256dh: json.keys.p256dh, auth: json.keys.auth } });
-    toast({ title: 'Rappels activés', description: 'Vous serez prévenu(e) la veille, avant la prise de service et au début de la garde.' });
+    const description = result === 'denied'
+      ? 'Les notifications du téléphone sont désactivées. Les rappels restent visibles dans MediCare.'
+      : result === 'unconfigured'
+        ? 'Les notifications push ne sont pas encore activées sur le serveur. Les rappels internes continuent.'
+        : 'Cet appareil ne reçoit pas les notifications push. Les rappels restent dans le centre de notifications.';
+    toast({ title: 'Rappels dans l’application', description });
   };
 
   if (!board) return null;

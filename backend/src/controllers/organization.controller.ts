@@ -24,6 +24,14 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
   res.json(organization);
 });
 
+export const profile = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await organizationService.getOrganizationProfile(req.params.id));
+});
+
+export const decision = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await organizationService.decideOrganization(req.params.id, req.body, req.auth!.id, req.ip));
+});
+
 export const createUser = asyncHandler(async (req: Request, res: Response) => {
   const user = await userService.createStaffUser(req.params.id, req.body, req.auth!, req.ip);
   res.status(201).json(user);

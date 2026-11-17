@@ -7,7 +7,20 @@ const organizationSchema = new Schema(
     address: { type: String, required: true, trim: true, maxlength: 300 },
     phone: { type: String, required: true, trim: true, maxlength: 30 },
     email: { type: String, required: true, lowercase: true, trim: true, maxlength: 160 },
-    status: { type: String, enum: ['active', 'suspended'], default: 'active', required: true },
+    status: { type: String, enum: ['pending', 'active', 'suspended', 'rejected'], default: 'active', required: true },
+    facilityType: { type: String, trim: true, maxlength: 40 },
+    registrationNumber: { type: String, trim: true, maxlength: 80 },
+    commune: { type: String, trim: true, maxlength: 80 },
+    city: { type: String, trim: true, maxlength: 80 },
+    province: { type: String, trim: true, maxlength: 80 },
+    country: { type: String, trim: true, maxlength: 80 },
+    logo: { type: String, maxlength: 2048 },
+    coverImage: { type: String, maxlength: 2048 },
+    primaryColor: { type: String, trim: true, maxlength: 7 },
+    timezone: { type: String, trim: true, maxlength: 60, default: 'Africa/Kinshasa' },
+    stamp: { type: String, maxlength: 2048 },
+    rejectionReason: { type: String, trim: true, maxlength: 1000 },
+    submittedAt: { type: Date },
     /**
      * Réservé à une évolution abonnements. Aucune limite n'est appliquée pour l'instant.
      */

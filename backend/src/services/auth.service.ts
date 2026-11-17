@@ -88,18 +88,6 @@ export async function login(input: { email: string; password: string }, ip?: str
     throw new ApiError(401, INVALID_LOGIN, 'INVALID_CREDENTIALS');
   }
 
-  if (!user.isActive) {
-    await recordAudit({
-      actorId: user.id,
-      actorRole: user.role,
-      organizationId: user.organizationId?.toString() ?? null,
-      action: 'LOGIN_BLOCKED',
-      success: false,
-      ip,
-    });
-    throw new ApiError(403, 'Compte désactivé', 'ACCOUNT_DISABLED');
-  }
-
   if (user.role !== ROLES.SUPERADMIN) {
     const organization = await Organization.findById(user.organizationId);
     if (!organization || organization.status !== 'active') {
@@ -111,8 +99,25 @@ export async function login(input: { email: string; password: string }, ip?: str
         success: false,
         ip,
       });
-      throw new ApiError(403, 'Établissement indisponible', 'ORG_SUSPENDED');
+      const message = organization?.status === 'pending'
+        ? 'Votre établissement est en attente de validation'
+        : organization?.status === 'rejected'
+          ? 'L’inscription de votre établissement a été refusée'
+          : 'Établissement indisponible';
+      throw new ApiError(403, message, 'ORG_SUSPENDED');
     }
+  }
+
+  if (!user.isActive) {
+    await recordAudit({
+      actorId: user.id,
+      actorRole: user.role,
+      organizationId: user.organizationId?.toString() ?? null,
+      action: 'LOGIN_BLOCKED',
+      success: false,
+      ip,
+    });
+    throw new ApiError(403, 'Compte désactivé', 'ACCOUNT_DISABLED');
   }
 
   const token = signAccessToken(user.id, user.tokenVersion);

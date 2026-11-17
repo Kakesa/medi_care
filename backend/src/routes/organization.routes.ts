@@ -7,6 +7,7 @@ import { validate } from '../middlewares/validate.middleware.js';
 import {
   createOrganizationSchema,
   listOrganizationsSchema,
+  organizationDecisionSchema,
   organizationParamsSchema,
   updateOrganizationSchema,
 } from '../validators/organization.validator.js';
@@ -17,6 +18,8 @@ const router = Router();
 router.use(authenticate, requireRoles(ROLES.SUPERADMIN));
 router.get('/', validate(listOrganizationsSchema), organizationController.list);
 router.post('/', validate(createOrganizationSchema), organizationController.create);
+router.get('/:id/profile', validate(organizationParamsSchema), organizationController.profile);
+router.post('/:id/decision', validate(organizationDecisionSchema), organizationController.decision);
 router.get('/:id', validate(organizationParamsSchema), organizationController.getById);
 router.patch('/:id', validate(updateOrganizationSchema), organizationController.update);
 router.post('/:id/users', validate(createOrganizationUserSchema), organizationController.createUser);

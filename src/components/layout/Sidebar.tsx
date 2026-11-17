@@ -46,7 +46,7 @@ export const allNavigation: { name: string; href: string; icon: typeof LayoutDas
   { name: "Rendez-vous", href: "/dashboard/appointments", icon: Calendar, roles: ['HOSPITAL_ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
   { name: "Rendez-vous", href: "/dashboard/rendez-vous", icon: Calendar, roles: ['PATIENT'] },
   { name: "Facture", href: "/dashboard/facture", icon: FileText, roles: ['PATIENT'] },
-  { name: "Hôpitaux", href: "/dashboard/hospitals", icon: Building2, roles: ['SUPERADMIN'] },
+  { name: "Centres hospitaliers", href: "/dashboard/hospitals", icon: Building2, roles: ['SUPERADMIN'] },
   { name: "Facturation", href: "/dashboard/billing", icon: FileText, roles: ['HOSPITAL_ADMIN', 'ACCOUNTANT', 'RECEPTIONIST'] },
   { name: "Comptabilité", href: "/dashboard/accounting", icon: Landmark, roles: ['HOSPITAL_ADMIN', 'ACCOUNTANT', 'RECEPTIONIST'] },
   { name: "Gestion des lits", href: "/dashboard/beds", icon: BedDouble, roles: ['HOSPITAL_ADMIN', 'RECEPTIONIST'] },

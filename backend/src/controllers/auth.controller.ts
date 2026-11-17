@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import * as authService from '../services/auth.service.js';
+import * as organizationService from '../services/organization.service.js';
 
 export const login = asyncHandler(async (req: Request, res: Response) => {
   const result = await authService.login(req.body, req.ip);
@@ -10,6 +11,15 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
 export const register = asyncHandler(async (req: Request, res: Response) => {
   const result = await authService.registerPatient(req.body, req.ip);
   res.status(201).json(result);
+});
+
+export const registerHospital = asyncHandler(async (req: Request, res: Response) => {
+  const result = await organizationService.applyOrganization(req.body, req.ip);
+  res.status(201).json(result);
+});
+
+export const resubmitHospital = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await organizationService.resubmitOrganization(req.body, req.ip));
 });
 
 export const me = asyncHandler(async (req: Request, res: Response) => {

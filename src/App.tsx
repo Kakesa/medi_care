@@ -28,6 +28,8 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import Register from "./pages/Register";
 import Hospitals from "./pages/Hospitals";
+import HospitalDetail from "./pages/HospitalDetail";
+import HospitalSignup from "./pages/HospitalSignup";
 import PatientAppointments from "./pages/patient/PatientAppointments";
 import PatientExams from "./pages/patient/PatientExams";
 import PatientInvoices from "./pages/patient/PatientInvoices";
@@ -73,9 +75,11 @@ const App = () => (
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/inscription-centre" element={<HospitalSignup />} />
               <Route path="/dashboard" element={<DashboardLayout />}>
                 <Route index element={<Dashboard />} />
                 <Route path="hospitals" element={<RequireRole roles={["SUPERADMIN"]}><Hospitals /></RequireRole>} />
+                <Route path="hospitals/:hospitalId" element={<RequireRole roles={["SUPERADMIN"]}><HospitalDetail /></RequireRole>} />
                 <Route path="personnel" element={<RequireRole roles={["HOSPITAL_ADMIN"]}><Personnel /></RequireRole>} />
                 <Route path="patients" element={<RequireRole roles={["HOSPITAL_ADMIN", "DOCTOR", "RECEPTIONIST", "NURSE"]}><Patients /></RequireRole>} />
                 <Route path="patients/:patientId" element={<RequireRole roles={["HOSPITAL_ADMIN", "DOCTOR", "RECEPTIONIST", "NURSE"]}><PatientDossier /></RequireRole>} />

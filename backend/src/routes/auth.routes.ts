@@ -11,6 +11,7 @@ import {
   resetPasswordSchema,
   updateProfileSchema,
 } from '../validators/auth.validator.js';
+import { hospitalApplicationSchema, hospitalResubmitSchema } from '../validators/organization.validator.js';
 
 const router = Router();
 const limiter = buildLoginRateLimiter();
@@ -19,6 +20,8 @@ router.post('/login', limiter, validate(loginSchema), authController.login);
 router.post('/forgot-password', limiter, validate(forgotPasswordSchema), authController.forgotPassword);
 router.post('/reset-password', limiter, validate(resetPasswordSchema), authController.resetPassword);
 router.post('/register', limiter, validate(registerSchema), authController.register);
+router.post('/register-hospital', limiter, validate(hospitalApplicationSchema), authController.registerHospital);
+router.post('/resubmit-hospital', limiter, validate(hospitalResubmitSchema), authController.resubmitHospital);
 router.get('/me', authenticate, authController.me);
 router.put('/profile', authenticate, validate(updateProfileSchema), authController.updateProfile);
 router.post('/change-password', authenticate, validate(changePasswordSchema), authController.changePassword);

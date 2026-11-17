@@ -20,7 +20,7 @@ const shortLabels: Record<string, string> = {
   "/dashboard/demandes-lab": "Labo",
   "/dashboard/ordonnances": "Ordo.",
   "/dashboard/pharmacie-ordonnances": "Ordo.",
-  "/dashboard/hospitals": "Hôpitaux",
+  "/dashboard/hospitals": "Centres",
   "/dashboard/reception": "Récept.",
   "/dashboard/personnel": "Personnel",
   "/dashboard/patients": "Patient",

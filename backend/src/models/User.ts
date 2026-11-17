@@ -9,6 +9,8 @@ const userSchema = new Schema(
     firstName: { type: String, required: true, trim: true, maxlength: 80 },
     lastName: { type: String, required: true, trim: true, maxlength: 80 },
     phone: { type: String, trim: true, maxlength: 30 },
+    postName: { type: String, trim: true, maxlength: 80 },
+    jobTitle: { type: String, trim: true, maxlength: 80 },
     isActive: { type: Boolean, default: true, required: true },
     mustChangePassword: { type: Boolean, default: false, required: true },
     tokenVersion: { type: Number, default: 0, required: true },
@@ -46,6 +48,8 @@ export interface UserDoc {
   firstName: string;
   lastName: string;
   phone?: string;
+  postName?: string;
+  jobTitle?: string;
   isActive: boolean;
   mustChangePassword: boolean;
   tokenVersion: number;

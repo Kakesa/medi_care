@@ -131,6 +131,10 @@ export default function Login() {
             <Link to="/register" className="text-primary hover:underline font-medium">
               S'inscrire
             </Link>
+            <span className="text-muted-foreground"> · </span>
+            <Link to="/inscription-centre" className="text-primary hover:underline font-medium">
+              Inscrire un centre
+            </Link>
           </div>
         </Card>
       </div>

@@ -1,14 +1,21 @@
 import { useEffect, useState } from "react";
-import { Plus } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { organizationService, type OrganizationRecord } from "@/services/organizationService";
+import { organizationService, type OrganizationRecord, type OrganizationStatus } from "@/services/organizationService";
 import { userAdminService } from "@/services/userAdminService";
 import type { ApiError } from "@/types";
+
+const statusLabels: Record<OrganizationStatus, string> = {
+  pending: "En attente",
+  active: "Actif",
+  suspended: "Suspendu",
+  rejected: "Refusé",
+};
 
 const emptyHospital = { name: "", slug: "", address: "", phone: "", email: "" };
 const emptyAdmin = { firstName: "", lastName: "", email: "" };
@@ -22,12 +29,17 @@ export default function Hospitals() {
   const [form, setForm] = useState(emptyHospital);
   const [adminFor, setAdminFor] = useState<OrganizationRecord | null>(null);
   const [adminForm, setAdminForm] = useState(emptyAdmin);
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState<OrganizationStatus | "">("");
 
-  const load = async () => {
+  const load = async (term = search, selected = status) => {
     setIsLoading(true);
     setError("");
     try {
-      const response = await organizationService.list();
+      const response = await organizationService.list({
+        ...(term.trim() ? { search: term.trim() } : {}),
+        ...(selected ? { status: selected } : {}),
+      });
       setHospitals(response.data);
     } catch (reason) {
       setError((reason as ApiError).message || "Chargement impossible");
@@ -89,8 +101,8 @@ export default function Hospitals() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Hôpitaux</h1>
-          <p className="mt-1 text-muted-foreground">Chaque établissement possède ses propres utilisateurs et données.</p>
+          <h1 className="text-lg font-bold md:text-3xl">Centres hospitaliers</h1>
+          <p className="mt-1 hidden text-muted-foreground md:block">Inscriptions, administrateurs et statut de chaque établissement.</p>
         </div>
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
@@ -110,30 +122,64 @@ export default function Hospitals() {
         </Dialog>
       </div>
 
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="relative min-w-0 flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input className="pl-9" placeholder="Nom, ville, adresse ou email" value={search} onChange={(event) => setSearch(event.target.value)} />
+        </div>
+        <select className="h-10 rounded-md border bg-background px-3 text-sm" value={status} onChange={(event) => setStatus(event.target.value as OrganizationStatus | "")}>
+          <option value="">Tous les statuts</option>
+          <option value="pending">En attente</option>
+          <option value="active">Actifs</option>
+          <option value="suspended">Suspendus</option>
+          <option value="rejected">Refusés</option>
+        </select>
+        <Button variant="outline" onClick={() => void load()}>Filtrer</Button>
+      </div>
+
       {isLoading && <p className="text-sm text-muted-foreground">Chargement...</p>}
       {error && <p className="text-sm text-destructive">{error}</p>}
 
-      <div className="grid gap-4">
-        {hospitals.map((hospital) => (
-          <Card key={hospital.id} className="p-5">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 className="text-lg font-semibold">{hospital.name}</h2>
-                <p className="text-sm text-muted-foreground">{hospital.slug} · {hospital.email}</p>
-                <p className="text-sm text-muted-foreground">{hospital.address}</p>
-                <p className="mt-2 text-sm">
-                  {hospital.status === "active" ? "Actif" : "Suspendu"} · Plan non configuré · {hospital.userCount ?? 0} utilisateurs
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button variant="outline" onClick={() => setAdminFor(hospital)}>Créer un administrateur</Button>
-                <Button variant="outline" onClick={() => toggleStatus(hospital)}>
-                  {hospital.status === "active" ? "Suspendre" : "Réactiver"}
-                </Button>
-              </div>
-            </div>
-          </Card>
-        ))}
+      <div className="overflow-x-auto rounded-xl border">
+        <table className="w-full min-w-[860px] text-sm">
+          <thead className="bg-muted/60 text-left">
+            <tr>
+              <th className="px-3 py-2 font-medium">Centre</th>
+              <th className="px-3 py-2 font-medium">Administrateur</th>
+              <th className="px-3 py-2 font-medium">Contact</th>
+              <th className="px-3 py-2 font-medium">Adresse</th>
+              <th className="px-3 py-2 font-medium">Inscription</th>
+              <th className="px-3 py-2 font-medium">Statut</th>
+              <th className="px-3 py-2 font-medium" />
+            </tr>
+          </thead>
+          <tbody>
+            {hospitals.map((hospital) => (
+              <tr key={hospital.id} className="border-t">
+                <td className="px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    {hospital.logo ? <img src={hospital.logo} alt="" className="h-9 w-9 rounded-lg object-cover" /> : <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-xs font-semibold text-primary">{hospital.name.slice(0, 2).toUpperCase()}</span>}
+                    <span className="font-medium">{hospital.name}</span>
+                  </div>
+                </td>
+                <td className="px-3 py-2">{hospital.admin?.fullName || "—"}</td>
+                <td className="px-3 py-2 text-muted-foreground">{hospital.admin?.email || hospital.email}<br />{hospital.admin?.phone || hospital.phone}</td>
+                <td className="px-3 py-2 text-muted-foreground">{hospital.address}{hospital.location ? ` · ${hospital.location}` : ""}</td>
+                <td className="px-3 py-2">{hospital.createdAt ? new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium" }).format(new Date(hospital.createdAt)) : "—"}</td>
+                <td className="px-3 py-2">{statusLabels[hospital.status]}</td>
+                <td className="px-3 py-2">
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" size="sm" asChild><Link to={`/dashboard/hospitals/${hospital.id}`}>Ouvrir</Link></Button>
+                    {(hospital.status === "active" || hospital.status === "suspended") && (
+                      <Button variant="outline" size="sm" onClick={() => void toggleStatus(hospital)}>{hospital.status === "active" ? "Suspendre" : "Réactiver"}</Button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {!isLoading && hospitals.length === 0 && <tr><td colSpan={7} className="px-3 py-6 text-center text-muted-foreground">Aucun établissement.</td></tr>}
+          </tbody>
+        </table>
       </div>
 
       <Dialog open={!!adminFor} onOpenChange={(open) => !open && setAdminFor(null)}>

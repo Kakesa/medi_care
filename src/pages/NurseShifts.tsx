@@ -18,6 +18,7 @@ const legacyNames: Record<string, string> = {
   full_day: 'Journée',
 };
 const examples = [
+  { name: 'Garde 24 h', start: '07:00', end: '07:00' },
   { name: 'Journée', start: '06:00', end: '18:00' },
   { name: 'Nuit', start: '18:00', end: '06:00' },
   { name: 'Matin', start: '06:00', end: '14:00' },
@@ -25,7 +26,7 @@ const examples = [
   { name: 'Nuit courte', start: '22:00', end: '06:00' },
 ];
 const cycleExamples = [
-  { name: '1 jour / 1 repos', work: '1', rest: '1' },
+  { name: 'Rotation après 24 h', work: '1', rest: '1' },
   { name: '2 jours / 2 repos', work: '2', rest: '2' },
   { name: '3 jours / 3 repos', work: '3', rest: '3' },
   { name: '1 semaine / 1 semaine', work: '7', rest: '7' },
@@ -72,16 +73,17 @@ export default function NurseShifts() {
   const [span, setSpan] = useState<'week' | 'month'>('week');
   const [templateId, setTemplateId] = useState('');
   const [cycleId, setCycleId] = useState('custom');
-  const [workDays, setWorkDays] = useState('2');
-  const [restDays, setRestDays] = useState('2');
+  const [rotation24, setRotation24] = useState(true);
+  const [workDays, setWorkDays] = useState('1');
+  const [restDays, setRestDays] = useState('1');
   const [selected, setSelected] = useState<string[]>([]);
   const [targetFrom, setTargetFrom] = useState(addDays(today(), 7));
   const [slot, setSlot] = useState<Slot | null>(null);
   const [slotNurses, setSlotNurses] = useState<string[]>([]);
   const [reason, setReason] = useState('');
   const [replacement, setReplacement] = useState('');
-  const [form, setForm] = useState({ id: '', name: '', startTime: '06:00', endTime: '18:00', ward: 'Soins infirmiers', requiredNurses: '1' });
-  const [cycleForm, setCycleForm] = useState({ id: '', name: '', workDays: '2', restDays: '2' });
+  const [form, setForm] = useState({ id: '', name: '', startTime: '07:00', endTime: '07:00', ward: 'Soins infirmiers', requiredNurses: '1' });
+  const [cycleForm, setCycleForm] = useState({ id: '', name: '', workDays: '1', restDays: '1' });
 
   const to = addDays(from, span === 'week' ? 6 : 29);
   const days = useMemo(() => Array.from({ length: span === 'week' ? 7 : 30 }, (_, index) => addDays(from, index)), [from, span]);
@@ -155,18 +157,26 @@ export default function NurseShifts() {
       return;
     }
     try {
+      const handsOverAfter24h = rotation24;
+      const dutyDays = handsOverAfter24h ? 1 : Number(workDays);
+      const offDays = handsOverAfter24h ? Math.max(1, selected.length - 1) : Number(restDays);
       await shiftService.rotation({
         nurseIds: selected,
         from,
         to,
-        workDays: Number(workDays),
-        restDays: Number(restDays),
+        workDays: dutyDays,
+        restDays: offDays,
         startTime: template.startTime,
-        endTime: template.endTime,
+        endTime: handsOverAfter24h ? template.startTime : template.endTime,
         type: template.name,
         ward: template.ward,
       });
-      toast({ title: 'Brouillon généré', description: 'Vérifiez le calendrier, puis publiez pour prévenir les infirmiers.' });
+      toast({
+        title: 'Brouillon généré',
+        description: handsOverAfter24h
+          ? 'Chaque infirmier tient la garde 24 h, puis le suivant prend la relève.'
+          : 'Vérifiez le calendrier, puis publiez pour prévenir les infirmiers.',
+      });
       loadShifts();
     } catch (error) {
       toast({ title: 'Rotation non générée', description: apiMessage(error), variant: 'destructive' });
@@ -233,7 +243,7 @@ export default function NurseShifts() {
       <div className="sticky top-16 z-20 -mx-4 border-b bg-background/95 px-4 py-4 backdrop-blur md:-mx-6 md:px-6">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Administration</p>
         <h1 className="mt-1 flex items-center gap-2 text-2xl font-semibold"><CalendarClock className="h-6 w-6 text-primary" />Gardes infirmières</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Les horaires et les cycles viennent de la configuration de l’établissement. Une génération reste un brouillon jusqu’à votre publication.</p>
+        <p className="mt-1 text-sm text-muted-foreground">La relève se fait après 24 h : un infirmier tient la garde, puis le suivant commence. Le brouillon n’est visible qu’après publication.</p>
       </div>
 
       <Tabs defaultValue="calendar">
@@ -251,21 +261,30 @@ export default function NurseShifts() {
               </Select>
             </div>
             <div className="space-y-2"><Label>Cycle</Label>
-              <Select value={cycleId} onValueChange={(value) => {
+              <Select value={rotation24 ? 'after-24h' : cycleId} onValueChange={(value) => {
+                if (value === 'after-24h') {
+                  setRotation24(true);
+                  setCycleId('custom');
+                  setWorkDays('1');
+                  setRestDays(String(Math.max(1, selected.length - 1)));
+                  return;
+                }
+                setRotation24(false);
                 setCycleId(value);
                 const cycle = cycles.find((item) => item.id === value);
                 if (cycle) { setWorkDays(String(cycle.workDays)); setRestDays(String(cycle.restDays)); }
               }}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="after-24h">Relève après 24 h</SelectItem>
                   <SelectItem value="custom">Personnalisé</SelectItem>
                   {cycles.map((cycle) => <SelectItem key={cycle.id} value={cycle.id}>{cycle.name} · {cycle.workDays}/{cycle.restDays}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-2"><Label>Jours travaillés</Label><Input type="number" min={1} max={31} value={workDays} onChange={(event) => { setCycleId('custom'); setWorkDays(event.target.value); }} /></div>
-              <div className="space-y-2"><Label>Jours de repos</Label><Input type="number" min={1} max={31} value={restDays} onChange={(event) => { setCycleId('custom'); setRestDays(event.target.value); }} /></div>
+              <div className="space-y-2"><Label>Jours de garde</Label><Input type="number" min={1} max={31} value={rotation24 ? '1' : workDays} disabled={rotation24} onChange={(event) => { setRotation24(false); setCycleId('custom'); setWorkDays(event.target.value); }} /></div>
+              <div className="space-y-2"><Label>Jours avant la relève</Label><Input type="number" min={1} max={31} value={rotation24 ? String(Math.max(1, selected.length - 1)) : restDays} disabled={rotation24} onChange={(event) => { setRotation24(false); setCycleId('custom'); setRestDays(event.target.value); }} /></div>
             </div>
             <div className="space-y-2">
               <Label>Infirmiers de la rotation</Label>

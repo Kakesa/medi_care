@@ -44,6 +44,15 @@ export function rangesOverlap(left: { start: Date; end: Date }, right: { start: 
   return left.start < right.end && right.start < left.end;
 }
 
+export function rotationTurn(nurseIndex: number, workDays: number, restDays: number, nurseCount: number) {
+  const stepped = nurseIndex * workDays;
+  const cycle = workDays + restDays;
+  if (workDays === 1 && cycle === nurseCount && nurseCount > 0) {
+    return (nurseCount - (stepped % cycle) + cycle) % cycle;
+  }
+  return stepped;
+}
+
 export function rotationDates(from: string, to: string, workDays: number, restDays: number, offset = 0) {
   const dates: string[] = [];
   const cycle = workDays + restDays;

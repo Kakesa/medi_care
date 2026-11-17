@@ -11,7 +11,7 @@ import { notifyUser } from './notification.service.js';
 import { sendPush } from './push.service.js';
 import type { AuthContext } from '../types/express.js';
 import {
-  addDays, dayOffset, durationLabel, facilityDate, formatShiftDate, rangesOverlap, restDates, rotationDates, shiftBounds,
+  addDays, dayOffset, durationLabel, facilityDate, formatShiftDate, rangesOverlap, restDates, rotationDates, rotationTurn, shiftBounds,
 } from './shift.logic.js';
 
 type ShiftInput = {
@@ -140,12 +140,13 @@ export async function createRotation(actor: AuthContext, organizationId: string,
 }, ip?: string) {
   const names = await nursesInOrganization(organizationId, input.nurseIds);
   const plan: Array<{ nurseId: string; date: string }> = [];
-  let offset = 0;
+  let nurseIndex = 0;
   for (const nurseId of names.keys()) {
-    for (const date of rotationDates(input.from, input.to, input.workDays, input.restDays, offset)) {
+    const turn = rotationTurn(nurseIndex, input.workDays, input.restDays, names.size);
+    for (const date of rotationDates(input.from, input.to, input.workDays, input.restDays, turn)) {
       plan.push({ nurseId, date });
     }
-    offset += input.workDays;
+    nurseIndex += 1;
   }
   for (const item of plan) {
     await assertNoConflict(organizationId, item.nurseId, item.date, input.startTime, input.endTime);

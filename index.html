@@ -20,6 +20,57 @@
     <meta name="twitter:image:alt" content="MediCare, système d'information hospitalier" />
   </head>
   <body>
+    <div id="boot" role="status" aria-live="polite" aria-label="Chargement">
+      <span class="boot-mark">
+        <img src="/favicon.svg" alt="" width="84" height="84" />
+      </span>
+    </div>
+    <style>
+      #boot {
+        position: fixed;
+        inset: 0;
+        z-index: 10000;
+        display: grid;
+        place-items: center;
+        background: #f4fafa;
+        transition: opacity 0.55s ease, visibility 0.55s ease;
+      }
+      .boot-mark {
+        position: relative;
+        display: grid;
+        width: 84px;
+        height: 84px;
+        place-items: center;
+      }
+      .boot-mark::before {
+        content: "";
+        position: absolute;
+        inset: -26px;
+        border-radius: 50%;
+        background: conic-gradient(from 0deg, transparent 0 250deg, #0f6e6e 310deg, #2dd4bf 360deg);
+        -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+        mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+        animation: boot-spin 0.9s linear infinite;
+      }
+      #boot img {
+        width: 84px;
+        height: 84px;
+      }
+      @keyframes boot-spin {
+        to { transform: rotate(360deg); }
+      }
+      #boot.boot-done {
+        opacity: 0;
+        visibility: hidden;
+      }
+      @media (prefers-color-scheme: dark) {
+        #boot { background: #0c1618; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .boot-mark::before { animation: none; }
+      }
+    </style>
+    <script>window.__bootAt = Date.now();</script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

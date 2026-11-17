@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { durationLabel, rangesOverlap, restDates, rotationDates, shiftBounds } from '../src/services/shift.logic.js';
+import { durationLabel, rangesOverlap, restDates, rotationDates, rotationTurn, shiftBounds } from '../src/services/shift.logic.js';
 
 describe('rotations de garde', () => {
   it('alterne 2 jours de travail et 2 jours de repos', () => {
@@ -19,7 +19,18 @@ describe('rotations de garde', () => {
     expect(rangesOverlap(night, overlap)).toBe(true);
   });
 
+  it('fait tourner un infirmier par tranche de 24 h', () => {
+    expect(rotationTurn(0, 1, 2, 3)).toBe(0);
+    expect(rotationTurn(1, 1, 2, 3)).toBe(2);
+    expect(rotationTurn(2, 1, 2, 3)).toBe(1);
+    expect(rotationDates('2026-11-14', '2026-11-17', 1, 2, rotationTurn(0, 1, 2, 3))).toEqual(['2026-11-14', '2026-11-17']);
+    expect(rotationDates('2026-11-14', '2026-11-17', 1, 2, rotationTurn(1, 1, 2, 3))).toEqual(['2026-11-15']);
+    expect(rotationDates('2026-11-14', '2026-11-17', 1, 2, rotationTurn(2, 1, 2, 3))).toEqual(['2026-11-16']);
+    expect(rotationTurn(1, 2, 2, 2)).toBe(2);
+  });
+
   it('calcule la durée, y compris quand la garde passe minuit', () => {
+    expect(durationLabel('07:00', '07:00')).toBe('24 heures');
     expect(durationLabel('06:00', '18:00')).toBe('12 heures');
     expect(durationLabel('18:00', '06:00')).toBe('12 heures');
     expect(durationLabel('06:00', '14:00')).toBe('8 heures');

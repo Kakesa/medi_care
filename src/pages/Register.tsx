@@ -95,15 +95,29 @@ export default function Register() {
             </div>
             <span className="text-2xl font-bold">MediCare SIH</span>
           </Link>
-          <h1 className="text-3xl font-bold">Inscription</h1>
+          <h1 className="text-3xl font-bold">S'inscrire</h1>
           <p className="mt-2 text-muted-foreground">
-            Créez votre compte patient
+            Patient ou centre hospitalier
           </p>
         </div>
 
         {/* Register form */}
         <Card className="p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="accountType">Compte</Label>
+              <select
+                id="accountType"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                defaultValue="patient"
+                onChange={(event) => {
+                  if (event.target.value === "centre") navigate("/inscription-centre");
+                }}
+              >
+                <option value="patient">Patient</option>
+                <option value="centre">Centre hospitalier</option>
+              </select>
+            </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="firstName" className="flex items-center gap-2">

@@ -127,13 +127,9 @@ export default function Login() {
           </form>
 
           <div className="mt-6 text-center text-sm">
-            <span className="text-muted-foreground">Pas encore de compte patient ?</span>{" "}
+            <span className="text-muted-foreground">Pas encore de compte ?</span>{" "}
             <Link to="/register" className="text-primary hover:underline font-medium">
               S'inscrire
-            </Link>
-            <span className="text-muted-foreground"> · </span>
-            <Link to="/inscription-centre" className="text-primary hover:underline font-medium">
-              Inscrire un centre
             </Link>
           </div>
         </Card>

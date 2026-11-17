@@ -94,8 +94,8 @@ class LabService {
     return httpClient.post<LabExam>(`/lab/${id}/draft`, data);
   }
 
-  submit(id: string) {
-    return httpClient.post<LabExam>(`/lab/${id}/submit`, {});
+  submit(id: string, data?: { results?: string; technicalNotes?: string; attachments?: LabAttachment[] }) {
+    return httpClient.post<LabExam>(`/lab/${id}/submit`, data ?? {});
   }
 
   validate(id: string, comment?: string) {

@@ -19,7 +19,7 @@ import { apiMessage } from "@/lib/apiError";
 import { labService, labStatusLabels, type LabExam, type LabStatus } from "@/services/labService";
 import { userAdminService } from "@/services/userAdminService";
 
-const groups: LabStatus[] = ["EN_ATTENTE_VALIDATION", "EN_COURS", "BROUILLON", "CORRECTION_DEMANDEE", "REJETE", "VALIDE", "EN_ATTENTE"];
+const groups: LabStatus[] = ["EN_ATTENTE_VALIDATION", "EN_COURS", "CORRECTION_DEMANDEE", "REJETE", "VALIDE", "EN_ATTENTE"];
 const patientsPerPage = 10;
 const paymentLabels: Record<string, string> = {
   unbilled: "Sans facture",
@@ -121,7 +121,7 @@ export default function LabSupervision() {
       </div>
       <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {groups.map((status) => (
-          <Card key={status}><CardContent className="p-4"><p className="text-sm text-muted-foreground">{labStatusLabels[status]}</p><p className="text-2xl font-bold">{rows.filter((row) => row.labStatus === status).length}</p></CardContent></Card>
+          <Card key={status}><CardContent className="p-4"><p className="text-sm text-muted-foreground">{labStatusLabels[status]}</p><p className="text-2xl font-bold">{rows.filter((row) => row.labStatus === status || (status === "EN_COURS" && row.labStatus === "BROUILLON")).length}</p></CardContent></Card>
         ))}
       </div>
       <Card>

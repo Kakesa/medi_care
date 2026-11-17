@@ -14,12 +14,15 @@ import { labService, labStatusLabels, type LabExam, type LabStatus } from "@/ser
 const queues: Array<{ status: LabStatus; label: string }> = [
   { status: "EN_ATTENTE", label: "En attente" },
   { status: "EN_COURS", label: "En cours" },
-  { status: "BROUILLON", label: "Brouillons" },
   { status: "EN_ATTENTE_VALIDATION", label: "Soumis" },
   { status: "CORRECTION_DEMANDEE", label: "Corrections" },
   { status: "VALIDE", label: "Terminés" },
   { status: "REJETE", label: "Rejetés" },
 ];
+
+function inQueue(row: LabExam, status: LabStatus) {
+  return row.labStatus === status || (status === "EN_COURS" && row.labStatus === "BROUILLON");
+}
 
 function readFile(file: File) {
   return new Promise<{ name: string; mimeType: string; data: string }>((resolve, reject) => {
@@ -87,7 +90,7 @@ export default function LaborantinWorkspace() {
           <Card key={queue.status}>
             <CardContent className="p-4">
               <p className="text-sm text-muted-foreground">{queue.label}</p>
-              <p className="text-2xl font-bold">{rows.filter((row) => row.labStatus === queue.status).length}</p>
+              <p className="text-2xl font-bold">{rows.filter((row) => inQueue(row, queue.status)).length}</p>
             </CardContent>
           </Card>
         ))}
@@ -99,9 +102,9 @@ export default function LaborantinWorkspace() {
         {queues.map((queue) => (
           <TabsContent key={queue.status} value={queue.status} className="mt-4 grid gap-4 lg:grid-cols-[1fr_1.1fr]">
             <div className="space-y-2">
-              {loading ? <p className="text-muted-foreground">Chargement...</p> : rows.filter((row) => row.labStatus === queue.status).length === 0 ? (
+              {loading ? <p className="text-muted-foreground">Chargement...</p> : rows.filter((row) => inQueue(row, queue.status)).length === 0 ? (
                 <p className="text-muted-foreground">Aucun examen</p>
-              ) : rows.filter((row) => row.labStatus === queue.status).map((row) => (
+              ) : rows.filter((row) => inQueue(row, queue.status)).map((row) => (
                 <button key={row.id} type="button" className="w-full rounded-xl border bg-card p-4 text-left" onClick={() => void open(row.id)}>
                   <div className="flex items-center justify-between gap-2">
                     <p className="font-medium">{row.name}</p>
@@ -111,7 +114,7 @@ export default function LaborantinWorkspace() {
                 </button>
               ))}
             </div>
-            {selected && selected.labStatus === queue.status ? (
+            {selected && inQueue(selected, queue.status) ? (
               <Card>
                 <CardContent className="space-y-4 p-4">
                   <div className="flex items-center gap-2">
@@ -147,10 +150,7 @@ export default function LaborantinWorkspace() {
                         void readFile(file).then((attachment) => setFiles((current) => [...current, attachment].slice(0, 2))).catch(() => toast({ variant: "destructive", title: "Fichier refusé" }));
                       }} />
                       {files.map((file) => <p key={file.name} className="text-xs text-muted-foreground">{file.name}</p>)}
-                      <div className="flex flex-wrap gap-2">
-                        <Button variant="outline" onClick={() => run(() => labService.draft(selected.id, { results, technicalNotes: notes, attachments: files }), "Brouillon enregistré")}>Enregistrer le brouillon</Button>
-                        {selected.labStatus === "BROUILLON" && <Button onClick={() => run(() => labService.submit(selected.id), "Soumis pour validation")}>Soumettre</Button>}
-                      </div>
+                      <Button onClick={() => run(() => labService.submit(selected.id, { results, technicalNotes: notes, attachments: files }), "Soumis pour validation")}>Soumettre</Button>
                     </>
                   )}
                   {selected.labStatus === "VALIDE" && <p className="text-sm">Résultat officiel : {selected.results}</p>}

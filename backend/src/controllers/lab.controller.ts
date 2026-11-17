@@ -22,7 +22,7 @@ export const draftLab = asyncHandler(async (req: Request, res: Response) => {
   res.json(await lab.saveLabDraft(auth(req), org(req), req.params.id, req.body, req.ip));
 });
 export const submitLab = asyncHandler(async (req: Request, res: Response) => {
-  res.json(await lab.submitLabExam(auth(req), org(req), req.params.id, req.ip));
+  res.json(await lab.submitLabExam(auth(req), org(req), req.params.id, req.body, req.ip));
 });
 export const validateLab = asyncHandler(async (req: Request, res: Response) => {
   res.json(await lab.decideLabExam(auth(req), org(req), req.params.id, 'VALIDE', req.body.comment, req.ip));

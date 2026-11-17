@@ -37,6 +37,12 @@ export const labDraftSchema = envelope(z.object({
   attachments: z.array(attachment).max(2).optional(),
 }), empty, paramsId);
 
+export const labSubmitSchema = envelope(z.object({
+  results: z.string().trim().min(1).max(8000).optional(),
+  technicalNotes: z.string().trim().max(4000).optional(),
+  attachments: z.array(attachment).max(2).optional(),
+}), empty, paramsId);
+
 export const labDecisionSchema = envelope(z.object({
   comment: z.string().trim().max(2000).optional(),
 }), empty, paramsId);

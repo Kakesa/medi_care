@@ -307,9 +307,25 @@ export async function saveLabDraft(
   return getLabExam(actor, organizationId, id, ip);
 }
 
-export async function submitLabExam(actor: AuthContext, organizationId: string, id: string, ip?: string) {
+export async function submitLabExam(
+  actor: AuthContext,
+  organizationId: string,
+  id: string,
+  input: { results?: string; technicalNotes?: string; attachments?: Attachment[] } | undefined,
+  ip?: string
+) {
   const row = await loadExam(actor, organizationId, id, ip);
-  if (row.labStatus !== 'BROUILLON') throw new ApiError(409, 'Enregistrez d\'abord un brouillon', 'LAB_STATUS');
+  const allowed = ['EN_COURS', 'BROUILLON', 'CORRECTION_DEMANDEE', 'REJETE'];
+  if (!row.labStatus || !allowed.includes(row.labStatus)) {
+    throw new ApiError(409, 'Les résultats ne peuvent pas être soumis à cette étape', 'LAB_STATUS');
+  }
+  if (input?.results?.trim()) {
+    row.draftResults = input.results.trim();
+    row.technicalNotes = input.technicalNotes?.trim() || row.technicalNotes || '';
+    if (input.attachments) {
+      row.attachments = input.attachments.map((file) => ({ name: file.name.trim(), mimeType: file.mimeType, data: file.data }));
+    }
+  }
   if (!row.draftResults?.trim()) throw new ApiError(400, 'Le résultat est vide', 'VALIDATION_ERROR');
   const name = await actorName(actor);
   const version = (row.versions?.length || 0) + 1;

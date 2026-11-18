@@ -36,6 +36,7 @@ export default function ForgotPassword() {
     <AuthScreen
       title="Mot de passe oublié"
       backTo="/login"
+      center
       footer={<Link to="/confidentialite" className="text-xs hover:text-primary">Confidentialité</Link>}
     >
       <p className="mb-4 text-sm text-muted-foreground">Indiquez votre e-mail. Un lien permettra d’en choisir un nouveau.</p>

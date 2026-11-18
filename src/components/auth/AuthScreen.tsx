@@ -5,6 +5,27 @@ import { useToast } from "@/hooks/use-toast";
 
 export type AuthSlide = { src: string; role: string; title: string; text: string };
 
+export const authSlides: AuthSlide[] = [
+  {
+    src: "/auth/infirmiere.jpg",
+    role: "Infirmier",
+    title: "Les soins du service, au chevet du patient.",
+    text: "La feuille de traitement, les administrations du jour et les gardes restent visibles pour toute l’équipe infirmière.",
+  },
+  {
+    src: "/auth/pharmacie.jpg",
+    role: "Pharmacie",
+    title: "L’ordonnance passe du médecin au comptoir.",
+    text: "Le pharmacien prépare la délivrance, suit le stock et retrouve le journal des ventes de son officine.",
+  },
+  {
+    src: "/auth/docteur.jpg",
+    role: "Médecin",
+    title: "La consultation et le dossier, au même endroit.",
+    text: "Le médecin reprend l’historique, rédige la conclusion et prépare l’ordonnance sans quitter la fiche du patient.",
+  },
+];
+
 function LoginShowcase({ slides }: { slides: AuthSlide[] }) {
   const [index, setIndex] = useState(0);
 

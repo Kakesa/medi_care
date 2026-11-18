@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Mail, Lock, Eye, EyeOff, User, Phone, Building2 } from "lucide-react";
-import { AuthField, AuthScreen, AuthSocial, AuthSubmit } from "@/components/auth/AuthScreen";
+import { AuthField, AuthScreen, AuthSocial, AuthSubmit, authSlides } from "@/components/auth/AuthScreen";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { HoneypotField } from "@/components/forms/HoneypotField";
@@ -104,6 +104,7 @@ export default function Register() {
     <AuthScreen
       title="Inscription"
       backTo="/login"
+      slides={authSlides}
       footer={
         <>
           <p>Déjà un compte ? <Link to="/login" className="font-semibold text-primary">Se connecter</Link></p>

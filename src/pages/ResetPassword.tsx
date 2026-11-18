@@ -1,10 +1,7 @@
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Activity, Lock } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card } from "@/components/ui/card";
+import { Lock } from "lucide-react";
+import { AuthField, AuthScreen, AuthSubmit } from "@/components/auth/AuthScreen";
 import { authService } from "@/services/authService";
 import { apiMessage } from "@/lib/apiError";
 import { HoneypotField } from "@/components/forms/HoneypotField";
@@ -47,49 +44,24 @@ export default function ResetPassword() {
   };
 
   return (
-    <div className="flex min-h-screen items-start justify-center bg-background px-4 py-8 sm:items-center sm:p-6">
-      <div className="w-full max-w-md space-y-8">
-        <div className="text-center">
-          <Link to="/" className="mb-8 inline-flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
-              <Activity className="h-7 w-7 text-primary-foreground" />
-            </div>
-            <span className="text-2xl font-bold">MediCare SIH</span>
-          </Link>
-          <h1 className="text-3xl font-bold">Nouveau mot de passe</h1>
-        </div>
-        <Card className="p-6">
-          {!token ? (
-            <p className="text-sm">Ce lien est incomplet. Demandez un nouvel e-mail depuis la page mot de passe oublié.</p>
-          ) : done ? (
-            <p className="text-sm">{done}</p>
-          ) : (
-            <form onSubmit={submit} className="space-y-4">
-              <HoneypotField />
-              <div className="space-y-2">
-                <Label htmlFor="password" className="flex items-center gap-2">
-                  <Lock className="h-4 w-4 text-primary" />
-                  Nouveau mot de passe
-                </Label>
-                <Input id="password" type="password" required minLength={8} maxLength={128} value={password} onChange={(event) => setPassword(event.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirm">Confirmer le mot de passe</Label>
-                <Input id="confirm" type="password" required minLength={8} maxLength={128} value={confirm} onChange={(event) => setConfirm(event.target.value)} />
-              </div>
-              {error && <p className="text-sm text-destructive">{error}</p>}
-              <Button type="submit" variant="hero" className="w-full" disabled={saving}>
-                {saving ? "Enregistrement..." : "Enregistrer"}
-              </Button>
-            </form>
-          )}
-          <div className="mt-6 text-center text-sm">
-            <Link to="/login" className="font-medium text-primary hover:underline">Retour à la connexion</Link>
-            <span className="mx-2 text-muted-foreground">·</span>
-            <Link to="/confidentialite" className="text-muted-foreground hover:text-primary hover:underline">Confidentialité</Link>
-          </div>
-        </Card>
-      </div>
-    </div>
+    <AuthScreen
+      title="Nouveau mot de passe"
+      backTo="/login"
+      footer={<Link to="/confidentialite" className="text-xs hover:text-primary">Confidentialité</Link>}
+    >
+      {!token ? (
+        <p className="text-sm">Ce lien est incomplet. Demandez un nouvel e-mail depuis la page mot de passe oublié.</p>
+      ) : done ? (
+        <p className="text-sm">{done}</p>
+      ) : (
+        <form onSubmit={submit}>
+          <HoneypotField />
+          <AuthField id="password" icon={Lock} label="Nouveau mot de passe" type="password" required minLength={8} maxLength={128} autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Nouveau mot de passe..." />
+          <AuthField id="confirm" icon={Lock} label="Confirmer le mot de passe" type="password" required minLength={8} maxLength={128} autoComplete="new-password" value={confirm} onChange={(event) => setConfirm(event.target.value)} placeholder="Confirmer le mot de passe..." />
+          {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+          <AuthSubmit disabled={saving}>{saving ? "Enregistrement..." : "Enregistrer"}</AuthSubmit>
+        </form>
+      )}
+    </AuthScreen>
   );
 }

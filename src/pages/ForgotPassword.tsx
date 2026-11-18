@@ -1,10 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Activity, Mail } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card } from "@/components/ui/card";
+import { Mail } from "lucide-react";
+import { AuthField, AuthScreen, AuthSubmit } from "@/components/auth/AuthScreen";
 import { authService } from "@/services/authService";
 import { apiMessage } from "@/lib/apiError";
 import { HoneypotField } from "@/components/forms/HoneypotField";
@@ -36,44 +33,22 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div className="flex min-h-screen items-start justify-center bg-background px-4 py-8 sm:items-center sm:p-6">
-      <div className="w-full max-w-md space-y-8">
-        <div className="text-center">
-          <Link to="/" className="mb-8 inline-flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
-              <Activity className="h-7 w-7 text-primary-foreground" />
-            </div>
-            <span className="text-2xl font-bold">MediCare SIH</span>
-          </Link>
-          <h1 className="text-3xl font-bold">Mot de passe oublié</h1>
-          <p className="mt-2 text-muted-foreground">Indiquez votre e-mail. Nous vous enverrons un lien pour en choisir un nouveau.</p>
-        </div>
-        <Card className="p-6">
-          {sent ? (
-            <p className="text-sm">{sent}</p>
-          ) : (
-            <form onSubmit={submit} className="space-y-4">
-              <HoneypotField />
-              <div className="space-y-2">
-                <Label htmlFor="email" className="flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-primary" />
-                  Email
-                </Label>
-                <Input id="email" type="email" required maxLength={160} value={email} onChange={(event) => setEmail(event.target.value)} placeholder="votre@email.fr" />
-              </div>
-              {error && <p className="text-sm text-destructive">{error}</p>}
-              <Button type="submit" variant="hero" className="w-full" disabled={sending}>
-                {sending ? "Envoi..." : "Envoyer le lien"}
-              </Button>
-            </form>
-          )}
-          <div className="mt-6 text-center text-sm">
-            <Link to="/login" className="font-medium text-primary hover:underline">Retour à la connexion</Link>
-            <span className="mx-2 text-muted-foreground">·</span>
-            <Link to="/confidentialite" className="text-muted-foreground hover:text-primary hover:underline">Confidentialité</Link>
-          </div>
-        </Card>
-      </div>
-    </div>
+    <AuthScreen
+      title="Mot de passe oublié"
+      backTo="/login"
+      footer={<Link to="/confidentialite" className="text-xs hover:text-primary">Confidentialité</Link>}
+    >
+      <p className="mb-4 text-sm text-muted-foreground">Indiquez votre e-mail. Un lien permettra d’en choisir un nouveau.</p>
+      {sent ? (
+        <p className="text-sm">{sent}</p>
+      ) : (
+        <form onSubmit={submit}>
+          <HoneypotField />
+          <AuthField id="email" icon={Mail} label="Email" type="email" required maxLength={160} autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email..." />
+          {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+          <AuthSubmit disabled={sending}>{sending ? "Envoi..." : "Envoyer le lien"}</AuthSubmit>
+        </form>
+      )}
+    </AuthScreen>
   );
 }

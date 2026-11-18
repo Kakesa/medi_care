@@ -1,10 +1,7 @@
 import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Activity, Mail, Lock, Eye, EyeOff, ArrowRight, User, Phone } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card } from "@/components/ui/card";
+import { Mail, Lock, Eye, EyeOff, User, Phone, Building2 } from "lucide-react";
+import { AuthField, AuthScreen, AuthSubmit } from "@/components/auth/AuthScreen";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { HoneypotField } from "@/components/forms/HoneypotField";
@@ -104,176 +101,51 @@ export default function Register() {
   };
 
   return (
-    <div className="flex min-h-screen items-start justify-center bg-background px-4 py-8 sm:items-center sm:p-6">
-      <div className="w-full max-w-md space-y-8 animate-fade-in">
-        {/* Logo */}
-        <div className="text-center">
-          <Link to="/" className="inline-flex items-center gap-3 mb-8">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
-              <Activity className="h-7 w-7 text-primary-foreground" />
-            </div>
-            <span className="text-2xl font-bold">MediCare SIH</span>
-          </Link>
-          <h1 className="text-3xl font-bold">S'inscrire</h1>
-          <p className="mt-2 text-muted-foreground">
-            Patient ou centre hospitalier
-          </p>
+    <AuthScreen
+      title="Inscription"
+      backTo="/login"
+      footer={
+        <>
+          <p>Déjà un compte ? <Link to="/login" className="font-semibold text-primary">Se connecter</Link></p>
+          <Link to="/confidentialite" className="mt-3 inline-block text-xs hover:text-primary">Confidentialité</Link>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit}>
+        <HoneypotField />
+        <div className="mb-4 grid grid-cols-2 gap-2">
+          <span className="rounded-full bg-primary py-2 text-center text-sm font-semibold text-primary-foreground">Patient</span>
+          <button type="button" onClick={() => navigate("/inscription-centre")} className="rounded-full border border-border py-2 text-sm text-muted-foreground">
+            Centre
+          </button>
         </div>
-
-        {/* Register form */}
-        <Card className="p-6">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <HoneypotField />
-            <div className="space-y-2">
-              <Label htmlFor="accountType">Compte</Label>
-              <select
-                id="accountType"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                defaultValue="patient"
-                onChange={(event) => {
-                  if (event.target.value === "centre") navigate("/inscription-centre");
-                }}
-              >
-                <option value="patient">Patient</option>
-                <option value="centre">Centre hospitalier</option>
-              </select>
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="firstName" className="flex items-center gap-2">
-                  <User className="h-4 w-4 text-primary" />
-                  Prénom
-                </Label>
-                <Input
-                  id="firstName"
-                  required
-                  maxLength={80}
-                  value={formData.firstName}
-                  onChange={(e) => handleChange("firstName", e.target.value)}
-                  placeholder="Jean"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lastName">Nom</Label>
-                <Input
-                  id="lastName"
-                  required
-                  maxLength={80}
-                  value={formData.lastName}
-                  onChange={(e) => handleChange("lastName", e.target.value)}
-                  placeholder="Dupont"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="email" className="flex items-center gap-2">
-                <Mail className="h-4 w-4 text-primary" />
-                Email
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                required
-                maxLength={160}
-                value={formData.email}
-                onChange={(e) => handleChange("email", e.target.value)}
-                placeholder="votre@email.fr"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="phone" className="flex items-center gap-2">
-                <Phone className="h-4 w-4 text-primary" />
-                Téléphone
-              </Label>
-              <Input
-                id="phone"
-                type="tel"
-                maxLength={30}
-                value={formData.phone}
-                onChange={(e) => handleChange("phone", e.target.value)}
-                placeholder="06 XX XX XX XX"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="organizationSlug">Code de l'établissement</Label>
-              <Input
-                id="organizationSlug"
-                required
-                maxLength={80}
-                value={formData.organizationSlug}
-                onChange={(e) => handleChange("organizationSlug", e.target.value)}
-                placeholder="clinique-nord"
-              />
-              <p className="text-xs text-muted-foreground">
-                L'inscription publique crée un compte patient. Le personnel est créé par l'administrateur de l'établissement.
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password" className="flex items-center gap-2">
-                <Lock className="h-4 w-4 text-primary" />
-                Mot de passe
-              </Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  required
-                  minLength={8}
-                  maxLength={128}
-                  value={formData.password}
-                  onChange={(e) => handleChange("password", e.target.value)}
-                  placeholder="••••••••"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirmer le mot de passe</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                required
-                minLength={8}
-                maxLength={128}
-                value={formData.confirmPassword}
-                onChange={(e) => handleChange("confirmPassword", e.target.value)}
-                placeholder="••••••••"
-              />
-            </div>
-
-            <Button type="submit" variant="hero" className="w-full" disabled={isLoading}>
-              {isLoading ? "Inscription..." : (
-                <>
-                  S'inscrire
-                  <ArrowRight className="h-4 w-4" />
-                </>
-              )}
-            </Button>
-          </form>
-
-          <div className="mt-6 text-center text-sm">
-            <span className="text-muted-foreground">Déjà un compte ?</span>{" "}
-            <Link to="/login" className="text-primary hover:underline font-medium">
-              Se connecter
-            </Link>
-            <span className="mx-2 text-muted-foreground">·</span>
-            <Link to="/confidentialite" className="text-muted-foreground hover:text-primary hover:underline">
-              Confidentialité
-            </Link>
-          </div>
-        </Card>
-      </div>
-    </div>
+        <AuthField id="firstName" icon={User} label="Prénom" required maxLength={80} autoComplete="given-name" value={formData.firstName} onChange={(e) => handleChange("firstName", e.target.value)} placeholder="Prénom..." />
+        <AuthField id="lastName" icon={User} label="Nom" required maxLength={80} autoComplete="family-name" value={formData.lastName} onChange={(e) => handleChange("lastName", e.target.value)} placeholder="Nom..." />
+        <AuthField id="email" icon={Mail} label="Email" type="email" required maxLength={160} autoComplete="email" value={formData.email} onChange={(e) => handleChange("email", e.target.value)} placeholder="Email..." />
+        <AuthField id="phone" icon={Phone} label="Téléphone" type="tel" maxLength={30} autoComplete="tel" value={formData.phone} onChange={(e) => handleChange("phone", e.target.value)} placeholder="Téléphone..." />
+        <AuthField id="organizationSlug" icon={Building2} label="Code de l'établissement" required maxLength={80} value={formData.organizationSlug} onChange={(e) => handleChange("organizationSlug", e.target.value)} placeholder="Code de l'établissement..." />
+        <p className="mt-2 text-xs text-muted-foreground">L'inscription publique crée un compte patient. Le personnel est créé par l'administrateur.</p>
+        <AuthField
+          id="password"
+          icon={Lock}
+          label="Mot de passe"
+          type={showPassword ? "text" : "password"}
+          required
+          minLength={8}
+          maxLength={128}
+          autoComplete="new-password"
+          value={formData.password}
+          onChange={(e) => handleChange("password", e.target.value)}
+          placeholder="Mot de passe..."
+          trailing={
+            <button type="button" onClick={() => setShowPassword(!showPassword)} className="text-muted-foreground" aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}>
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          }
+        />
+        <AuthField id="confirmPassword" icon={Lock} label="Confirmer le mot de passe" type="password" required minLength={8} maxLength={128} autoComplete="new-password" value={formData.confirmPassword} onChange={(e) => handleChange("confirmPassword", e.target.value)} placeholder="Confirmer le mot de passe..." />
+        <AuthSubmit disabled={isLoading}>{isLoading ? "Inscription..." : "S'inscrire"}</AuthSubmit>
+      </form>
+    </AuthScreen>
   );
 }

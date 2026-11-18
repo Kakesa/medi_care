@@ -1,10 +1,7 @@
 import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Activity, Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card } from "@/components/ui/card";
+import { Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { AuthField, AuthScreen, AuthSubmit } from "@/components/auth/AuthScreen";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { HoneypotField } from "@/components/forms/HoneypotField";
@@ -59,99 +56,40 @@ export default function Login() {
   };
 
   return (
-    <div className="flex min-h-screen items-start justify-center bg-background px-4 py-8 sm:items-center sm:p-6">
-      <div className="w-full max-w-md space-y-8 animate-fade-in">
-        {/* Logo */}
-        <div className="text-center">
-          <Link to="/" className="inline-flex items-center gap-3 mb-8">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
-              <Activity className="h-7 w-7 text-primary-foreground" />
-            </div>
-            <span className="text-2xl font-bold">MediCare SIH</span>
-          </Link>
-          <h1 className="text-3xl font-bold">Connexion</h1>
-          <p className="mt-2 text-muted-foreground">
-            Accédez à votre espace personnel
-          </p>
+    <AuthScreen
+      title="Connexion"
+      footer={
+        <>
+          <p>Pas encore de compte ? <Link to="/register" className="font-semibold text-primary">S'inscrire</Link></p>
+          <Link to="/confidentialite" className="mt-3 inline-block text-xs hover:text-primary">Confidentialité</Link>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit}>
+        <HoneypotField />
+        <AuthField id="email" icon={Mail} label="Email" type="email" required maxLength={160} autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email..." />
+        <AuthField
+          id="password"
+          icon={Lock}
+          label="Mot de passe"
+          type={showPassword ? "text" : "password"}
+          required
+          maxLength={128}
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Mot de passe..."
+          trailing={
+            <button type="button" onClick={() => setShowPassword(!showPassword)} className="text-muted-foreground" aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}>
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          }
+        />
+        <div className="mt-3 text-right text-sm">
+          <Link to="/forgot-password" className="text-primary">Mot de passe oublié ?</Link>
         </div>
-
-        {/* Login form */}
-        <Card className="p-6">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <HoneypotField />
-            <div className="space-y-2">
-              <Label htmlFor="email" className="flex items-center gap-2">
-                <Mail className="h-4 w-4 text-primary" />
-                Email
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                required
-                maxLength={160}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="votre@email.fr"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password" className="flex items-center gap-2">
-                <Lock className="h-4 w-4 text-primary" />
-                Mot de passe
-              </Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  required
-                  maxLength={128}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between text-sm">
-              <label className="flex items-center gap-2">
-                <input type="checkbox" className="rounded border-input" />
-                <span className="text-muted-foreground">Se souvenir de moi</span>
-              </label>
-              <Link to="/forgot-password" className="text-primary hover:underline">
-                Mot de passe oublié ?
-              </Link>
-            </div>
-
-            <Button type="submit" variant="hero" className="w-full" disabled={isLoading}>
-              {isLoading ? "Connexion..." : (
-                <>
-                  Se connecter
-                  <ArrowRight className="h-4 w-4" />
-                </>
-              )}
-            </Button>
-          </form>
-
-          <div className="mt-6 text-center text-sm">
-            <span className="text-muted-foreground">Pas encore de compte ?</span>{" "}
-            <Link to="/register" className="text-primary hover:underline font-medium">
-              S'inscrire
-            </Link>
-            <span className="mx-2 text-muted-foreground">·</span>
-            <Link to="/confidentialite" className="text-muted-foreground hover:text-primary hover:underline">
-              Confidentialité
-            </Link>
-          </div>
-        </Card>
-      </div>
-    </div>
+        <AuthSubmit disabled={isLoading}>{isLoading ? "Connexion..." : "Se connecter"}</AuthSubmit>
+      </form>
+    </AuthScreen>
   );
 }

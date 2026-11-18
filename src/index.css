@@ -307,11 +307,11 @@ body {
 }
 
 @media (max-width: 767px) {
-  main {
+  .app-main {
     padding-bottom: calc(6rem + env(safe-area-inset-bottom));
   }
 
-  main table {
+  .app-main table {
     display: block;
     width: 100%;
     overflow-x: auto;

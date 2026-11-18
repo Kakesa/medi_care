@@ -54,7 +54,7 @@ export function DashboardLayout() {
           </div>
         </header>
 
-        <main className="min-w-0 p-4 pb-24 md:p-6">
+        <main className="app-main min-w-0 p-4 pb-24 md:p-6">
           <Outlet />
         </main>
       </div>

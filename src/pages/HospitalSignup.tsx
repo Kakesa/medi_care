@@ -1,8 +1,8 @@
 import { FormEvent, useState } from "react";
 import { Link } from "react-router-dom";
-import { Activity, ArrowLeft, ArrowRight, Check, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { AuthScreen } from "@/components/auth/AuthScreen";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { httpClient } from "@/services/httpClient";
@@ -191,18 +191,9 @@ export default function HospitalSignup() {
   const facilityLabel = facilityOptions.find(([value]) => value === draft.facilityType)?.[1] || draft.facilityType;
 
   return (
-    <div className="flex min-h-screen items-start justify-center bg-background px-4 py-8 sm:p-6">
-      <div className="w-full max-w-xl space-y-6">
-        <div className="text-center">
-          <Link to="/" className="mb-6 inline-flex items-center gap-3">
-            <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
-              <Activity className="h-7 w-7 text-primary-foreground" />
-            </span>
-            <span className="text-2xl font-bold">MediCare SIH</span>
-          </Link>
-          <h1 className="text-2xl font-bold sm:text-3xl">Inscription d’un centre</h1>
-          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">La demande reste en attente jusqu’à la validation du SuperAdmin.</p>
-        </div>
+    <AuthScreen title="Inscription d’un centre" backTo="/register" wide footer={!done ? <Link to="/confidentialite" className="text-xs hover:text-primary">Confidentialité</Link> : undefined}>
+      <div className="space-y-6">
+        <p className="text-sm text-muted-foreground">La demande reste en attente jusqu’à la validation du SuperAdmin.</p>
 
         <ol className="grid grid-cols-4 gap-2">
           {steps.map((item, index) => {
@@ -229,12 +220,12 @@ export default function HospitalSignup() {
           })}
         </ol>
 
-        <Card className="p-4 sm:p-6">
+        <div>
           {done ? (
             <div className="space-y-4 text-center">
               <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/15 text-primary"><Check className="h-6 w-6" /></span>
               <p className="text-sm">{done}</p>
-              <Button variant="hero" className="w-full" asChild><Link to="/login">Retour à la connexion</Link></Button>
+              <Button variant="hero" className="h-12 w-full rounded-full" asChild><Link to="/login">Retour à la connexion</Link></Button>
             </div>
           ) : (
             <form className="space-y-4" autoComplete="off" onSubmit={submit}>
@@ -339,36 +330,25 @@ export default function HospitalSignup() {
               {error && <p className="rounded-lg border border-destructive/30 px-3 py-2 text-sm text-destructive">{error}</p>}
 
               <div className="flex gap-2 pt-1">
-                <Button type="button" variant="outline" className="h-11 flex-1 whitespace-nowrap" disabled={step === 0} onClick={() => { setError(""); setStep((current) => current - 1); }}>
+                <Button type="button" variant="outline" className="h-12 flex-1 whitespace-nowrap rounded-full" disabled={step === 0} onClick={() => { setError(""); setStep((current) => current - 1); }}>
                   <ArrowLeft className="h-4 w-4" />
                   Précédent
                 </Button>
                 {step < 3 ? (
-                  <Button type="button" variant="hero" className="h-11 flex-[1.3] whitespace-nowrap" onClick={next}>
+                  <Button type="button" variant="hero" className="h-12 flex-[1.3] whitespace-nowrap rounded-full" onClick={next}>
                     Continuer
                     <ArrowRight className="h-4 w-4" />
                   </Button>
                 ) : (
-                  <Button type="submit" variant="hero" className="h-11 flex-[1.3] whitespace-nowrap" disabled={sending}>
+                  <Button type="submit" variant="hero" className="h-12 flex-[1.3] whitespace-nowrap rounded-full" disabled={sending}>
                     {sending ? "Envoi…" : "Envoyer"}
                   </Button>
                 )}
               </div>
             </form>
           )}
-        </Card>
-
-        {!done && (
-          <p className="text-center text-sm">
-            <Link to="/login" className="inline-flex items-center gap-1.5 font-medium text-primary hover:underline">
-              <ArrowLeft className="h-4 w-4" />
-              Retour à la connexion
-            </Link>
-            <span className="mx-2 text-muted-foreground">·</span>
-            <Link to="/confidentialite" className="text-muted-foreground hover:text-primary hover:underline">Confidentialité</Link>
-          </p>
-        )}
+        </div>
       </div>
-    </div>
+    </AuthScreen>
   );
 }

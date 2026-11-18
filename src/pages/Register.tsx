@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Mail, Lock, Eye, EyeOff, User, Phone, Building2 } from "lucide-react";
-import { AuthField, AuthScreen, AuthSubmit } from "@/components/auth/AuthScreen";
+import { AuthField, AuthScreen, AuthSocial, AuthSubmit } from "@/components/auth/AuthScreen";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { HoneypotField } from "@/components/forms/HoneypotField";
@@ -145,6 +145,7 @@ export default function Register() {
         />
         <AuthField id="confirmPassword" icon={Lock} label="Confirmer le mot de passe" type="password" required minLength={8} maxLength={128} autoComplete="new-password" value={formData.confirmPassword} onChange={(e) => handleChange("confirmPassword", e.target.value)} placeholder="Confirmer le mot de passe..." />
         <AuthSubmit disabled={isLoading}>{isLoading ? "Inscription..." : "S'inscrire"}</AuthSubmit>
+        <AuthSocial />
       </form>
     </AuthScreen>
   );

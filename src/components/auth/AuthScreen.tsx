@@ -7,17 +7,19 @@ export function AuthScreen({
   title,
   backTo = "/",
   wide = false,
+  center = false,
   children,
   footer,
 }: {
   title: string;
   backTo?: string;
   wide?: boolean;
+  center?: boolean;
   children: ReactNode;
   footer?: ReactNode;
 }) {
   return (
-    <div className="min-h-dvh bg-primary md:grid md:grid-cols-2">
+    <div className="min-h-dvh bg-primary md:grid md:h-dvh md:grid-cols-2 md:overflow-hidden">
       <aside className="relative hidden overflow-hidden text-primary-foreground md:sticky md:top-0 md:flex md:h-dvh md:flex-col md:justify-between md:px-14 md:py-12">
         <div className="pointer-events-none absolute -left-24 top-16 h-80 w-80 rounded-full border border-white/15" />
         <div className="pointer-events-none absolute -right-10 bottom-10 h-72 w-72 rounded-full border border-white/10" />
@@ -35,15 +37,15 @@ export function AuthScreen({
         <p className="relative z-10 text-sm text-primary-foreground/70">MediCare SIH</p>
       </aside>
 
-      <section className="relative flex min-h-dvh flex-col bg-primary md:bg-card">
-        <header className="flex items-center px-1 pb-24 pt-[max(0.75rem,env(safe-area-inset-top))] text-primary-foreground md:hidden">
+      <section className="relative flex h-dvh min-h-0 flex-col overflow-hidden bg-primary md:bg-card">
+        <header className="flex shrink-0 items-center px-1 pb-16 pt-[max(0.75rem,env(safe-area-inset-top))] text-primary-foreground md:hidden">
           <Link to={backTo} aria-label="Retour" className="flex h-11 w-11 items-center justify-center">
             <ChevronLeft className="h-6 w-6" />
           </Link>
           <p className="flex-1 pr-11 text-center text-base font-semibold">{title}</p>
         </header>
-        <div className="relative z-10 -mt-12 flex flex-1 flex-col overflow-y-auto rounded-t-[2.4rem] bg-card px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-8 text-card-foreground shadow-[0_-12px_30px_rgba(0,0,0,0.08)] md:mt-0 md:justify-center md:rounded-none md:px-16 md:py-12 md:shadow-none">
-          <div className={`mx-auto w-full ${wide ? "max-w-2xl" : "max-w-[26rem]"}`}>
+        <div className="relative z-10 -mt-8 flex min-h-0 flex-1 flex-col overflow-y-auto rounded-t-[2.4rem] bg-card px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-8 text-card-foreground shadow-[0_-12px_30px_rgba(0,0,0,0.08)] md:mt-0 md:rounded-none md:px-16 md:py-10 md:shadow-none">
+          <div className={`mx-auto w-full ${center ? "my-auto" : ""} ${wide ? "max-w-2xl" : "max-w-[26rem]"}`}>
             <h1 className="mb-8 hidden text-3xl font-semibold md:block">{title}</h1>
             {children}
             {footer ? <div className="mt-8 text-center text-sm text-muted-foreground">{footer}</div> : null}

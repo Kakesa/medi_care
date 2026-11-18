@@ -58,6 +58,7 @@ export default function Login() {
   return (
     <AuthScreen
       title="Connexion"
+      center
       footer={
         <>
           <p>Pas encore de compte ? <Link to="/register" className="font-semibold text-primary">S'inscrire</Link></p>

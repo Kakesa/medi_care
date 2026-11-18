@@ -10,11 +10,9 @@ function LoginShowcase({ slides }: { slides: AuthSlide[] }) {
 
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const timer = window.setInterval(() => setIndex((current) => (current + 1) % slides.length), 6000);
+    const timer = window.setInterval(() => setIndex((current) => (current + 1) % slides.length), 7000);
     return () => window.clearInterval(timer);
-  }, [slides.length]);
-
-  const slide = slides[index];
+  }, [slides.length, index]);
 
   return (
     <aside className="relative hidden overflow-hidden md:block md:h-dvh">
@@ -23,16 +21,25 @@ function LoginShowcase({ slides }: { slides: AuthSlide[] }) {
           key={item.src}
           src={item.src}
           alt=""
-          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ${itemIndex === index ? "opacity-100" : "opacity-0"}`}
+          className={`auth-slide-photo absolute inset-0 h-full w-full object-cover ${itemIndex === index ? "scale-100 opacity-100" : "scale-105 opacity-0"}`}
         />
       ))}
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-black/30" />
       <div className="relative z-10 flex h-full flex-col justify-between p-10 text-white">
         <Link to="/" className="text-2xl font-semibold">HopeCare</Link>
         <div className="max-w-md">
-          <p className="text-sm font-medium uppercase tracking-[0.14em] text-white/80">{slide.role}</p>
-          <h2 className="mt-2 text-3xl font-semibold leading-tight">{slide.title}</h2>
-          <p className="mt-3 text-base leading-relaxed text-white/90">{slide.text}</p>
+          <div className="relative min-h-[15.5rem]">
+            {slides.map((item, itemIndex) => (
+              <div
+                key={item.role}
+                className={`auth-slide-copy absolute inset-x-0 bottom-0 ${itemIndex === index ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-4 opacity-0"}`}
+              >
+                <p className="text-sm font-medium uppercase tracking-[0.14em] text-white/80">{item.role}</p>
+                <h2 className="mt-2 text-3xl font-semibold leading-tight">{item.title}</h2>
+                <p className="mt-3 text-base leading-relaxed text-white/90">{item.text}</p>
+              </div>
+            ))}
+          </div>
           <div className="mt-6 flex gap-2">
             {slides.map((item, itemIndex) => (
               <button
@@ -40,7 +47,7 @@ function LoginShowcase({ slides }: { slides: AuthSlide[] }) {
                 type="button"
                 aria-label={item.role}
                 onClick={() => setIndex(itemIndex)}
-                className={`h-2 rounded-full transition-all ${itemIndex === index ? "w-8 bg-white" : "w-2 bg-white/50"}`}
+                className={`h-2 rounded-full transition-all duration-500 ${itemIndex === index ? "w-8 bg-white" : "w-2 bg-white/50"}`}
               />
             ))}
           </div>

@@ -61,10 +61,17 @@ export const allNavigation: { name: string; href: string; icon: typeof LayoutDas
 interface SidebarProps {
   variant?: "fixed" | "drawer";
   onNavigate?: () => void;
+  collapsed?: boolean;
+  onCollapsedChange?: (collapsed: boolean) => void;
 }
 
-export function Sidebar({ variant = "fixed", onNavigate }: SidebarProps) {
-  const [collapsed, setCollapsed] = useState(false);
+export function Sidebar({ variant = "fixed", onNavigate, collapsed: collapsedProp, onCollapsedChange }: SidebarProps) {
+  const [collapsedState, setCollapsedState] = useState(false);
+  const collapsed = collapsedProp ?? collapsedState;
+  const setCollapsed = (value: boolean) => {
+    setCollapsedState(value);
+    onCollapsedChange?.(value);
+  };
   const isDrawer = variant === "drawer";
   const compact = collapsed && !isDrawer;
   const location = useLocation();

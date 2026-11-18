@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Outlet, Navigate } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { MobileTabBar } from "./MobileTabBar";
@@ -9,6 +10,7 @@ import { ForcePasswordChange } from "@/components/auth/ForcePasswordChange";
 
 export function DashboardLayout() {
   const { user, isAuthenticated, isLoading } = useAuth();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   if (isLoading) {
     return <div className="flex h-screen items-center justify-center px-6 text-center">Chargement...</div>;
@@ -24,10 +26,10 @@ export function DashboardLayout() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar />
+      <Sidebar collapsed={sidebarCollapsed} onCollapsedChange={setSidebarCollapsed} />
       <MobileTabBar />
 
-      <div className="min-w-0 md:pl-64">
+      <div className={`min-w-0 transition-[padding] duration-300 ${sidebarCollapsed ? "md:pl-20" : "md:pl-64"}`}>
         <header className="sticky top-0 z-30 flex min-h-16 items-center gap-2 border-b border-border bg-background/95 px-3 pt-[env(safe-area-inset-top)] backdrop-blur sm:gap-4 sm:px-6">
           <div className="min-w-0 flex-1 sm:hidden">
             <p className="truncate text-sm font-semibold">{user?.organization?.name || "HopeCare"}</p>

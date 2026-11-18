@@ -104,7 +104,7 @@ export function Sidebar({ variant = "fixed", onNavigate }: SidebarProps) {
           "transition-all duration-300 overflow-hidden",
           compact ? "w-0 opacity-0" : "w-auto opacity-100"
         )}>
-          <h1 className="text-lg font-bold text-sidebar-foreground whitespace-nowrap">MediCare</h1>
+          <h1 className="text-lg font-bold text-sidebar-foreground whitespace-nowrap">HopeCare</h1>
           <p className="text-xs text-muted-foreground whitespace-nowrap">SIH v1.0</p>
         </div>
       </div>

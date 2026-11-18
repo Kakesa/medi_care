@@ -87,7 +87,7 @@ export function NurseShiftBoard() {
       return;
     }
     const description = result === 'denied'
-      ? 'Les notifications du téléphone sont désactivées. Les rappels restent visibles dans MediCare.'
+      ? 'Les notifications du téléphone sont désactivées. Les rappels restent visibles dans HopeCare.'
       : result === 'unconfigured'
         ? 'Les notifications push ne sont pas encore activées sur le serveur. Les rappels internes continuent.'
         : 'Cet appareil ne reçoit pas les notifications push. Les rappels restent dans le centre de notifications.';

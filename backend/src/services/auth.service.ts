@@ -271,7 +271,7 @@ export async function requestPasswordReset(email: string) {
   try {
     await sendMail({
       to: user.email,
-      subject: 'Réinitialisation de votre mot de passe MediCare',
+      subject: 'Réinitialisation de votre mot de passe HopeCare',
       text: [
         `Bonjour ${user.firstName} ${user.lastName},`,
         '',

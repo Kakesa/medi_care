@@ -74,8 +74,8 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('push', (event) => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch { data = {}; }
-  const title = String(data.title || 'Medicare').slice(0, 80);
-  const body = String(data.body || 'Ouvrez Medicare pour voir le détail.').slice(0, 140);
+  const title = String(data.title || 'HopeCare').slice(0, 80);
+  const body = String(data.body || 'Ouvrez HopeCare pour voir le détail.').slice(0, 140);
   const url = typeof data.url === 'string' && data.url.startsWith('/') ? data.url : '/dashboard';
   event.waitUntil(self.registration.showNotification(title, {
     body,

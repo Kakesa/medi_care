@@ -35,7 +35,7 @@ export default function SuperAdminDashboard() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Plateforme MediCare</h1>
+          <h1 className="text-3xl font-bold">Plateforme HopeCare</h1>
           <p className="mt-1 text-muted-foreground">Supervision des établissements. Les dossiers médicaux restent dans chaque hôpital.</p>
         </div>
         <Button asChild variant="hero">

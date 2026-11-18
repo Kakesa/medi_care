@@ -186,7 +186,7 @@ export async function createPersonnel(
     try {
       const account = await issueTemporaryLogin({
         organizationId,
-        organizationName: organization?.name || 'MediCare',
+        organizationName: organization?.name || 'HopeCare',
         firstName: person.firstName,
         lastName: person.lastName,
         email: person.email,

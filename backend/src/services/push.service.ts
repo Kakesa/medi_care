@@ -24,8 +24,8 @@ export function publicNotice(payload: { title: string; body: string; url?: strin
     ? payload.url.slice(0, 200)
     : '/dashboard';
   return {
-    title: payload.title.replace(/\s+/g, ' ').trim().slice(0, 80) || 'Medicare',
-    body: payload.body.replace(/\s+/g, ' ').trim().slice(0, 140) || 'Ouvrez Medicare pour voir le détail.',
+    title: payload.title.replace(/\s+/g, ' ').trim().slice(0, 80) || 'HopeCare',
+    body: payload.body.replace(/\s+/g, ' ').trim().slice(0, 140) || 'Ouvrez HopeCare pour voir le détail.',
     url,
   };
 }

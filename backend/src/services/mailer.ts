@@ -38,6 +38,6 @@ export async function sendMail(input: { to: string; subject: string; text: strin
 function senderAddress(from: string, user: string) {
   const label = from.trim();
   if (label.includes('@')) return label;
-  if (user.includes('@')) return `"${label.replace(/"/g, '') || 'MediCare'}" <${user}>`;
+  if (user.includes('@')) return `"${label.replace(/"/g, '') || 'HopeCare'}" <${user}>`;
   return label;
 }

@@ -1,4 +1,4 @@
-# MediCare SIH - Architecture API
+# HopeCare - Architecture API
 
 ## 📐 Vue d'ensemble de l'architecture
 

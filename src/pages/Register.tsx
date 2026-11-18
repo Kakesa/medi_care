@@ -84,7 +84,7 @@ export default function Register() {
       if (result.success) {
         toast({
           title: "Inscription réussie",
-          description: "Bienvenue sur MediCare SIH",
+          description: "Bienvenue sur HopeCare",
         });
         navigate("/dashboard");
       } else {

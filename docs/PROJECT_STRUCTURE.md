@@ -1,8 +1,8 @@
-# MediCare SIH - Documentation Technique
+# HopeCare - Documentation Technique
 
 ## 📋 Vue d'ensemble
 
-MediCare SIH est un Système d'Information Hospitalier (SIH) moderne conçu pour centraliser la gestion hospitalière. Cette application permet de gérer le personnel médical, les patients, les rendez-vous, les consultations, les examens, la pharmacie, la facturation et l'accueil des malades.
+HopeCare est un Système d'Information Hospitalier (SIH) moderne conçu pour centraliser la gestion hospitalière. Cette application permet de gérer le personnel médical, les patients, les rendez-vous, les consultations, les examens, la pharmacie, la facturation et l'accueil des malades.
 
 ---
 

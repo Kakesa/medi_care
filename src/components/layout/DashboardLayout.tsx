@@ -30,7 +30,7 @@ export function DashboardLayout() {
       <div className="min-w-0 md:pl-64">
         <header className="sticky top-0 z-30 flex min-h-16 items-center gap-2 border-b border-border bg-background/95 px-3 pt-[env(safe-area-inset-top)] backdrop-blur sm:gap-4 sm:px-6">
           <div className="min-w-0 flex-1 sm:hidden">
-            <p className="truncate text-sm font-semibold">{user?.organization?.name || "MediCare"}</p>
+            <p className="truncate text-sm font-semibold">{user?.organization?.name || "HopeCare"}</p>
             <p className="truncate text-xs text-muted-foreground">{roleLabels[user?.role || "PATIENT"]}</p>
           </div>
 

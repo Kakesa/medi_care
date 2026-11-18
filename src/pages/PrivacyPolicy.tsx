@@ -9,7 +9,7 @@ export default function PrivacyPolicy() {
           <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
             <Activity className="h-5 w-5" />
           </span>
-          <span className="text-lg font-semibold">MediCare SIH</span>
+          <span className="text-lg font-semibold">HopeCare</span>
         </Link>
         <h1 className="mt-8 text-3xl font-bold">Politique de confidentialité</h1>
         <p className="mt-2 text-sm text-muted-foreground">Dernière mise à jour : 17 novembre 2026</p>
@@ -18,9 +18,9 @@ export default function PrivacyPolicy() {
           <section className="space-y-2">
             <h2 className="text-lg font-semibold">Qui est responsable</h2>
             <p>
-              MediCare SIH est le logiciel utilisé par un établissement de santé pour organiser ses soins,
+              HopeCare est le logiciel utilisé par un établissement de santé pour organiser ses soins,
               son accueil et sa facturation. L’établissement qui vous prend en charge est responsable des
-              données de son dossier. MediCare isole les données de chaque établissement : un centre ne
+              données de son dossier. HopeCare isole les données de chaque établissement : un centre ne
               consulte pas le dossier d’un autre.
             </p>
           </section>
@@ -40,7 +40,7 @@ export default function PrivacyPolicy() {
             <h2 className="text-lg font-semibold">Pourquoi ces données</h2>
             <p>
               Elles servent à vous identifier, à organiser le parcours de soins, à produire les documents
-              médicaux et comptables de l’établissement, et à protéger l’accès au dossier. MediCare ne vend
+              médicaux et comptables de l’établissement, et à protéger l’accès au dossier. HopeCare ne vend
               pas ces données et ne les utilise pas pour de la publicité.
             </p>
           </section>

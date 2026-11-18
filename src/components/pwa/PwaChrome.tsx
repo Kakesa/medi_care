@@ -70,7 +70,7 @@ export function PwaChrome() {
       )}
       {updateReady && (
         <div className="fixed inset-x-3 top-14 z-[60] mx-auto flex max-w-lg items-center justify-between gap-3 rounded-2xl border bg-card p-3 shadow-lg sm:top-20">
-          <p className="text-sm">Une mise à jour de Medicare est prête.</p>
+          <p className="text-sm">Une mise à jour de HopeCare est prête.</p>
           <Button type="button" size="sm" onClick={applyWaitingUpdate}>
             <RefreshCw className="mr-1.5 h-4 w-4" />
             Mettre à jour
@@ -81,11 +81,11 @@ export function PwaChrome() {
         <div className="fixed inset-x-3 bottom-24 z-40 mx-auto max-w-lg rounded-2xl border bg-card p-3 shadow-lg md:bottom-6 md:right-6 md:mx-0">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-sm font-semibold">Installer Medicare</p>
+              <p className="text-sm font-semibold">Installer HopeCare</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {iosDevice() && !installEvent
                   ? "Dans Safari, touchez Partager, puis Sur l’écran d’accueil."
-                  : "Ajoutez Medicare à votre écran d’accueil ou à votre bureau."}
+                  : "Ajoutez HopeCare à votre écran d’accueil ou à votre bureau."}
               </p>
             </div>
             <Button type="button" size="sm" onClick={install}>

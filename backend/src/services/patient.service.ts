@@ -278,7 +278,7 @@ export async function createPatient(
       try {
         const account = await issuePatientLogin({
           organizationId,
-          organizationName: organization?.name || 'MediCare',
+          organizationName: organization?.name || 'HopeCare',
           firstName: patient.firstName,
           lastName: patient.lastName,
           email: patient.email,

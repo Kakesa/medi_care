@@ -202,8 +202,8 @@ export async function createAppointment(
     doctorMessage,
     relatedId: row.id,
     closing: requestedBy === 'patient'
-      ? 'Le médecin confirmera ce créneau depuis MediCare.'
-      : 'Connectez-vous à MediCare pour accepter ou refuser ce rendez-vous.',
+      ? 'Le médecin confirmera ce créneau depuis HopeCare.'
+      : 'Connectez-vous à HopeCare pour accepter ou refuser ce rendez-vous.',
   });
   const dto = toAppointmentDto(row);
   return notice ? { ...dto, notice } : dto;
@@ -240,7 +240,7 @@ async function attachPatientLogin(
   const organization = await Organization.findById(organizationId);
   const account = await issuePatientLogin({
     organizationId,
-    organizationName: organization?.name || 'MediCare',
+    organizationName: organization?.name || 'HopeCare',
     firstName: patient.firstName,
     lastName: patient.lastName,
     email,
@@ -307,7 +307,7 @@ async function deliverAppointmentNotice(input: {
           '',
           input.patientMessage,
           '',
-          input.closing || 'Connectez-vous à MediCare pour accepter ou refuser ce rendez-vous.',
+          input.closing || 'Connectez-vous à HopeCare pour accepter ou refuser ce rendez-vous.',
         ].join('\n'),
       });
     } catch {

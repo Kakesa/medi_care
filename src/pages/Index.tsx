@@ -82,7 +82,7 @@ const slides = [
   {
     image: "/images/home/hero-3.jpg",
     kicker: "Coordination",
-    title: "Pourquoi choisir MediCare SIH ?",
+    title: "Pourquoi choisir HopeCare ?",
     text: "Notre système a été conçu avec une approche méthodique Agile pour répondre aux besoins spécifiques des établissements de santé modernes.",
     action: "Se connecter",
     href: "/login",
@@ -122,11 +122,11 @@ export default function Index() {
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-sm">
               <Activity className="h-5 w-5" />
             </span>
-            <span className="truncate text-lg font-semibold tracking-tight sm:text-xl">MediCare</span>
+            <span className="truncate text-lg font-semibold tracking-tight sm:text-xl">HopeCare</span>
           </Link>
           <nav className="hidden items-center gap-8 text-sm font-medium text-muted-foreground lg:flex">
             <a href="#services" className="transition-colors hover:text-primary">Fonctionnalités</a>
-            <a href="#pourquoi" className="transition-colors hover:text-primary">Pourquoi MediCare</a>
+            <a href="#pourquoi" className="transition-colors hover:text-primary">Pourquoi HopeCare</a>
             <a href="#galerie" className="transition-colors hover:text-primary">Établissement</a>
             <a href="#rdv-form" className="transition-colors hover:text-primary">Rendez-vous</a>
           </nav>
@@ -242,7 +242,7 @@ export default function Index() {
           </div>
           <div>
             <p className="section-kicker">Coordination</p>
-            <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Pourquoi choisir MediCare SIH ?</h2>
+            <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Pourquoi choisir HopeCare ?</h2>
             <p className="mt-5 text-muted-foreground sm:text-lg">
               Notre système a été conçu avec une approche méthodique Agile pour répondre
               aux besoins spécifiques des établissements de santé modernes.
@@ -304,7 +304,7 @@ export default function Index() {
               Prêt à moderniser votre gestion hospitalière ?
             </h2>
             <p className="mt-4 text-primary-foreground/90 sm:text-lg">
-              Découvrez comment MediCare SIH peut transformer la coordination
+              Découvrez comment HopeCare peut transformer la coordination
               entre vos équipes administratives et médicales.
             </p>
           </div>
@@ -350,7 +350,7 @@ export default function Index() {
               <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
                 <Activity className="h-5 w-5" />
               </span>
-              <p className="text-lg font-semibold">MediCare SIH</p>
+              <p className="text-lg font-semibold">HopeCare</p>
             </div>
             <p className="mt-4 max-w-xs text-sm text-background/75">
               Centralisez la gestion de votre établissement de santé dans une interface unifiée.
@@ -365,7 +365,7 @@ export default function Index() {
             <Link to="/confidentialite" className="hover:text-background">Confidentialité</Link>
           </div>
           <p className="text-sm text-background/75">
-            © 2024 MediCare SIH. Système conforme RGPD et normes HL7.
+            © 2024 HopeCare. Système conforme RGPD et normes HL7.
           </p>
         </div>
       </footer>

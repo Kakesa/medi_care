@@ -42,7 +42,7 @@ export function ForcePasswordChange() {
       <Card className="w-full max-w-md p-6">
         <h1 className="text-2xl font-bold">Choisissez votre mot de passe</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          C'est votre première connexion. Le mot de passe reçu par e-mail doit être remplacé avant d'accéder à MediCare.
+          C'est votre première connexion. Le mot de passe reçu par e-mail doit être remplacé avant d'accéder à HopeCare.
         </p>
         <form onSubmit={submit} className="mt-6 space-y-4">
           <div className="space-y-2">

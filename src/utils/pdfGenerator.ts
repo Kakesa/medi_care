@@ -10,7 +10,7 @@ import { formatBalances, formatMoney } from '@/lib/money';
 
 // Configuration du centre médical
 const CLINIC_CONFIG = {
-  name: 'MediCare - Centre Médical',
+  name: 'HopeCare - Centre Médical',
   address: '123 Avenue de la Santé, 75001 Paris',
   phone: '01 23 45 67 89',
   email: 'contact@medicare.fr',
@@ -535,7 +535,7 @@ export const generateStatsReportPDF = (data: StatsData): void => {
   const footerY = doc.internal.pageSize.getHeight() - 15;
   doc.setTextColor(...COLORS.secondary);
   doc.setFontSize(8);
-  doc.text('Rapport généré automatiquement par MediCare SIH', pageWidth / 2, footerY, { align: 'center' });
+  doc.text('Rapport généré automatiquement par HopeCare', pageWidth / 2, footerY, { align: 'center' });
 
   // Save
   doc.save(`rapport-statistiques-${data.period.replace(/\s+/g, '_')}.pdf`);

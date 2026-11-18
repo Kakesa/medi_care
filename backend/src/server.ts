@@ -10,7 +10,7 @@ const app = createApp();
 connectDb(env.MONGODB_URI)
   .then(() => {
     app.listen(env.PORT, () => {
-      logger.info({ msg: 'API MediCare démarrée', port: env.PORT });
+      logger.info({ msg: 'API HopeCare démarrée', port: env.PORT });
       setInterval(() => {
         void dispatchShiftReminders().catch((error: unknown) => {
           logger.warn({ msg: 'Rappels de garde non envoyés', detail: error instanceof Error ? error.message : 'erreur' });

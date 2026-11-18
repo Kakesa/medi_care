@@ -15,7 +15,7 @@ export function PushSettings() {
     try {
       const result = await enablePush();
       const message = result === "enabled"
-        ? "Les rappels de Medicare peuvent s’afficher sur cet appareil. Aucun dossier médical n’y est écrit."
+        ? "Les rappels de HopeCare peuvent s’afficher sur cet appareil. Aucun dossier médical n’y est écrit."
         : result === "denied"
           ? "Les notifications sont refusées dans le navigateur."
           : result === "unconfigured"
@@ -43,7 +43,7 @@ export function PushSettings() {
         <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary"><Bell className="h-6 w-6" /></span>
         <div>
           <h2 className="text-xl font-semibold">Notifications</h2>
-          <p className="text-sm text-muted-foreground">Rappels selon votre rôle. Le détail médical reste dans Medicare.</p>
+          <p className="text-sm text-muted-foreground">Rappels selon votre rôle. Le détail médical reste dans HopeCare.</p>
         </div>
       </div>
       <div className="flex flex-wrap gap-2">

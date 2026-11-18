@@ -1,10 +1,10 @@
-# Medicare en Progressive Web App
+# HopeCare en Progressive Web App
 
-Medicare s’installe depuis le navigateur, sans changer les rôles, les permissions ni les routes existantes.
+HopeCare s’installe depuis le navigateur, sans changer les rôles, les permissions ni les routes existantes.
 
 ## Identité
 
-- Nom et nom court : Medicare
+- Nom et nom court : HopeCare
 - Affichage : `standalone` (sans barre du navigateur une fois installée)
 - Couleur : `#0f6e6e`
 - Fond de lancement : `#f4fafa`, avec le logo déjà utilisé par l’écran `#boot`
@@ -13,7 +13,7 @@ Medicare s’installe depuis le navigateur, sans changer les rôles, les permiss
 
 ## Installation
 
-Le bandeau « Installer Medicare » apparaît tant que l’application n’est pas installée.
+Le bandeau « Installer HopeCare » apparaît tant que l’application n’est pas installée.
 
 - Chrome, Edge et Android : le bouton ouvre la fenêtre native `beforeinstallprompt`.
 - iPhone et iPad : Safari n’a pas cette fenêtre. Le bandeau explique : Partager, puis « Sur l’écran d’accueil ».

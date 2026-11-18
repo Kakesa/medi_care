@@ -1,13 +1,61 @@
-import type { InputHTMLAttributes, ReactNode } from "react";
+import { useEffect, useState, type InputHTMLAttributes, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { ChevronLeft, type LucideIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+export type AuthSlide = { src: string; role: string; title: string; text: string };
+
+function LoginShowcase({ slides }: { slides: AuthSlide[] }) {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const timer = window.setInterval(() => setIndex((current) => (current + 1) % slides.length), 6000);
+    return () => window.clearInterval(timer);
+  }, [slides.length]);
+
+  const slide = slides[index];
+
+  return (
+    <aside className="relative hidden overflow-hidden md:block md:h-dvh">
+      {slides.map((item, itemIndex) => (
+        <img
+          key={item.src}
+          src={item.src}
+          alt=""
+          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ${itemIndex === index ? "opacity-100" : "opacity-0"}`}
+        />
+      ))}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-black/30" />
+      <div className="relative z-10 flex h-full flex-col justify-between p-10 text-white">
+        <Link to="/" className="text-2xl font-semibold">HopeCare</Link>
+        <div className="max-w-md">
+          <p className="text-sm font-medium uppercase tracking-[0.14em] text-white/80">{slide.role}</p>
+          <h2 className="mt-2 text-3xl font-semibold leading-tight">{slide.title}</h2>
+          <p className="mt-3 text-base leading-relaxed text-white/90">{slide.text}</p>
+          <div className="mt-6 flex gap-2">
+            {slides.map((item, itemIndex) => (
+              <button
+                key={item.role}
+                type="button"
+                aria-label={item.role}
+                onClick={() => setIndex(itemIndex)}
+                className={`h-2 rounded-full transition-all ${itemIndex === index ? "w-8 bg-white" : "w-2 bg-white/50"}`}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </aside>
+  );
+}
 
 export function AuthScreen({
   title,
   backTo = "/",
   wide = false,
   center = false,
+  slides,
   children,
   footer,
 }: {
@@ -15,12 +63,14 @@ export function AuthScreen({
   backTo?: string;
   wide?: boolean;
   center?: boolean;
+  slides?: AuthSlide[];
   children: ReactNode;
   footer?: ReactNode;
 }) {
   return (
     <div className="min-h-dvh bg-primary md:grid md:h-dvh md:grid-cols-2 md:overflow-hidden">
-      <aside className="relative hidden overflow-hidden text-primary-foreground md:sticky md:top-0 md:flex md:h-dvh md:flex-col md:justify-between md:px-14 md:py-12">
+      {slides ? <LoginShowcase slides={slides} /> : null}
+      {!slides && <aside className="relative hidden overflow-hidden text-primary-foreground md:sticky md:top-0 md:flex md:h-dvh md:flex-col md:justify-between md:px-14 md:py-12">
         <div className="pointer-events-none absolute -left-24 top-16 h-80 w-80 rounded-full border border-white/15" />
         <div className="pointer-events-none absolute -right-10 bottom-10 h-72 w-72 rounded-full border border-white/10" />
         <div className="pointer-events-none absolute right-16 top-24 h-40 w-40 rounded-full border border-white/10" />
@@ -28,14 +78,14 @@ export function AuthScreen({
           <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-primary">
             <svg viewBox="0 0 32 32" className="h-7 w-7" aria-hidden><path d="M14 6h4v6h6v4h-6v6h-4v-6H8v-4h6z" fill="currentColor" /></svg>
           </span>
-          <span className="text-xl font-semibold">Medicare</span>
+          <span className="text-xl font-semibold">HopeCare</span>
         </Link>
         <div className="relative z-10 max-w-md">
           <h2 className="text-4xl font-semibold leading-tight">Votre espace hospitalier, dans une seule application.</h2>
           <p className="mt-4 text-base text-primary-foreground/80">Patients, rendez-vous, soins, laboratoire et pharmacie.</p>
         </div>
-        <p className="relative z-10 text-sm text-primary-foreground/70">MediCare SIH</p>
-      </aside>
+        <p className="relative z-10 text-sm text-primary-foreground/70">HopeCare</p>
+      </aside>}
 
       <section className="relative flex h-dvh min-h-0 flex-col overflow-hidden bg-primary md:bg-card">
         <header className="flex shrink-0 items-center px-1 pb-16 pt-[max(0.75rem,env(safe-area-inset-top))] text-primary-foreground md:hidden">
@@ -103,7 +153,7 @@ function BrandButton({ label, children, onClick }: { label: string; children: Re
 export function AuthSocial() {
   const { toast } = useToast();
   const soon = (name: string) => {
-    toast({ title: name, description: "Utilisez l’e-mail et le mot de passe de votre compte Medicare." });
+    toast({ title: name, description: "Utilisez l’e-mail et le mot de passe de votre compte HopeCare." });
   };
 
   return (

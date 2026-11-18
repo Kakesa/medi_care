@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "Medicare",
-  "short_name": "Medicare",
-  "description": "Système d'information hospitalier Medicare.",
+  "name": "HopeCare",
+  "short_name": "HopeCare",
+  "description": "Système d'information hospitalier HopeCare.",
   "lang": "fr",
   "dir": "ltr",
   "start_url": "/",

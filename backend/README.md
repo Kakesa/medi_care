@@ -1,4 +1,4 @@
-# API MediCare
+# API HopeCare
 
 Backend de la phase fondations : établissements, comptes, authentification et isolation des données. Les modules cliniques du frontend (rendez-vous, consultations, examens, pharmacie, factures) ne sont pas encore branchés.
 

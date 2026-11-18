@@ -3,14 +3,22 @@ import { Link } from "react-router-dom";
 import { ChevronLeft, type LucideIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-export type AuthSlide = { src: string; role: string; title: string; text: string };
+export type AuthSlide = { src: string; role: string; title: string; text: string; focus?: string };
 
 export const authSlides: AuthSlide[] = [
   {
-    src: "/auth/infirmiere.jpg",
+    src: "/auth/reception.jpeg",
+    role: "Réception",
+    title: "L’accueil du patient, dès l’arrivée.",
+    text: "La réception enregistre le passage, pose le rendez-vous et oriente vers la consultation ou le laboratoire.",
+    focus: "object-[18%_center]",
+  },
+  {
+    src: "/auth/infirmiere.jpeg",
     role: "Infirmier",
     title: "Les soins du service, au chevet du patient.",
     text: "La feuille de traitement, les administrations du jour et les gardes restent visibles pour toute l’équipe infirmière.",
+    focus: "object-[30%_center]",
   },
   {
     src: "/auth/pharmacie.jpg",
@@ -42,10 +50,10 @@ function LoginShowcase({ slides }: { slides: AuthSlide[] }) {
           key={item.src}
           src={item.src}
           alt=""
-          className={`auth-slide-photo absolute inset-0 h-full w-full object-cover ${itemIndex === index ? "scale-100 opacity-100" : "scale-105 opacity-0"}`}
+          className={`auth-slide-photo absolute inset-0 h-full w-full object-cover ${item.focus ?? "object-center"} ${itemIndex === index ? "scale-100 opacity-100" : "scale-105 opacity-0"}`}
         />
       ))}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-black/30" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
       <div className="relative z-10 flex h-full flex-col justify-between p-10 text-white">
         <Link to="/" className="text-2xl font-semibold">HopeCare</Link>
         <div className="max-w-md">

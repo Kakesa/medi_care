@@ -11,14 +11,14 @@ export const authSlides: AuthSlide[] = [
     role: "Réception",
     title: "L’accueil du patient, dès l’arrivée.",
     text: "La réception enregistre le passage, pose le rendez-vous et oriente vers la consultation ou le laboratoire.",
-    focus: "object-[18%_center]",
+    focus: "object-[48%_42%]",
   },
   {
     src: "/auth/infirmiere.jpeg",
     role: "Infirmier",
     title: "Les soins du service, au chevet du patient.",
     text: "La feuille de traitement, les administrations du jour et les gardes restent visibles pour toute l’équipe infirmière.",
-    focus: "object-[30%_center]",
+    focus: "object-[72%_center]",
   },
   {
     src: "/auth/pharmacie.jpg",

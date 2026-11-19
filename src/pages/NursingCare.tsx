@@ -403,7 +403,7 @@ export default function NursingCarePage() {
   if (isLoading && !dashboard) return <div className="py-16 text-center text-muted-foreground">Chargement des données infirmières…</div>;
 
   return (
-    <div className="mx-auto max-w-7xl">
+    <div className="w-full min-w-0">
       {error && <Card className="mb-4 border-destructive/50"><CardContent className="flex items-center gap-2 p-4 text-sm text-destructive"><AlertTriangle className="h-4 w-4" />{error}</CardContent></Card>}
 
       <Tabs value={section} onValueChange={setSection} className="space-y-4">

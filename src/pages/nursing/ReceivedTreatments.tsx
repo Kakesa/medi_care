@@ -113,7 +113,7 @@ export function ReceivedTreatments() {
       {!error && rows.length === 0 && <p className="rounded-lg border px-3 py-6 text-center text-sm text-muted-foreground">Aucun traitement administré sur cette période.</p>}
       {rows.length > 0 && (
         <div className="overflow-x-auto rounded-lg border">
-          <div className="min-w-[64rem]">
+          <div className="w-full min-w-[64rem]">
             <div className="grid grid-cols-[9rem_1.1fr_1.1fr_1.3fr_1.3fr_1fr] bg-muted/60 text-xs font-semibold text-muted-foreground">
               <div className="border-r px-3 py-2">Date et heure</div>
               <div className="border-r px-3 py-2">Nom</div>

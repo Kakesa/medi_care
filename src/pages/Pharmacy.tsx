@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { ShoppingCart, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +24,25 @@ import { apiMessage } from "@/lib/apiError";
 import { formatMoney } from "@/lib/money";
 import { toast } from "sonner";
 
+const sectionToTab: Record<string, string> = {
+  produits: "products",
+  commandes: "orders",
+  operations: "desk",
+  journal: "journal",
+};
+
+const tabToPath: Record<string, string> = {
+  dashboard: "/dashboard/pharmacy",
+  products: "/dashboard/pharmacy/produits",
+  orders: "/dashboard/pharmacy/commandes",
+  desk: "/dashboard/pharmacy/operations",
+  journal: "/dashboard/pharmacy/journal",
+};
+
 export default function Pharmacy() {
+  const { section } = useParams();
+  const navigate = useNavigate();
+  const activeTab = section && sectionToTab[section] ? sectionToTab[section] : "dashboard";
   const [products, setProducts] = useState<PharmacyProduct[]>([]);
   const [orders, setOrders] = useState<PharmacyOrder[]>([]);
   const [isOrderDialogOpen, setIsOrderDialogOpen] = useState(false);
@@ -31,6 +50,12 @@ export default function Pharmacy() {
   const [currency, setCurrency] = useState("EUR");
   const canManageProducts = permissions.includes("pharmacy.products.manage");
   const canApprovePurchase = permissions.includes("pharmacy.purchase.approve");
+
+  useEffect(() => {
+    if (section && !sectionToTab[section]) {
+      navigate("/dashboard/pharmacy", { replace: true });
+    }
+  }, [section, navigate]);
   const [orderFormData, setOrderFormData] = useState({
     productId: "",
     quantity: 0,
@@ -179,8 +204,12 @@ export default function Pharmacy() {
         </Dialog>
       </div>
 
-      <Tabs defaultValue="dashboard" className="space-y-6">
-        <TabsList className="h-auto flex-wrap justify-start">
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => navigate(tabToPath[value] || "/dashboard/pharmacy")}
+        className="space-y-6"
+      >
+        <TabsList className="h-auto flex-wrap justify-start md:hidden">
           <TabsTrigger value="dashboard">Tableau de bord</TabsTrigger>
           <TabsTrigger value="products">Produits</TabsTrigger>
           <TabsTrigger value="orders">Commandes ({orders.length})</TabsTrigger>

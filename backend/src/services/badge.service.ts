@@ -4,6 +4,7 @@ import { BadgeSeen } from '../models/BadgeSeen.js';
 import { Consultation } from '../models/Consultation.js';
 import { Exam } from '../models/Exam.js';
 import { Invoice } from '../models/Invoice.js';
+import { PharmacyOrder } from '../models/PharmacyOrder.js';
 import { PharmacyProduct } from '../models/PharmacyProduct.js';
 import { Prescription } from '../models/Prescription.js';
 import { ReceptionEntry } from '../models/ReceptionEntry.js';
@@ -230,6 +231,10 @@ export async function workBadges(actor: AuthContext, organizationId: string) {
       ...base,
       archivedAt: null,
       status: { $in: ['low_stock', 'out_of_stock'] },
+    }));
+    put('/dashboard/pharmacy/commandes', PharmacyOrder.countDocuments({
+      ...base,
+      status: { $in: ['pending', 'confirmed', 'partial'] },
     }));
   }
 

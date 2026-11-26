@@ -34,6 +34,10 @@ const shortLabels: Record<string, string> = {
   "/dashboard/accounting": "Compta",
   "/dashboard/beds": "Lits",
   "/dashboard/pharmacy": "Pharmacie",
+  "/dashboard/pharmacy/produits": "Produits",
+  "/dashboard/pharmacy/commandes": "Cmd.",
+  "/dashboard/pharmacy/operations": "Opér.",
+  "/dashboard/pharmacy/journal": "Journal",
   "/dashboard/profile": "Profil",
 };
 
@@ -55,6 +59,10 @@ const primaryOrder = [
   "/dashboard/accounting",
   "/dashboard/beds",
   "/dashboard/pharmacy",
+  "/dashboard/pharmacy/produits",
+  "/dashboard/pharmacy/commandes",
+  "/dashboard/pharmacy/operations",
+  "/dashboard/pharmacy/journal",
   "/dashboard/supervision-lab",
   "/dashboard/demandes-lab",
   "/dashboard/ordonnances",

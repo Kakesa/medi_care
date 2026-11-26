@@ -94,6 +94,7 @@ const App = () => (
                 <Route path="reception" element={<RequireRole roles={["HOSPITAL_ADMIN", "RECEPTIONIST"]}><Reception /></RequireRole>} />
                 <Route path="examinations" element={<RequireRole roles={["HOSPITAL_ADMIN", "ACCOUNTANT", "RECEPTIONIST", "DOCTOR"]}><Examinations /></RequireRole>} />
                 <Route path="pharmacy" element={<RequireRole roles={["HOSPITAL_ADMIN", "PHARMACIST"]}><Pharmacy /></RequireRole>} />
+                <Route path="pharmacy/:section" element={<RequireRole roles={["HOSPITAL_ADMIN", "PHARMACIST"]}><Pharmacy /></RequireRole>} />
                 <Route path="surgery" element={<RequireRole roles={["HOSPITAL_ADMIN", "ACCOUNTANT", "RECEPTIONIST", "DOCTOR"]}><Surgery /></RequireRole>} />
                 <Route path="billing" element={<RequireRole roles={["HOSPITAL_ADMIN", "ACCOUNTANT", "RECEPTIONIST"]}><Billing /></RequireRole>} />
                 <Route path="accounting" element={<RequireRole roles={["HOSPITAL_ADMIN", "ACCOUNTANT", "RECEPTIONIST"]}><Accounting /></RequireRole>} />

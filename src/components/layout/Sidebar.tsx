@@ -14,6 +14,10 @@ import {
   Activity,
   UserPlus,
   Pill,
+  Package,
+  ShoppingCart,
+  ClipboardList,
+  BookOpen,
   FileText,
   Scissors,
   Moon,
@@ -52,6 +56,10 @@ export const allNavigation: { name: string; href: string; icon: typeof LayoutDas
   { name: "Comptabilité", href: "/dashboard/accounting", icon: Landmark, roles: ['HOSPITAL_ADMIN', 'ACCOUNTANT', 'RECEPTIONIST'] },
   { name: "Gestion des lits", href: "/dashboard/beds", icon: BedDouble, roles: ['HOSPITAL_ADMIN', 'RECEPTIONIST'] },
   { name: "Pharmacie", href: "/dashboard/pharmacy", icon: Pill, roles: ['HOSPITAL_ADMIN', 'PHARMACIST'] },
+  { name: "Produits", href: "/dashboard/pharmacy/produits", icon: Package, roles: ['HOSPITAL_ADMIN', 'PHARMACIST'] },
+  { name: "Commandes", href: "/dashboard/pharmacy/commandes", icon: ShoppingCart, roles: ['HOSPITAL_ADMIN', 'PHARMACIST'] },
+  { name: "Opérations", href: "/dashboard/pharmacy/operations", icon: ClipboardList, roles: ['HOSPITAL_ADMIN', 'PHARMACIST'] },
+  { name: "Journal", href: "/dashboard/pharmacy/journal", icon: BookOpen, roles: ['HOSPITAL_ADMIN', 'PHARMACIST'] },
   { name: "Supervision labo", href: "/dashboard/supervision-lab", icon: FlaskConical, roles: ['HOSPITAL_ADMIN'] },
   { name: "Demandes labo", href: "/dashboard/demandes-lab", icon: FlaskConical, roles: ['RECEPTIONIST'] },
   { name: "Ordonnances", href: "/dashboard/ordonnances", icon: FileText, roles: ['DOCTOR', 'HOSPITAL_ADMIN'] },
@@ -121,7 +129,9 @@ export function Sidebar({ variant = "fixed", onNavigate, collapsed: collapsedPro
       <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-4 scrollbar-thin">
         <ul className="space-y-1">
           {navigation.map((item, index) => {
-            const isActive = location.pathname === item.href;
+            const isActive = item.href === "/dashboard/pharmacy"
+              ? location.pathname === "/dashboard/pharmacy"
+              : location.pathname === item.href;
             const count = badges[item.href] || 0;
             return (
               <li 

@@ -146,16 +146,40 @@ export default function Pharmacy() {
     setIsOrderDialogOpen(true);
   };
 
+  const titles: Record<string, { title: string; subtitle: string }> = {
+    dashboard: {
+      title: "Pharmacie",
+      subtitle: "Vue d’ensemble du stock et de l’activité du jour",
+    },
+    products: {
+      title: "Produits",
+      subtitle: "Catalogue des médicaments et consommables",
+    },
+    orders: {
+      title: "Commandes",
+      subtitle: "Suivi des approvisionnements et réceptions",
+    },
+    desk: {
+      title: "Opérations",
+      subtitle: "Ventes, demandes et mouvements autorisés",
+    },
+    journal: {
+      title: "Journal",
+      subtitle: "Encaissements et mouvements de caisse pharmacie",
+    },
+  };
+  const heading = titles[activeTab] || titles.dashboard;
+
   return (
     <div className="w-full min-w-0 space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Pharmacie</h1>
-          <p className="mt-1 text-muted-foreground">Stocks, mouvements et approvisionnements de l’établissement</p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">{heading.title}</h1>
+          <p className="mt-1 text-muted-foreground">{heading.subtitle}</p>
         </div>
         <Dialog open={isOrderDialogOpen} onOpenChange={setIsOrderDialogOpen}>
           <DialogTrigger asChild>
-            <Button variant="outline" className="gap-2">
+            <Button className="gap-2">
               <ShoppingCart className="h-4 w-4" />
               {canApprovePurchase ? "Commander" : "Demander"}
             </Button>

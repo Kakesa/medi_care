@@ -159,6 +159,45 @@ export interface MedicationAdministration {
   history: Array<{ actorId: string; action: string; at: string; reason?: string }>;
 }
 
+export interface TreatmentDoseRecord {
+  scheduledAt: string;
+  administeredAt?: string;
+  status: MedicationAdministrationStatus;
+  nurseName?: string;
+  note: string;
+}
+
+export interface TreatmentCourse {
+  id: string;
+  medication: string;
+  dosage: string;
+  route: string;
+  posology: string;
+  instructions: string;
+  prescriberName: string;
+  startDate?: string;
+  endDate?: string;
+  outcome: 'completed' | 'interrupted' | 'active' | 'suspended';
+  endedAt?: string;
+  closingReason: string;
+  doses: TreatmentDoseRecord[];
+}
+
+export interface TreatmentRecordFile {
+  organization: { name: string; address?: string; city?: string; phone?: string; email?: string };
+  patient: {
+    firstName: string;
+    lastName: string;
+    age?: number;
+    gender?: 'M' | 'F';
+    allergies: string[];
+    room?: string;
+    ward?: string;
+    doctor?: string;
+  };
+  treatments: TreatmentCourse[];
+}
+
 export interface MedicationAdministrationSheet {
   patientId: string;
   date: string;

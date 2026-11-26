@@ -11,6 +11,7 @@ import { validate } from '../middlewares/validate.middleware.js';
 import {
   budgetSchema,
   expenseDecisionSchema,
+  importProductsSchema,
   expensePaySchema,
   expenseSchema,
   movementSchema,
@@ -37,6 +38,7 @@ const roles = [ROLES.HOSPITAL_ADMIN, ROLES.PHARMACIST] as const;
 
 router.use(authenticate, requireTenant, requireRoles(...roles));
 router.get('/access', pharmacy.pharmacyAccess);
+router.get('/dashboard', requirePharmacy(P.REPORTS_OPERATIONS), pharmacy.dashboard);
 router.get('/operations', requirePharmacy(P.REPORTS_OPERATIONS), pharmacy.operationsReport);
 router.get('/finance', requirePharmacy(P.REPORTS_FINANCIAL), pharmacy.financeReport);
 router.get('/lots', requirePharmacy(P.STOCK_VIEW), pharmacy.lots);
@@ -60,8 +62,11 @@ router.post('/supplier-invoices/:id/pay', requirePharmacy(P.EXPENSES_PAY), valid
 router.get('/budgets', requirePharmacy(P.BUDGET_VIEW), pharmacy.budgets);
 router.post('/budgets', requirePharmacy(P.BUDGET_MANAGE), validate(budgetSchema), pharmacy.saveBudget);
 router.get('/products/low-stock', clinical.lowStock);
+router.get('/products/export', requirePharmacy(P.STOCK_VIEW), validate(listPharmacySchema), pharmacy.exportProducts);
 router.get('/products', validate(listPharmacySchema), clinical.listProducts);
+router.post('/products/import', requirePharmacy(P.PRODUCTS_MANAGE), validate(importProductsSchema), pharmacy.importProducts);
 router.post('/products', requirePharmacy(P.PRODUCTS_MANAGE), validate(createProductSchema), clinical.createProduct);
+router.get('/products/:id/sheet', requirePharmacy(P.STOCK_VIEW), validate(productParamsSchema), pharmacy.productSheet);
 router.get('/products/:id', validate(productParamsSchema), clinical.getProduct);
 router.put('/products/:id', requirePharmacy(P.PRODUCTS_MANAGE), validate(updateProductSchema), clinical.updateProduct);
 router.patch('/products/:id/stock', validate(productStockSchema), clinical.updateStock);

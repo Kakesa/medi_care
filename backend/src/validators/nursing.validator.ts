@@ -83,6 +83,11 @@ export const nursingVitalsListSchema = envelope(empty, z.object({
   patientId: objectIdSchema,
 }));
 
+export const nursingTreatmentRecordSchema = envelope(empty, z.object({
+  patientId: objectIdSchema.optional(),
+  prescriptionItemId: objectIdSchema.optional(),
+}).optional().default({}));
+
 export const nursingAdministrationListSchema = envelope(empty, z.object({
   patientId: objectIdSchema,
   date: calendarDate,

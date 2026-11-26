@@ -5,6 +5,7 @@ import { BedStay } from '../models/BedStay.js';
 import { Consultation } from '../models/Consultation.js';
 import { Exam } from '../models/Exam.js';
 import { MedicationAdministration } from '../models/MedicationAdministration.js';
+import { Organization } from '../models/Organization.js';
 import { NursingCare } from '../models/NursingCare.js';
 import { NursingObservation } from '../models/NursingObservation.js';
 import { NursingSettings } from '../models/NursingSettings.js';
@@ -1257,6 +1258,132 @@ export async function getNursingReport(actor: AuthContext, organizationId: strin
     observations,
     vitalMeasurements: vitals,
     period: { from: query.from, to: query.to },
+  };
+}
+
+function ageYears(birth: Date | null | undefined, today: string) {
+  if (!birth) return undefined;
+  const day = birth.toISOString().slice(0, 10);
+  let years = Number(today.slice(0, 4)) - Number(day.slice(0, 4));
+  if (today.slice(5) < day.slice(5)) years -= 1;
+  return years >= 0 ? years : undefined;
+}
+
+function treatmentOutcome(item: {
+  treatmentStatus?: string | null;
+  treatmentEndDate?: string | null;
+}, today: string): 'completed' | 'interrupted' | 'active' | 'suspended' {
+  if (item.treatmentStatus === 'interrupted') return 'interrupted';
+  if (item.treatmentStatus === 'completed') return 'completed';
+  if (item.treatmentEndDate && item.treatmentEndDate < today) return 'completed';
+  if (item.treatmentStatus === 'suspended') return 'suspended';
+  return 'active';
+}
+
+function administrationNote(row: { status: string; observations?: string | null; notDoneReason?: string | null }) {
+  if (row.status === 'administered_late') return row.observations?.trim() || '';
+  if (row.status === 'not_administered' || row.status === 'patient_refused') return row.notDoneReason?.trim() || '';
+  return '';
+}
+
+export async function listTreatmentRecords(
+  actor: AuthContext,
+  organizationId: string,
+  query: { patientId?: string; prescriptionItemId?: string },
+  ip?: string,
+) {
+  let patient;
+  if (actor.role === ROLES.PATIENT) {
+    patient = await Patient.findOne({ organizationId, linkedUserId: actor.id, archivedAt: null });
+    if (!patient) throw new ApiError(404, 'Ressource introuvable', 'NOT_FOUND');
+    if (query.patientId && query.patientId !== patient.id) {
+      throw new ApiError(403, 'Dossier non autorisé', 'RECORD_FORBIDDEN');
+    }
+  } else {
+    if (!query.patientId) throw new ApiError(400, 'Le patient est requis', 'PATIENT_REQUIRED');
+    patient = await requireVisiblePatient(actor, organizationId, query.patientId, ip);
+  }
+
+  const today = facilityToday();
+  const [organization, prescriptions, stay, doctor] = await Promise.all([
+    Organization.findById(organizationId).select('name address city phone email'),
+    Prescription.find({ organizationId, patientId: patient._id, status: 'validated' }).select('prescriberName items'),
+    BedStay.findOne({ organizationId, patientId: patient._id }).sort({ admissionDate: -1 }).select('wardName bedNumber'),
+    patient.primaryDoctorId ? User.findById(patient.primaryDoctorId).select('firstName lastName') : null,
+  ]);
+
+  const finished = prescriptions.flatMap((prescription) => prescription.items.flatMap((item) => {
+    const scheduled = Boolean(item.treatmentStartDate || item.treatmentEndDate || item.administrationTimes?.length);
+    if (!scheduled) return [];
+    const outcome = treatmentOutcome(item, today);
+    if (query.prescriptionItemId && item.id !== query.prescriptionItemId) return [];
+    const closing = [...(item.treatmentStatusHistory ?? [])].reverse()
+      .find((change) => change.status === 'completed' || change.status === 'interrupted');
+    return [{
+      id: item.id,
+      medication: item.medication,
+      dosage: item.dosage,
+      route: item.administrationRoute || '',
+      posology: item.posology,
+      instructions: item.instructions || '',
+      prescriberName: prescription.prescriberName,
+      startDate: item.treatmentStartDate || undefined,
+      endDate: item.treatmentEndDate || undefined,
+      outcome,
+      endedAt: closing?.changedAt,
+      closingReason: closing?.reason || '',
+    }];
+  }));
+
+  if (query.prescriptionItemId && finished.length === 0) {
+    throw new ApiError(404, 'Traitement introuvable', 'TREATMENT_NOT_FOUND');
+  }
+
+  const itemIds = finished.map((item) => item.id);
+  const doses = itemIds.length
+    ? await MedicationAdministration.find({
+      organizationId,
+      patientId: patient._id,
+      prescriptionItemId: { $in: itemIds },
+    }).sort({ scheduledAt: 1 })
+    : [];
+  const names = await namesById(organizationId, doses.map((row) => idOf(row.administeredBy)));
+  const byItem = new Map<string, typeof doses>();
+  for (const dose of doses) {
+    const key = dose.prescriptionItemId.toString();
+    const list = byItem.get(key) ?? [];
+    list.push(dose);
+    byItem.set(key, list);
+  }
+
+  return {
+    organization: {
+      name: organization?.name || 'HopeCare',
+      address: organization?.address,
+      city: organization?.city,
+      phone: organization?.phone,
+      email: organization?.email,
+    },
+    patient: {
+      firstName: patient.firstName,
+      lastName: patient.lastName,
+      age: ageYears(patient.dateOfBirth, today),
+      gender: patient.gender === 'M' || patient.gender === 'F' ? patient.gender : undefined,
+      allergies: patient.allergies ?? [],
+      room: stay?.bedNumber || patient.room || undefined,
+      ward: stay?.wardName || undefined,
+      doctor: doctor ? `${doctor.firstName} ${doctor.lastName}`.trim() : undefined,
+    },
+    treatments: finished.map((item) => ({
+      ...item,
+      doses: (byItem.get(item.id) ?? []).map((row) => ({
+        scheduledAt: row.scheduledAt,
+        administeredAt: row.administeredAt,
+        status: row.status,
+        nurseName: names.get(idOf(row.administeredBy) || '') || undefined,
+        note: administrationNote(row),
+      })),
+    })),
   };
 }
 

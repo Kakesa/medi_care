@@ -100,3 +100,31 @@ export const movementSchema = envelope(z.object({
 }));
 
 export const pharmacyParamsSchema = envelope(empty, empty, paramsId);
+
+const importRow = z.object({
+  name: z.string().min(1).max(160),
+  genericName: z.string().max(160).optional(),
+  sku: z.string().max(40).optional(),
+  barcode: z.string().max(40).optional(),
+  category: z.string().min(1).max(80),
+  dosage: z.string().max(80).optional(),
+  form: z.string().max(40).optional(),
+  packaging: z.string().max(80).optional(),
+  unit: z.string().min(1).max(40),
+  storageUnit: z.string().max(40).optional(),
+  saleUnit: z.string().max(40).optional(),
+  unitFactor: z.coerce.number().positive().max(100000).optional(),
+  price: z.coerce.number().min(0),
+  purchasePrice: z.coerce.number().min(0).optional(),
+  quantity: z.coerce.number().int().min(0).optional(),
+  minStock: z.coerce.number().int().min(0).optional(),
+  maxStock: z.coerce.number().int().min(0).optional(),
+  alertStock: z.coerce.number().int().min(0).optional(),
+  location: z.string().max(80).optional(),
+  description: z.string().max(500).optional(),
+  supplier: z.string().max(160).optional(),
+});
+
+export const importProductsSchema = envelope(z.object({
+  rows: z.array(importRow).min(1).max(100),
+}));

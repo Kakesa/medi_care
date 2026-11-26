@@ -1,10 +1,12 @@
 import type { Request, Response } from 'express';
-import { pharmacyPermissionsFor } from '../domain/pharmacyPermissions.js';
+import { hasPharmacyPermission, pharmacyPermissionsFor, PHARMACY_PERMISSIONS } from '../domain/pharmacyPermissions.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { organizationCurrency } from '../services/catalog.service.js';
 import * as finance from '../services/pharmacyFinance.service.js';
 import * as procurement from '../services/procurement.service.js';
 import * as sales from '../services/pharmacySale.service.js';
+import * as pharmacyProducts from '../services/pharmacy.service.js';
+import { pharmacyDashboard } from '../services/pharmacyDashboard.service.js';
 import { PharmacyOrder } from '../models/PharmacyOrder.js';
 import { listLots, listMovements, postStock, releaseExpired } from '../services/stock.service.js';
 import { ApiError } from '../utils/ApiError.js';
@@ -12,6 +14,24 @@ import { requireOwned } from '../services/access.service.js';
 
 const org = (req: Request) => req.organizationId!;
 const auth = (req: Request) => req.auth!;
+
+export const dashboard = asyncHandler(async (req: Request, res: Response) => {
+  await releaseExpired(org(req), auth(req));
+  const financial = hasPharmacyPermission(auth(req).role, [PHARMACY_PERMISSIONS.REPORTS_FINANCIAL]);
+  res.json(await pharmacyDashboard(org(req), financial));
+});
+
+export const exportProducts = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await pharmacyProducts.exportProducts(org(req), req.query as never));
+});
+
+export const importProducts = asyncHandler(async (req: Request, res: Response) => {
+  res.status(201).json(await pharmacyProducts.importProducts(auth(req), org(req), req.body.rows, req.ip));
+});
+
+export const productSheet = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await pharmacyProducts.productStockSheet(auth(req), org(req), req.params.id, req.ip));
+});
 
 export const pharmacyAccess = asyncHandler(async (req: Request, res: Response) => {
   res.json({

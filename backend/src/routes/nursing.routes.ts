@@ -10,6 +10,7 @@ import {
   nursingAdministrationConfirmSchema,
   nursingAdministrationCorrectionSchema,
   nursingAdministrationListSchema,
+  nursingTreatmentRecordSchema,
   nursingAdministrationMissedSchema,
   nursingAdministrationParamsSchema,
   nursingCreateCareSchema,

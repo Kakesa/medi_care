@@ -67,6 +67,16 @@ export const createObservation = asyncHandler(async (req: Request, res: Response
   res.status(201).json(await nursing.createNursingObservation(actor, organizationId, req.body, req.ip));
 });
 
+export const treatmentRecords = asyncHandler(async (req: Request, res: Response) => {
+  const { actor, organizationId } = context(req);
+  res.json(await nursing.listTreatmentRecords(
+    actor,
+    organizationId,
+    req.query as { patientId?: string; prescriptionItemId?: string },
+    req.ip,
+  ));
+});
+
 export const administrations = asyncHandler(async (req: Request, res: Response) => {
   const { actor, organizationId } = context(req);
   res.json(await nursing.getMedicationAdministrationSheet(actor, organizationId, req.query as unknown as { patientId: string; date: string }));

@@ -250,16 +250,37 @@ export const examByPatientSchema = envelope(empty, empty, paramsPatient);
 
 const productBody = {
   name: z.string().min(1).max(160),
+  genericName: z.string().max(160).optional(),
+  sku: z.string().max(40).optional(),
+  barcode: z.string().max(40).optional(),
   category: z.string().min(1).max(80),
+  dosage: z.string().max(80).optional(),
+  form: z.string().max(40).optional(),
+  packaging: z.string().max(80).optional(),
   quantity: z.coerce.number().int().min(0),
   minStock: z.coerce.number().int().min(0),
+  maxStock: z.coerce.number().int().min(0).optional(),
+  alertStock: z.coerce.number().int().min(0).optional(),
   unit: z.string().min(1).max(40),
+  storageUnit: z.string().max(40).optional(),
+  saleUnit: z.string().max(40).optional(),
+  unitFactor: z.coerce.number().positive().max(100000).optional(),
   price: z.coerce.number().min(0),
+  purchasePrice: z.coerce.number().min(0).optional(),
+  location: z.string().max(80).optional(),
+  description: z.string().max(500).optional(),
   supplier: z.string().max(160).optional().default(''),
   expiryDate: z.union([z.coerce.date(), z.literal('')]).optional(),
+  kind: z.enum(['medication', 'consumable', 'device']).optional(),
+  prescriptionRequired: z.boolean().optional(),
 };
 
-export const listPharmacySchema = envelope(empty, paginationSchema);
+export const listPharmacySchema = envelope(empty, paginationSchema.extend({
+  search: z.string().max(80).optional(),
+  category: z.string().max(80).optional(),
+  status: z.enum(['in_stock', 'low_stock', 'out_of_stock']).optional(),
+  kind: z.enum(['medication', 'consumable', 'device']).optional(),
+}));
 export const createProductSchema = envelope(z.object(productBody));
 export const updateProductSchema = envelope(
   z.object({
@@ -271,6 +292,21 @@ export const updateProductSchema = envelope(
     price: z.coerce.number().min(0).optional(),
     supplier: z.string().max(160).optional(),
     expiryDate: z.union([z.coerce.date(), z.literal('')]).optional(),
+    genericName: z.string().max(160).optional(),
+    sku: z.string().max(40).optional(),
+    barcode: z.string().max(40).optional(),
+    dosage: z.string().max(80).optional(),
+    form: z.string().max(40).optional(),
+    packaging: z.string().max(80).optional(),
+    storageUnit: z.string().max(40).optional(),
+    saleUnit: z.string().max(40).optional(),
+    unitFactor: z.coerce.number().positive().max(100000).optional(),
+    maxStock: z.coerce.number().int().min(0).optional(),
+    alertStock: z.coerce.number().int().min(0).optional(),
+    location: z.string().max(80).optional(),
+    description: z.string().max(500).optional(),
+    purchasePrice: z.coerce.number().min(0).optional(),
+    active: z.boolean().optional(),
   }),
   empty,
   paramsId

@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Printer, X, XCircle } from 'lucide-react';
+import { Check, CheckCircle2, ChevronLeft, ChevronRight, Clock3, FileDown, Printer, X, XCircle } from 'lucide-react';
+import { downloadTreatmentRecord, printTreatmentRecord } from '@/utils/treatmentRecord';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -275,10 +276,6 @@ function DoseControls({
   );
 }
 
-function escapeHtml(value: string) {
-  return value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char] ?? char));
-}
-
 export function TreatmentSheet({
   patients,
   selectedId,
@@ -296,6 +293,7 @@ export function TreatmentSheet({
 }) {
   const { toast } = useToast();
   const [weekStart, setWeekStart] = useState(facilityDate());
+  const [recordKey, setRecordKey] = useState('');
   const [sheets, setSheets] = useState<MedicationAdministrationSheet[]>([]);
   const [loading, setLoading] = useState(false);
   const [motif, setMotif] = useState<{ dose: MedicationAdministration; mode: MotifMode; medication: string } | null>(null);
@@ -537,26 +535,27 @@ export function TreatmentSheet({
     }
   };
 
-  const printSheet = () => {
-    const patient = patients.find((item) => item.id === selectedId);
-    const title = patient ? `${patient.firstName} ${patient.lastName}` : 'Patient';
-    const body = rows.map((row) => `<tr>
-      <td>${escapeHtml(row.medication)}<br><small>${escapeHtml(row.dose)}</small></td>
-      <td>${escapeHtml(frequencyLabel(row.times))}</td>
-      <td>${escapeHtml(row.route)}</td>
-      ${row.cells.map((cell) => `<td>${cell.map((dose) => `${clock(dose.scheduledAt)} ${escapeHtml(statusLabels[dose.status])}${dose.administeredByName ? ` · ${escapeHtml(dose.administeredByName)}` : ''}${doseMotif(dose) ? ` · ${escapeHtml(doseMotif(dose))}` : ''}`).join('<br>') || '—'}</td>`).join('')}
-    </tr>`).join('');
-    const popup = window.open('', '_blank', 'noopener,noreferrer');
-    if (!popup) return;
-    popup.document.write(`<!doctype html><html><head><title>Feuille de traitement · ${escapeHtml(title)}</title>
-      <style>body{font-family:Arial,sans-serif;padding:24px;color:#111}table{border-collapse:collapse;width:100%;font-size:12px}th,td{border:1px solid #222;padding:6px;vertical-align:top}th{background:#f3f4f6}</style>
-      </head><body><h1>Feuille de traitement</h1><p>${escapeHtml(title)} · ${escapeHtml(patient?.room ?? 'chambre non renseignée')} · ${escapeHtml(patient?.doctor ?? 'médecin non renseigné')}</p>
-      <p>Semaine du ${escapeHtml(dayLabel(days[0]))} au ${escapeHtml(dayLabel(days[6]))}</p>
-      <table><thead><tr><th rowspan="2">Médicaments</th><th rowspan="2">FREQ.</th><th rowspan="2">V.A</th><th colspan="7">JOURS &amp; HEURES PRÉCISES</th></tr>
-      <tr>${days.map((date, index) => `<th>J${index + 1}<br>${escapeHtml(dayLabel(date))}</th>`).join('')}</tr></thead><tbody>${body || '<tr><td colspan="10">Aucun médicament prescrit sur cette période.</td></tr>'}</tbody></table></body></html>`);
-    popup.document.close();
-    popup.focus();
-    popup.print();
+  const openRecord = async (mode: 'print' | 'pdf') => {
+    if (!selectedId) return;
+    setRecordKey(mode);
+    try {
+      const file = await nursingService.getTreatmentRecords({ patientId: selectedId });
+      if (!file.treatments.length) {
+        toast({ title: 'Aucun traitement', description: 'Aucune fiche de traitement à imprimer pour ce patient.', variant: 'destructive' });
+        return;
+      }
+      if (mode === 'pdf') {
+        downloadTreatmentRecord(file);
+        return;
+      }
+      if (!printTreatmentRecord(file)) {
+        toast({ title: 'Impression bloquée', description: 'Autorisez les fenêtres du navigateur, ou téléchargez le PDF.', variant: 'destructive' });
+      }
+    } catch (error) {
+      toast({ title: 'Fiche indisponible', description: apiMessage(error), variant: 'destructive' });
+    } finally {
+      setRecordKey('');
+    }
   };
 
   const exportSheet = () => {
@@ -593,7 +592,8 @@ export function TreatmentSheet({
             <p className="mt-1 hidden text-sm text-muted-foreground md:block">Prescriptions validées du dossier. Chaque case confirme une administration et conserve l’infirmier, la date et l’heure.</p>
           </div>
           <div className="flex shrink-0 gap-1.5">
-            <Button type="button" variant="outline" size="sm" onClick={printSheet} disabled={!rows.length}><Printer className="h-4 w-4 md:mr-2" /><span className="hidden md:inline">Imprimer</span></Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => void openRecord('print')} disabled={!selectedId || Boolean(recordKey)}><Printer className="h-4 w-4 md:mr-2" /><span className="hidden md:inline">Imprimer</span></Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => void openRecord('pdf')} disabled={!selectedId || Boolean(recordKey)}><FileDown className="h-4 w-4 md:mr-2" /><span className="hidden md:inline">PDF</span></Button>
             <Button type="button" variant="outline" size="sm" onClick={exportSheet} disabled={!rows.length}><span className="md:hidden">CSV</span><span className="hidden md:inline">Exporter</span></Button>
           </div>
         </div>

@@ -152,6 +152,9 @@ export default function PatientDashboard() {
         <p className="mt-1 text-muted-foreground">
           Suivez votre parcours de santé et vos rendez-vous
         </p>
+        <Link to="/dashboard/traitements" className="mt-3 inline-flex text-sm font-medium text-primary hover:underline">
+          Fiche de tous les traitements
+        </Link>
       </div>
 
       {/* Quick stats */}

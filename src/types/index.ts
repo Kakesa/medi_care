@@ -336,26 +336,54 @@ export interface CreateNotificationData {
 export interface PharmacyProduct {
   id: string;
   name: string;
+  genericName?: string;
+  sku?: string;
+  barcode?: string;
   category: string;
+  dosage?: string;
+  form?: string;
+  packaging?: string;
   quantity: number;
   minStock: number;
+  maxStock?: number;
+  alertStock?: number;
   unit: string;
+  storageUnit?: string;
+  saleUnit?: string;
+  unitFactor?: number;
   price: number;
   currency?: string;
   purchasePrice?: number;
+  location?: string;
+  description?: string;
   supplier: string;
   expiryDate?: string;
   status: ProductStatus;
+  active?: boolean;
   lastRestocked?: string;
 }
 
 export interface CreateProductData {
   name: string;
+  genericName?: string;
+  sku?: string;
+  barcode?: string;
   category: string;
+  dosage?: string;
+  form?: string;
+  packaging?: string;
   quantity: number;
   minStock: number;
+  maxStock?: number;
+  alertStock?: number;
   unit: string;
+  storageUnit?: string;
+  saleUnit?: string;
+  unitFactor?: number;
   price: number;
+  purchasePrice?: number;
+  location?: string;
+  description?: string;
   supplier: string;
   expiryDate?: string;
 }

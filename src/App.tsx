@@ -35,6 +35,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import PatientAppointments from "./pages/patient/PatientAppointments";
 import PatientExams from "./pages/patient/PatientExams";
 import PatientInvoices from "./pages/patient/PatientInvoices";
+import PatientTreatments from "./pages/patient/PatientTreatments";
 import LabSupervision from "./pages/laboratory/LabSupervision";
 import ReceptionLab from "./pages/laboratory/ReceptionLab";
 import ClinicalPrescriptions from "./pages/laboratory/ClinicalPrescriptions";

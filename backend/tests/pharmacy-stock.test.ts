@@ -143,4 +143,69 @@ describe('Pharmacie : stock, achats et dépenses', () => {
     expect(finance.body.unpaidInvoices).toBe(0);
     expect(finance.body.remaining).toBe(900);
   });
+
+  it('calcule le tableau de bord et la fiche de stock dans l’établissement', async () => {
+    const org = await createOrganization();
+    const other = await createOrganization('Pharmacie voisine');
+    const admin = await createUser({ role: 'HOSPITAL_ADMIN', organizationId: org.id });
+    const pharmacist = await createUser({ role: 'PHARMACIST', organizationId: org.id });
+    const outsider = await createUser({ role: 'HOSPITAL_ADMIN', organizationId: other.id });
+    const item = await product(admin.token, 4, {
+      genericName: 'Paracétamol',
+      sku: 'PARA-500',
+      maxStock: 20,
+      alertStock: 5,
+      location: 'A1',
+      storageUnit: 'boite',
+      saleUnit: 'comprimé',
+      unitFactor: 10,
+    });
+    expect(item.sku).toBe('PARA-500');
+    expect(item.maxStock).toBe(20);
+    expect(item.alertStock).toBe(5);
+    expect(item.location).toBe('A1');
+    expect(item.unitFactor).toBe(10);
+
+    const listed = await request(app).get('/api/pharmacy/products').query({ search: 'para', limit: 10 }).set(bearer(admin.token));
+    expect(listed.body.total).toBe(1);
+
+    const dash = await request(app).get('/api/pharmacy/dashboard').set(bearer(admin.token));
+    expect(dash.status).toBe(200);
+    expect(dash.body.counts.medications).toBe(1);
+    expect(dash.body.counts.available).toBe(1);
+    expect(dash.body.counts.belowAlert).toBe(1);
+    expect(dash.body.counts.stockValue).toBe(8);
+    expect(dash.body.financial.collectedMonth).toBe(0);
+    expect(dash.body.salesByDay).toHaveLength(14);
+
+    const pharm = await request(app).get('/api/pharmacy/dashboard').set(bearer(pharmacist.token));
+    expect(pharm.status).toBe(200);
+    expect(pharm.body.financial).toBeNull();
+    expect(pharm.body.counts.medications).toBe(1);
+    expect(pharm.body.salesByDay[0].amount).toBeNull();
+
+    const sheet = await request(app).get(`/api/pharmacy/products/${item.id}/sheet`).set(bearer(pharmacist.token));
+    expect(sheet.status).toBe(200);
+    expect(sheet.body.lines[0].quantityIn).toBe(4);
+    expect(sheet.body.lines[0].remaining).toBe(4);
+    expect(sheet.body.product.location).toBe('A1');
+
+    const imported = await request(app).post('/api/pharmacy/products/import').set(bearer(admin.token)).send({
+      rows: [{ name: 'Ibuprofène', category: 'Antalgiques', unit: 'boite', price: 3, sku: 'IBU-1' }],
+    });
+    expect(imported.status).toBe(201);
+    expect(imported.body.created).toBe(1);
+    const deniedImport = await request(app).post('/api/pharmacy/products/import').set(bearer(pharmacist.token)).send({
+      rows: [{ name: 'Refusé', category: 'Antalgiques', unit: 'boite', price: 1 }],
+    });
+    expect(deniedImport.status).toBe(403);
+    const file = await request(app).get('/api/pharmacy/products/export').set(bearer(pharmacist.token));
+    expect(file.status).toBe(200);
+    expect(file.body.csv).toContain('Ibuprofène');
+
+    const hidden = await request(app).get(`/api/pharmacy/products/${item.id}/sheet`).set(bearer(outsider.token));
+    expect(hidden.status).toBe(404);
+    const otherDash = await request(app).get('/api/pharmacy/dashboard').set(bearer(outsider.token));
+    expect(otherDash.body.counts.medications).toBe(0);
+  });
 });

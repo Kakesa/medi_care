@@ -1,5 +1,5 @@
 import { httpClient } from './httpClient';
-import type { MedicationAdministration, MedicationAdministrationSheet, NursingPage, NursingPatient, NursingCare, NursingDashboard, NursingPatientDetail, NursingReport, NursingThresholds, NursingVitalSigns } from '@/types/nursing';
+import type { MedicationAdministration, MedicationAdministrationSheet, NursingPage, NursingPatient, NursingCare, NursingDashboard, NursingPatientDetail, NursingReport, NursingThresholds, NursingVitalSigns, TreatmentRecordFile } from '@/types/nursing';
 
 class NursingService {
   private readonly basePath = '/nursing';
@@ -137,6 +137,13 @@ class NursingService {
 
   getJournal(from: string, to: string) {
     return httpClient.get<TreatmentJournal>(`${this.basePath}/journal`, { from, to });
+  }
+
+  getTreatmentRecords(params: { patientId?: string; prescriptionItemId?: string } = {}) {
+    const query: Record<string, string> = {};
+    if (params.patientId) query.patientId = params.patientId;
+    if (params.prescriptionItemId) query.prescriptionItemId = params.prescriptionItemId;
+    return httpClient.get<TreatmentRecordFile>(`${this.basePath}/treatment-records`, query);
   }
 }
 

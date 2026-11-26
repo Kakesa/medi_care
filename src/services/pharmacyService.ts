@@ -18,10 +18,14 @@ class PharmacyService {
   private readonly basePath = '/pharmacy';
 
   // Products
-  async getProducts(params?: PaginationParams): Promise<PaginatedResponse<PharmacyProduct>> {
+  async getProducts(params?: PaginationParams & { search?: string; category?: string; status?: string; kind?: string }): Promise<PaginatedResponse<PharmacyProduct>> {
     const queryParams: Record<string, string> = {};
     if (params?.page) queryParams.page = String(params.page);
     if (params?.limit) queryParams.limit = String(params.limit);
+    if (params?.search) queryParams.search = params.search;
+    if (params?.category) queryParams.category = params.category;
+    if (params?.status) queryParams.status = params.status;
+    if (params?.kind) queryParams.kind = params.kind;
 
     return httpClient.get<PaginatedResponse<PharmacyProduct>>(`${this.basePath}/products`, queryParams);
   }
@@ -120,6 +124,85 @@ class PharmacyService {
   async getOperations(): Promise<{ expiring: Array<{ id: string; lotNumber: string; expiresAt?: string; quantityRemaining: number }> }> {
     return httpClient.get(`${this.basePath}/operations`);
   }
+
+  async getDashboard(): Promise<PharmacyDashboard> {
+    return httpClient.get(`${this.basePath}/dashboard`);
+  }
+
+  async getStockSheet(id: string): Promise<PharmacyStockSheet> {
+    return httpClient.get(`${this.basePath}/products/${id}/sheet`);
+  }
+
+  async exportProducts(params?: { search?: string; category?: string; status?: string }): Promise<{ filename: string; csv: string }> {
+    const queryParams: Record<string, string> = {};
+    if (params?.search) queryParams.search = params.search;
+    if (params?.category) queryParams.category = params.category;
+    if (params?.status) queryParams.status = params.status;
+    return httpClient.get(`${this.basePath}/products/export`, queryParams);
+  }
+
+  async importProducts(rows: Array<Record<string, string | number>>): Promise<{ created: number; errors: Array<{ row: number; message: string }> }> {
+    return httpClient.post(`${this.basePath}/products/import`, { rows });
+  }
+}
+
+export interface PharmacyDashboard {
+  currency: string;
+  counts: {
+    medications: number;
+    available: number;
+    outOfStock: number;
+    belowAlert: number;
+    nearExpiry: number;
+    stockValue: number;
+    pendingPrescriptions: number;
+    dispensesToday: number;
+    salesToday: number;
+    pendingOrders: number;
+  };
+  alerts: {
+    outOfStock: Array<{ id: string; name: string }>;
+    belowAlert: Array<{ id: string; name: string; quantity: number; threshold: number }>;
+    nearExpiry: Array<{ name: string; lotNumber: string; expiresAt: string; quantityRemaining: number }>;
+  };
+  salesByDay: Array<{ date: string; count: number; amount: number | null }>;
+  topProducts: Array<{ name: string; quantity: number }>;
+  movementsByDay: Array<{ date: string; inbound: number; outbound: number }>;
+  stockValueByDay: Array<{ date: string; value: number }>;
+  financial: null | {
+    salesTodayAmount: number;
+    purchasesMonth: number;
+    expensesMonth: number;
+    collectedMonth: number;
+    billedMonth: number;
+    financeByMonth: Array<{ month: string; collected: number; expenses: number; purchases: number }>;
+  };
+}
+
+export interface PharmacyStockSheet {
+  product: PharmacyProduct;
+  lots: Array<{
+    id: string;
+    lotNumber: string;
+    supplierName: string;
+    expiresAt?: string;
+    quantityReceived: number;
+    quantityRemaining: number;
+    purchasePrice: number;
+    status: string;
+  }>;
+  lines: Array<{
+    date: string;
+    reference: string;
+    lotNumber: string;
+    origin: string;
+    destination: string;
+    quantityIn: number;
+    unitCost: number;
+    expiresAt?: string | null;
+    quantityOut: number;
+    remaining: number;
+  }>;
 }
 
 export const pharmacyService = new PharmacyService();

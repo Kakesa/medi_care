@@ -18,9 +18,9 @@ export function isExpired(value?: Date | null) {
   return value < startOfToday();
 }
 
-function stockStatus(quantity: number, minStock: number) {
+function stockStatus(quantity: number, minStock: number, alertStock = 0) {
   if (quantity <= 0) return 'out_of_stock' as const;
-  if (quantity < minStock) return 'low_stock' as const;
+  if (alertStock > 0 ? quantity <= alertStock : quantity < minStock) return 'low_stock' as const;
   return 'in_stock' as const;
 }
 
@@ -28,7 +28,7 @@ async function refreshStatus(productId: string) {
   const product = await PharmacyProduct.findById(productId);
   if (!product) return;
   if (product.quantity < 0) product.quantity = 0;
-  product.status = stockStatus(product.quantity, product.minStock);
+  product.status = stockStatus(product.quantity, product.minStock, Number(product.alertStock || 0));
   await product.save();
 }
 
@@ -210,6 +210,7 @@ async function receiveInto(
     quantity: number;
     reservedQuantity?: number;
     minStock: number;
+    alertStock?: number;
     unit: string;
     averageCost?: number;
     purchasePrice?: number;
@@ -269,7 +270,7 @@ async function receiveInto(
         averageCost,
         purchasePrice: cost,
         lastRestocked: new Date(),
-        status: stockStatus(nextQty, product.minStock),
+        status: stockStatus(nextQty, product.minStock, Number(product.alertStock || 0)),
         currency,
       },
     },
@@ -347,7 +348,7 @@ async function pickLot(
 async function issueFrom(
   actor: AuthContext,
   organizationId: string,
-  product: { _id: unknown; id: string; quantity: number; reservedQuantity?: number; minStock: number; unit: string },
+  product: { _id: unknown; id: string; quantity: number; reservedQuantity?: number; minStock: number; alertStock?: number; unit: string },
   input: StockPostInput,
   ip?: string
 ) {
@@ -376,7 +377,7 @@ async function issueFrom(
     await StockLot.updateOne({ _id: lot._id }, { $inc: { quantityRemaining: input.quantity }, $set: { status: 'available' } });
     throw new ApiError(409, 'Stock insuffisant', 'INSUFFICIENT_STOCK');
   }
-  updated.status = stockStatus(updated.quantity, product.minStock);
+  updated.status = stockStatus(updated.quantity, product.minStock, Number(product.alertStock || 0));
   await updated.save();
 
   try {

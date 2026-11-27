@@ -1,9 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, FileText, Search, UserRound } from "lucide-react";
+import { Check, ChevronsUpDown, ChevronLeft, ChevronRight, FileText, Search, UserRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiMessage } from "@/lib/apiError";
@@ -67,6 +75,70 @@ function statusTone(status: PrescriptionRecord["pharmacyStatus"]) {
 
 function lineDone(line: PrescriptionItem) {
   return line.unavailable || line.quantityDispensed >= line.quantityPrescribed;
+}
+
+function ProductPicker({
+  products,
+  value,
+  onChange,
+}: {
+  products: PharmacyProduct[];
+  value: string;
+  onChange: (productId: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = products.find((product) => product.id === value);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="h-8 w-full justify-between px-2 text-xs font-normal"
+        >
+          <span className="truncate">{selected ? selected.name : "Rechercher un produit…"}</span>
+          <ChevronsUpDown className="ml-1 h-3.5 w-3.5 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+        <Command
+          filter={(itemValue, search) => {
+            const hay = normalize(itemValue);
+            const needle = normalize(search);
+            if (!needle) return 1;
+            return hay.includes(needle) ? 1 : 0;
+          }}
+        >
+          <CommandInput placeholder="Nom du produit…" className="h-9 text-xs" />
+          <CommandList>
+            <CommandEmpty className="py-4 text-center text-xs">Aucun produit trouvé</CommandEmpty>
+            <CommandGroup>
+              {products.map((product) => (
+                <CommandItem
+                  key={product.id}
+                  value={`${product.name} ${product.genericName || ""}`}
+                  className="text-xs"
+                  onSelect={() => {
+                    onChange(product.id);
+                    setOpen(false);
+                  }}
+                >
+                  <Check className={cn("mr-2 h-3.5 w-3.5", value === product.id ? "opacity-100" : "opacity-0")} />
+                  <span className="min-w-0 flex-1 truncate">
+                    {product.name}
+                    <span className="text-muted-foreground"> · {product.quantity} {product.unit}</span>
+                  </span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 function summaryStatus(prescriptions: PrescriptionRecord[]) {
@@ -239,7 +311,7 @@ export default function PharmacyDesk() {
           </div>
         )
       ) : (
-        <div className="space-y-5">
+        <div className="mx-auto w-full max-w-[42rem] space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <Button type="button" variant="outline" size="sm" onClick={() => setSelectedPatientId(null)}>
               <ChevronLeft className="mr-1 h-4 w-4" />
@@ -255,26 +327,26 @@ export default function PharmacyDesk() {
             return (
               <article
                 key={row.id}
-                className="overflow-hidden rounded-2xl border border-border/80 bg-[#fcfbf7] text-foreground shadow-sm dark:bg-card"
+                className="mx-auto overflow-hidden rounded-xl border border-border/80 bg-[#fcfbf7] text-foreground shadow-sm dark:bg-card"
               >
-                <header className="border-b border-border/70 bg-white/70 px-5 py-4 dark:bg-background/40">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-primary">
-                        <FileText className="h-4 w-4" />
-                        <p className="text-xs font-semibold uppercase tracking-[0.14em]">Ordonnance médicale</p>
+                <header className="border-b border-border/70 bg-white/70 px-4 py-3 dark:bg-background/40">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-1.5 text-primary">
+                        <FileText className="h-3.5 w-3.5" />
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em]">Ordonnance médicale</p>
                       </div>
-                      <p className="font-serif text-lg font-semibold tracking-wide">
+                      <p className="font-serif text-base font-semibold tracking-wide">
                         {user?.organization?.name || "Établissement"}
                       </p>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-xs text-muted-foreground">
                         Patient : <span className="font-medium text-foreground">{row.patientName}</span>
                       </p>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-xs text-muted-foreground">
                         Médecin : <span className="font-medium text-foreground">{row.prescriberName}</span>
                       </p>
                       {row.validatedAt && (
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-[11px] text-muted-foreground">
                           Validée le {new Intl.DateTimeFormat("fr-FR", {
                             dateStyle: "medium",
                             timeStyle: "short",
@@ -283,23 +355,25 @@ export default function PharmacyDesk() {
                         </p>
                       )}
                     </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className={cn("inline-flex rounded-full border px-2.5 py-1 text-xs font-medium", statusTone(row.pharmacyStatus))}>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className={cn("inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium", statusTone(row.pharmacyStatus))}>
                         {pharmacyStatusLabels[row.pharmacyStatus]}
                       </span>
                       {row.pharmacyStatus === "new" && (
                         <Button
                           size="sm"
+                          className="h-7 text-xs"
                           disabled={busyKey === `prepare-${row.id}`}
                           onClick={() => run(`prepare-${row.id}`, () => prescriptionService.prepare(row.id), "Préparation commencée")}
                         >
-                          Commencer la préparation
+                          Préparer
                         </Button>
                       )}
                       {row.pharmacyStatus === "delivered" && (
                         <Button
                           size="sm"
                           variant="outline"
+                          className="h-7 text-xs"
                           disabled={busyKey === `close-${row.id}`}
                           onClick={() => run(`close-${row.id}`, () => prescriptionService.close(row.id), "Ordonnance clôturée")}
                         >
@@ -308,7 +382,7 @@ export default function PharmacyDesk() {
                       )}
                     </div>
                   </div>
-                  <p className="mt-3 font-serif text-sm leading-relaxed">
+                  <p className="mt-2 font-serif text-xs leading-relaxed">
                     Le médecin prie le pharmacien de bien vouloir délivrer les médicaments ci-après à{" "}
                     <strong>{row.patientName}</strong>.
                     {remaining > 0
@@ -317,58 +391,54 @@ export default function PharmacyDesk() {
                   </p>
                 </header>
 
-                <div className="divide-y divide-border/70 px-5 py-1">
+                <div className="divide-y divide-border/60 px-4 py-0.5">
                   {row.items.map((line, index) => {
                     const key = `${row.id}-${index}`;
                     const selectedProduct = products.find((product) => product.id === choice(key).productId);
                     const remainingQty = Math.max(0, line.quantityPrescribed - line.quantityDispensed);
                     const done = lineDone(line);
                     return (
-                      <div key={line.id} className="grid gap-4 py-4 lg:grid-cols-[1.2fr_1fr]">
-                        <div className="space-y-1 font-serif">
-                          <p className="text-[15px]">
-                            <span className="font-bold tracking-wide">R/</span> {line.medication}
-                            {line.dosage && line.dosage !== "Selon prescription" ? ` — ${line.dosage}` : ""}
+                      <div key={line.id} className="grid gap-3 py-2.5 sm:grid-cols-2">
+                        <div className="min-w-0 space-y-0.5 font-serif">
+                          <p className="text-[13px] leading-snug">
+                            <span className="font-bold tracking-wide">R/</span>{" "}
+                            <span className="font-semibold">{line.medication}</span>
+                            {line.dosage && line.dosage !== "Selon prescription" ? (
+                              <span className="text-foreground/80"> — {line.dosage}</span>
+                            ) : null}
                           </p>
-                          <p className="pl-5 text-sm text-foreground/80">
+                          <p className="pl-4 text-xs leading-relaxed text-foreground/85">
                             <span className="font-bold tracking-wide">S/</span> {lineSentence(line)}
                           </p>
                           {line.instructions && line.instructions !== "Selon prescription" && (
-                            <p className="pl-5 text-xs text-muted-foreground">{line.instructions}</p>
+                            <p className="pl-4 text-[11px] italic text-muted-foreground">{line.instructions}</p>
                           )}
-                          <p className="pl-5 pt-1 text-xs text-muted-foreground">
+                          <p className="pl-4 pt-0.5 text-[10px] text-muted-foreground">
                             Prescrit {line.quantityPrescribed} · délivré {line.quantityDispensed}
                             {line.unavailable ? ` · indisponible : ${line.unavailableNote || "sans motif"}` : ""}
                           </p>
                         </div>
 
-                        <div className="rounded-xl border border-border/70 bg-white/80 p-3 dark:bg-background/50">
+                        <div className="min-w-0 rounded-md border border-border/50 bg-white/70 p-2 dark:bg-background/40">
                           {done ? (
-                            <div className="flex h-full min-h-[4.5rem] items-center">
-                              <Badge variant={line.unavailable ? "destructive" : "secondary"}>
-                                {line.unavailable ? "Indisponible" : "Délivré"}
+                            <div className="flex h-full items-center justify-center py-0.5">
+                              <Badge variant={line.unavailable ? "destructive" : "secondary"} className="h-5 px-1.5 text-[10px]">
+                                {line.unavailable ? "Indispo." : "Délivré"}
                               </Badge>
                             </div>
                           ) : (
-                            <div className="space-y-2">
-                              <Select value={choice(key).productId} onValueChange={(productId) => setChoice(key, { productId })}>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Produit du stock" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {products.map((product) => (
-                                    <SelectItem key={product.id} value={product.id}>
-                                      {product.name} ({product.quantity} {product.unit})
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                            <div className="space-y-1.5">
+                              <ProductPicker
+                                products={products}
+                                value={choice(key).productId}
+                                onChange={(productId) => setChoice(key, { productId })}
+                              />
                               {selectedProduct && (
-                                <p className="text-xs text-muted-foreground">
-                                  Stock actuel : {selectedProduct.quantity} {selectedProduct.unit}
+                                <p className="truncate text-[10px] leading-tight text-muted-foreground">
+                                  Stock {selectedProduct.quantity} {selectedProduct.unit}
                                 </p>
                               )}
-                              <div className="grid grid-cols-[1fr_auto] gap-2">
+                              <div className="flex gap-1.5">
                                 <Input
                                   type="number"
                                   min={1}
@@ -376,9 +446,11 @@ export default function PharmacyDesk() {
                                   value={choice(key).quantity}
                                   onChange={(event) => setChoice(key, { quantity: event.target.value })}
                                   aria-label="Quantité à délivrer"
+                                  className="h-8 w-14 px-1.5 text-center text-xs"
                                 />
                                 <Button
                                   size="sm"
+                                  className="h-8 flex-1 px-2 text-xs"
                                   disabled={!choice(key).productId || busyKey === key}
                                   onClick={() => run(
                                     key,
@@ -393,15 +465,17 @@ export default function PharmacyDesk() {
                                   Délivrer
                                 </Button>
                               </div>
-                              <div className="grid grid-cols-[1fr_auto] gap-2">
+                              <div className="flex gap-1.5">
                                 <Input
-                                  placeholder="Motif si indisponible"
+                                  placeholder="Motif"
                                   value={choice(key).note}
                                   onChange={(event) => setChoice(key, { note: event.target.value })}
+                                  className="h-8 min-w-0 flex-1 px-2 text-xs"
                                 />
                                 <Button
                                   size="sm"
                                   variant="outline"
+                                  className="h-8 px-2 text-xs"
                                   disabled={busyKey === `u-${key}`}
                                   onClick={() => run(
                                     `u-${key}`,
@@ -412,7 +486,7 @@ export default function PharmacyDesk() {
                                     "Indisponibilité signalée",
                                   )}
                                 >
-                                  Indisponible
+                                  Indispo.
                                 </Button>
                               </div>
                             </div>
@@ -424,8 +498,8 @@ export default function PharmacyDesk() {
                 </div>
 
                 {row.recommendations?.trim() && (
-                  <footer className="border-t border-border/70 bg-white/50 px-5 py-3 text-sm dark:bg-background/30">
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Recommandations</p>
+                  <footer className="border-t border-border/70 bg-white/50 px-4 py-2.5 text-xs dark:bg-background/30">
+                    <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Recommandations</p>
                     <p className="mt-1 whitespace-pre-wrap font-serif">{row.recommendations}</p>
                   </footer>
                 )}

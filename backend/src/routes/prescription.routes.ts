@@ -20,11 +20,14 @@ import {
 
 const router = Router();
 const readers = [ROLES.HOSPITAL_ADMIN, ROLES.DOCTOR, ROLES.PHARMACIST, ROLES.NURSE] as const;
+const patients = [ROLES.PATIENT] as const;
 const prescribers = [ROLES.HOSPITAL_ADMIN, ROLES.DOCTOR] as const;
 const pharmacy = [ROLES.PHARMACIST, ROLES.HOSPITAL_ADMIN] as const;
 
 router.use(authenticate, requireTenant);
 router.get('/', requireRoles(...readers), validate(listPrescriptionsSchema), lab.listPrescriptions);
+router.get('/mine', requireRoles(...patients), lab.listMyPrescriptions);
+router.get('/mine/:id', requireRoles(...patients), validate(prescriptionParamsSchema), lab.getMyPrescription);
 router.get('/abbreviations', requireRoles(...readers), lab.listPrescriptionAbbreviations);
 router.post('/parse-line', requireRoles(...prescribers), validate(parseLineSchema), lab.previewPrescriptionLine);
 router.post('/consultation', requireRoles(...prescribers), validate(consultationPrescriptionSchema), lab.saveConsultationPrescription);

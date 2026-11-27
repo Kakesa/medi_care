@@ -52,6 +52,16 @@ export const saveConsultationPrescription = asyncHandler(async (req: Request, re
 export const validatePrescription = asyncHandler(async (req: Request, res: Response) => {
   res.json(await prescriptions.validatePrescription(auth(req), org(req), req.params.id, req.ip));
 });
+export const listMyPrescriptions = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await prescriptions.listMyPrescriptions(auth(req), org(req), req.query as {
+    billingStatus?: string;
+    pharmacyStatus?: string;
+    filter?: string;
+  }));
+});
+export const getMyPrescription = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await prescriptions.getMyPrescription(auth(req), org(req), req.params.id));
+});
 export const listPrescriptionAbbreviations = asyncHandler(async (req: Request, res: Response) => {
   const { listMergedAbbreviations } = await import('../services/abbreviation.service.js');
   const items = await listMergedAbbreviations(org(req));

@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { ROLES } from '../config/permissions.js';
 import { Invoice } from '../models/Invoice.js';
+import { Patient } from '../models/Patient.js';
 import { PatientCharge } from '../models/PatientCharge.js';
 import { PharmacyProduct } from '../models/PharmacyProduct.js';
 import { Prescription } from '../models/Prescription.js';
@@ -11,8 +12,28 @@ import { recordAudit } from './audit.service.js';
 import { finalizeInvoice } from './billing.service.js';
 import { openDraftInvoice, recordCharge, syncOriginStatus } from './charge.service.js';
 import { organizationCurrency } from './catalog.service.js';
-import { notifyRoles } from './notification.service.js';
+import { notifyRoles, notifyUser } from './notification.service.js';
 import { analyzePrescriptionDocument } from './prescriptionQuote.service.js';
+
+async function notifyPatientForPrescription(
+  organizationId: string,
+  patientId: { toString(): string } | string,
+  title: string,
+  message: string,
+  relatedId: string,
+  type: 'billing' | 'pharmacy' = 'pharmacy',
+) {
+  const patient = await Patient.findById(patientId).select('linkedUserId');
+  if (!patient?.linkedUserId) return;
+  await notifyUser({
+    organizationId,
+    userId: patient.linkedUserId,
+    title,
+    message,
+    type,
+    relatedId,
+  });
+}
 
 function itemKey(item: { id?: string; _id?: { toString(): string } }, index: number) {
   return item.id || item._id?.toString() || String(index);
@@ -173,6 +194,14 @@ export async function confirmPrescriptionQuote(
     title: 'Facture pharmacie à encaisser',
     message: `${row.patientName} : ordonnance ${row.pharmacyInvoiceNumber || finalized.invoiceNumber} — ${row.quoteTotal} ${currency}.`,
   });
+  await notifyPatientForPrescription(
+    organizationId,
+    row.patientId,
+    'Montant de votre ordonnance confirmé',
+    `Votre ordonnance est facturée (${finalized.invoiceNumber}). Montant à payer : ${row.quoteTotal} ${currency}.`,
+    row.id,
+    'billing',
+  );
 
   await recordAudit({
     actorId: actor.id,
@@ -232,6 +261,14 @@ export async function authorizeDispenseForPaidInvoice(
     title: 'Ordonnance payée — délivrance autorisée',
     message: `${row.patientName} : paiement confirmé (${invoice.invoiceNumber}). Vous pouvez délivrer.`,
   });
+  await notifyPatientForPrescription(
+    organizationId,
+    row.patientId,
+    'Paiement de votre ordonnance confirmé',
+    `Votre paiement (${invoice.invoiceNumber}) est confirmé. Les médicaments peuvent être délivrés à la pharmacie.`,
+    row.id,
+    'billing',
+  );
 
   return row;
 }

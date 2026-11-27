@@ -104,6 +104,72 @@ export type PharmacyAbbreviationItem = {
   active: boolean;
 };
 
+export type PatientPrescriptionItem = {
+  id: string;
+  medication: string;
+  dosage: string;
+  posology: string;
+  form?: string;
+  duration: string;
+  instructions: string;
+  quantityPrescribed: number;
+  quantityDispensed: number;
+  quantityRemaining: number;
+  unavailable: boolean;
+  unavailableNote: string;
+  unitPrice: number | null;
+  lineTotal: number | null;
+  quantityProposed: number | null;
+  formLabel: string;
+  originalText: string;
+  lineDispenseStatus: 'pending' | 'partial' | 'delivered' | 'unavailable';
+};
+
+export type PatientPrescription = {
+  id: string;
+  reference: string;
+  patientId: string;
+  patientName: string;
+  prescriberName: string;
+  organizationName: string;
+  consultationId?: string;
+  recommendations?: string;
+  items: PatientPrescriptionItem[];
+  itemCount: number;
+  status: 'draft' | 'validated';
+  pharmacyStatus: PrescriptionRecord['pharmacyStatus'];
+  quoteStatus?: PrescriptionRecord['quoteStatus'];
+  quoteTotal: number;
+  quoteCurrency: string;
+  quotePendingLines?: number;
+  quotedAt?: string;
+  billingStatus: NonNullable<PrescriptionRecord['billingStatus']>;
+  pharmacyInvoiceId?: string;
+  pharmacyInvoiceNumber?: string;
+  dispenseAuthorizedAt?: string;
+  pharmacyPaidAt?: string;
+  validatedAt?: string;
+  createdAt?: string;
+  amountDue: number;
+  amountPaid: number;
+  amountRemaining: number;
+  quoteIsFinal: boolean;
+  paymentStatus: 'awaiting_billing' | 'awaiting_payment' | 'partial' | 'paid' | 'cancelled' | 'refunded';
+  paymentStatusLabel: string;
+  dispenseStatus: 'pending' | 'preparing' | 'partial' | 'delivered';
+  dispenseStatusLabel: string;
+  invoice?: {
+    id: string;
+    invoiceNumber: string;
+    status: string;
+    total: number;
+    paidAt?: string;
+    createdAt?: string;
+  };
+};
+
+export type PatientPrescriptionFilter = 'all' | 'awaiting_payment' | 'paid' | 'partial_dispense' | 'delivered';
+
 export type PrescriptionParsePreview = {
   rawText: string;
   medicationName: string;
@@ -125,6 +191,14 @@ export type PrescriptionParsePreview = {
 class PrescriptionService {
   list(query?: { patientId?: string; consultationId?: string }) {
     return httpClient.get<PrescriptionRecord[]>('/prescriptions', query);
+  }
+
+  listMine(query?: { filter?: PatientPrescriptionFilter }) {
+    return httpClient.get<PatientPrescription[]>('/prescriptions/mine', query);
+  }
+
+  getMine(id: string) {
+    return httpClient.get<PatientPrescription>(`/prescriptions/mine/${id}`);
   }
 
   listAbbreviations() {

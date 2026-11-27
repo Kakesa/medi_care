@@ -1,16 +1,19 @@
 import mongoose from 'mongoose';
 import { ROLES } from '../config/permissions.js';
 import { Consultation } from '../models/Consultation.js';
+import { Invoice } from '../models/Invoice.js';
+import { Organization } from '../models/Organization.js';
 import { PharmacyProduct } from '../models/PharmacyProduct.js';
 import { MedicationAdministration } from '../models/MedicationAdministration.js';
+import { Patient } from '../models/Patient.js';
 import { Personnel } from '../models/Personnel.js';
 import { Prescription } from '../models/Prescription.js';
 import { User } from '../models/User.js';
 import { ApiError } from '../utils/ApiError.js';
 import type { AuthContext } from '../types/express.js';
-import { requireOwned, requireVisiblePatient } from './access.service.js';
+import { ownPatientId, requireOwned, requireVisiblePatient } from './access.service.js';
 import { recordCharge } from './charge.service.js';
-import { notifyRoles } from './notification.service.js';
+import { notifyRoles, notifyUser } from './notification.service.js';
 import { recordAudit } from './audit.service.js';
 import { organizationCurrency } from './catalog.service.js';
 import { postStock } from './stock.service.js';
@@ -144,6 +147,201 @@ export async function listPrescriptions(actor: AuthContext, organizationId: stri
   return rows.map((row) => toDto(row));
 }
 
+function paymentView(billingStatus: string) {
+  if (billingStatus === 'paid') return { code: 'paid' as const, label: 'Payé' };
+  if (billingStatus === 'cancelled') return { code: 'cancelled' as const, label: 'Annulé' };
+  if (billingStatus === 'awaiting_payment' || billingStatus === 'invoiced') {
+    return { code: 'awaiting_payment' as const, label: 'En attente de paiement' };
+  }
+  if (billingStatus === 'quoted' || billingStatus === 'awaiting_invoice') {
+    return { code: 'awaiting_billing' as const, label: 'En attente de facturation' };
+  }
+  return { code: 'awaiting_billing' as const, label: 'En attente de facturation' };
+}
+
+function dispenseView(pharmacyStatus: string) {
+  if (pharmacyStatus === 'delivered' || pharmacyStatus === 'closed') {
+    return { code: 'delivered' as const, label: 'Entièrement délivrés' };
+  }
+  if (pharmacyStatus === 'partial') return { code: 'partial' as const, label: 'Partiellement délivrés' };
+  if (pharmacyStatus === 'preparing') return { code: 'preparing' as const, label: 'En préparation' };
+  return { code: 'pending' as const, label: 'En attente de délivrance' };
+}
+
+function toPatientDto(
+  source: object,
+  extras: {
+    invoice?: { id: string; invoiceNumber: string; status: string; total: number; paidAt?: Date | null; createdAt?: Date } | null;
+    organizationName?: string;
+  } = {},
+) {
+  const base = toDto(source);
+  const payment = paymentView(base.billingStatus);
+  const dispense = dispenseView(base.pharmacyStatus);
+  const quoteIsFinal = base.billingStatus === 'awaiting_payment'
+    || base.billingStatus === 'paid'
+    || base.billingStatus === 'invoiced';
+  const amountDue = base.quoteTotal || 0;
+  const amountPaid = extras.invoice?.status === 'paid' ? (extras.invoice.total || amountDue) : 0;
+  const amountRemaining = base.billingStatus === 'paid' || base.billingStatus === 'cancelled' ? 0 : amountDue;
+  const items = base.items.map((item) => {
+    const remaining = Math.max(0, item.quantityPrescribed - item.quantityDispensed);
+    let lineDispenseStatus: 'pending' | 'partial' | 'delivered' | 'unavailable' = 'pending';
+    if (item.unavailable) lineDispenseStatus = 'unavailable';
+    else if (item.quantityDispensed <= 0) lineDispenseStatus = 'pending';
+    else if (remaining <= 0) lineDispenseStatus = 'delivered';
+    else lineDispenseStatus = 'partial';
+    return {
+      id: item.id,
+      medication: item.medication,
+      dosage: item.dosage,
+      posology: item.posology,
+      form: item.form,
+      duration: item.duration,
+      instructions: item.instructions,
+      quantityPrescribed: item.quantityPrescribed,
+      quantityDispensed: item.quantityDispensed,
+      quantityRemaining: remaining,
+      unavailable: item.unavailable,
+      unavailableNote: item.unavailableNote,
+      unitPrice: item.analysis?.unitPrice ?? null,
+      lineTotal: item.analysis?.lineTotal ?? null,
+      quantityProposed: item.analysis?.quantityProposed ?? null,
+      formLabel: item.analysis?.form || item.form || '',
+      originalText: item.analysis?.rawText || `R/ ${item.medication}\nS/ ${item.dosage}`,
+      lineDispenseStatus,
+    };
+  });
+  return {
+    id: base.id,
+    reference: base.pharmacyInvoiceNumber || `ORD-${base.id.slice(-8).toUpperCase()}`,
+    patientId: base.patientId,
+    patientName: base.patientName,
+    prescriberName: base.prescriberName,
+    organizationName: extras.organizationName || '',
+    consultationId: base.consultationId,
+    recommendations: base.recommendations,
+    items,
+    itemCount: items.length,
+    status: base.status,
+    pharmacyStatus: base.pharmacyStatus,
+    quoteStatus: base.quoteStatus,
+    quoteTotal: base.quoteTotal,
+    quoteCurrency: base.quoteCurrency,
+    quotePendingLines: base.quotePendingLines,
+    quotedAt: base.quotedAt,
+    billingStatus: base.billingStatus,
+    pharmacyInvoiceId: base.pharmacyInvoiceId,
+    pharmacyInvoiceNumber: base.pharmacyInvoiceNumber,
+    dispenseAuthorizedAt: base.dispenseAuthorizedAt,
+    pharmacyPaidAt: base.pharmacyPaidAt,
+    validatedAt: base.validatedAt,
+    createdAt: base.createdAt,
+    amountDue,
+    amountPaid,
+    amountRemaining,
+    quoteIsFinal,
+    paymentStatus: payment.code,
+    paymentStatusLabel: payment.label,
+    dispenseStatus: dispense.code,
+    dispenseStatusLabel: dispense.label,
+    invoice: extras.invoice
+      ? {
+          id: extras.invoice.id,
+          invoiceNumber: extras.invoice.invoiceNumber,
+          status: extras.invoice.status,
+          total: extras.invoice.total,
+          paidAt: extras.invoice.paidAt || undefined,
+          createdAt: extras.invoice.createdAt,
+        }
+      : undefined,
+  };
+}
+
+async function notifyLinkedPatient(
+  organizationId: string,
+  patientId: { toString(): string } | string,
+  title: string,
+  message: string,
+  relatedId: string,
+  type: 'billing' | 'pharmacy' = 'pharmacy',
+) {
+  const patient = await Patient.findById(patientId).select('linkedUserId');
+  if (!patient?.linkedUserId) return;
+  await notifyUser({
+    organizationId,
+    userId: patient.linkedUserId,
+    title,
+    message,
+    type,
+    relatedId,
+  });
+}
+
+export async function listMyPrescriptions(
+  actor: AuthContext,
+  organizationId: string,
+  query?: { billingStatus?: string; pharmacyStatus?: string; filter?: string },
+) {
+  const patientId = await ownPatientId(actor, organizationId);
+  if (!patientId) return [];
+  const filter: Record<string, unknown> = {
+    organizationId,
+    patientId,
+    status: 'validated',
+  };
+  if (query?.billingStatus) filter.billingStatus = query.billingStatus;
+  if (query?.pharmacyStatus) filter.pharmacyStatus = query.pharmacyStatus;
+  const rows = await Prescription.find(filter).sort({ validatedAt: -1, createdAt: -1 }).limit(100);
+  const invoiceIds = rows.map((row) => row.pharmacyInvoiceId).filter(Boolean);
+  const [invoices, organization] = await Promise.all([
+    invoiceIds.length
+      ? Invoice.find({ _id: { $in: invoiceIds }, organizationId }).select('invoiceNumber status total paidAt createdAt')
+      : Promise.resolve([]),
+    Organization.findById(organizationId).select('name'),
+  ]);
+  const byId = new Map(invoices.map((invoice) => [invoice.id, invoice]));
+  const organizationName = organization?.name || '';
+  let mapped = rows.map((row) => toPatientDto(row, {
+    invoice: row.pharmacyInvoiceId ? byId.get(String(row.pharmacyInvoiceId)) || null : null,
+    organizationName,
+  }));
+  const view = query?.filter || 'all';
+  if (view === 'awaiting_payment') {
+    mapped = mapped.filter((row) => row.paymentStatus === 'awaiting_payment');
+  } else if (view === 'paid') {
+    mapped = mapped.filter((row) => row.paymentStatus === 'paid');
+  } else if (view === 'partial_dispense') {
+    mapped = mapped.filter((row) => row.dispenseStatus === 'partial');
+  } else if (view === 'delivered') {
+    mapped = mapped.filter((row) => row.dispenseStatus === 'delivered');
+  }
+  return mapped;
+}
+
+export async function getMyPrescription(
+  actor: AuthContext,
+  organizationId: string,
+  id: string,
+) {
+  const patientId = await ownPatientId(actor, organizationId);
+  if (!patientId) throw new ApiError(404, 'Ordonnance introuvable', 'NOT_FOUND');
+  const row = await Prescription.findOne({
+    _id: id,
+    organizationId,
+    patientId,
+    status: 'validated',
+  });
+  if (!row) throw new ApiError(404, 'Ordonnance introuvable', 'NOT_FOUND');
+  const [invoice, organization] = await Promise.all([
+    row.pharmacyInvoiceId
+      ? Invoice.findOne({ _id: row.pharmacyInvoiceId, organizationId }).select('invoiceNumber status total paidAt createdAt')
+      : Promise.resolve(null),
+    Organization.findById(organizationId).select('name'),
+  ]);
+  return toPatientDto(row, { invoice, organizationName: organization?.name || '' });
+}
+
 export async function createPrescription(
   actor: AuthContext,
   organizationId: string,
@@ -263,8 +461,24 @@ export async function validatePrescription(actor: AuthContext, organizationId: s
     title: 'Nouvelle ordonnance',
     message: `Ordonnance de ${row.patientName} prescrite par ${row.prescriberName}.`,
   });
-  await recordAudit({ actorId: actor.id, actorRole: actor.role, organizationId, action: 'PRESCRIPTION_VALIDATED', resourceType: 'prescription', resourceId: row.id, success: true, ip });
+  await notifyLinkedPatient(
+    organizationId,
+    row.patientId,
+    'Nouvelle ordonnance',
+    `${row.prescriberName} vous a prescrit une ordonnance. Consultez « Mes ordonnances ».`,
+    row.id,
+  );
   const quoted = await Prescription.findById(row.id);
+  if (quoted && (quoted.quoteStatus === 'ready' || quoted.quoteStatus === 'partial')) {
+    await notifyLinkedPatient(
+      organizationId,
+      row.patientId,
+      'Devis pharmaceutique disponible',
+      `Un devis estimatif est disponible pour votre ordonnance (${quoted.quoteTotal} ${quoted.quoteCurrency || ''}). En attente de validation pharmacie.`,
+      row.id,
+    );
+  }
+  await recordAudit({ actorId: actor.id, actorRole: actor.role, organizationId, action: 'PRESCRIPTION_VALIDATED', resourceType: 'prescription', resourceId: row.id, success: true, ip });
   return toDto(quoted || row);
 }
 
@@ -346,9 +560,19 @@ function refreshStatus(row: { items: Item[]; pharmacyStatus: string; set: (path:
 export async function preparePrescription(actor: AuthContext, organizationId: string, id: string, ip?: string) {
   const row = await requireOwned(Prescription, id, organizationId, actor, 'prescription', ip);
   if (row.status !== 'validated') throw new ApiError(409, 'L\'ordonnance n\'est pas validée', 'PRESCRIPTION_DRAFT');
-  if (row.pharmacyStatus === 'new') row.pharmacyStatus = 'preparing';
+  const wasNew = row.pharmacyStatus === 'new';
+  if (wasNew) row.pharmacyStatus = 'preparing';
   row.history = [...(row.history || []), { at: new Date(), userName: await actorName(actor), action: 'PREPARATION', comment: '' }];
   await row.save();
+  if (wasNew) {
+    await notifyLinkedPatient(
+      organizationId,
+      row.patientId,
+      'Délivrance en cours',
+      'La pharmacie a commencé la préparation de vos médicaments.',
+      row.id,
+    );
+  }
   return toDto(row);
 }
 
@@ -422,6 +646,17 @@ export async function dispensePrescription(
       },
     }, ip);
   }
+
+  const fullyDelivered = row.pharmacyStatus === 'delivered' || row.pharmacyStatus === 'closed';
+  await notifyLinkedPatient(
+    organizationId,
+    row.patientId,
+    fullyDelivered ? 'Médicaments entièrement délivrés' : 'Délivrance partielle',
+    fullyDelivered
+      ? 'Tous vos médicaments ont été délivrés par la pharmacie.'
+      : `${product.name} : ${nextQuantity}/${item.quantityPrescribed} délivré(s). Consultez « Mes ordonnances ».`,
+    row.id,
+  );
   return toDto(row);
 }
 

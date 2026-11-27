@@ -201,21 +201,24 @@ export default function PatientDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500 text-amber-950">
-                <Pill className="h-6 w-6" />
+        <Link to="/dashboard/mes-ordonnances" className="block">
+          <Card className="border-amber-200 bg-amber-50 transition hover:border-amber-300 dark:border-amber-900 dark:bg-amber-950/40">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500 text-amber-950">
+                  <Pill className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground/80">Mes ordonnances</p>
+                  <p className="text-3xl font-bold tabular-nums text-amber-800 dark:text-amber-200">
+                    {myConsultations.filter(c => c.prescription).length}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Voir prix, paiement et délivrance</p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-medium text-foreground/80">Ordonnances</p>
-                <p className="text-3xl font-bold tabular-nums text-amber-800 dark:text-amber-200">
-                  {myConsultations.filter(c => c.prescription).length}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

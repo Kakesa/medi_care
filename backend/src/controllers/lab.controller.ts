@@ -58,6 +58,12 @@ export const getPrescriptionQuote = asyncHandler(async (req: Request, res: Respo
 export const refreshPrescriptionQuote = asyncHandler(async (req: Request, res: Response) => {
   res.json(await prescriptions.refreshPrescriptionQuoteDto(auth(req), org(req), req.params.id, req.ip));
 });
+export const confirmPrescriptionQuote = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await prescriptions.confirmQuoteDto(auth(req), org(req), req.params.id, req.body || {}, req.ip));
+});
+export const cancelPrescriptionBilling = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await prescriptions.cancelBillingDto(auth(req), org(req), req.params.id, req.body || {}, req.ip));
+});
 export const updatePrescriptionItemStatus = asyncHandler(async (req: Request, res: Response) => {
   res.json(await prescriptions.updatePrescriptionItemStatus(auth(req), org(req), req.params.id, req.params.itemId, req.body, req.ip));
 });

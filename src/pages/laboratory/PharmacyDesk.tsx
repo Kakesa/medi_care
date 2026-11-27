@@ -20,6 +20,7 @@ import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { pharmacyService } from "@/services/pharmacyService";
 import {
+  billingStatusLabels,
   pharmacyStatusLabels,
   prescriptionService,
   type PrescriptionItem,
@@ -157,6 +158,7 @@ export default function PharmacyDesk() {
   const [rows, setRows] = useState<PrescriptionRecord[]>([]);
   const [products, setProducts] = useState<PharmacyProduct[]>([]);
   const [query, setQuery] = useState("");
+  const [listFilter, setListFilter] = useState<"all" | "awaiting_payment" | "paid">("all");
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [choices, setChoices] = useState<Record<string, LineChoice>>({});
   const [busyKey, setBusyKey] = useState("");
@@ -226,12 +228,29 @@ export default function PharmacyDesk() {
 
   const visiblePatients = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    if (!needle) return byPatient;
-    return byPatient.filter((group) =>
-      group.patientName.toLowerCase().includes(needle)
-      || group.prescriptions.some((row) => row.prescriberName.toLowerCase().includes(needle)),
-    );
-  }, [byPatient, query]);
+    return byPatient.filter((group) => {
+      const matchesQuery = !needle
+        || group.patientName.toLowerCase().includes(needle)
+        || group.prescriptions.some((row) => row.prescriberName.toLowerCase().includes(needle));
+      if (!matchesQuery) return false;
+      if (listFilter === "awaiting_payment") {
+        return group.prescriptions.some((row) => row.billingStatus === "awaiting_payment");
+      }
+      if (listFilter === "paid") {
+        return group.prescriptions.some((row) => row.billingStatus === "paid" && row.items.some((line) => !lineDone(line)));
+      }
+      return true;
+    });
+  }, [byPatient, query, listFilter]);
+
+  const canDispense = (row: PrescriptionRecord) => {
+    if (row.billingStatus === "awaiting_payment" || row.billingStatus === "invoiced" || row.billingStatus === "awaiting_invoice") {
+      return false;
+    }
+    if (row.billingStatus === "cancelled") return false;
+    if (row.billingStatus === "paid") return Boolean(row.dispenseAuthorizedAt);
+    return true;
+  };
 
   const selected = useMemo(
     () => byPatient.find((group) => group.patientId === selectedPatientId) || null,
@@ -254,14 +273,34 @@ export default function PharmacyDesk() {
           </p>
         </div>
         {!selected && (
-          <div className="relative w-full sm:max-w-sm">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={query}
-              placeholder="Rechercher un patient"
-              className="pl-9"
-              onChange={(event) => setQuery(event.target.value)}
-            />
+          <div className="flex w-full flex-col gap-2 sm:max-w-md">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={query}
+                placeholder="Rechercher un patient"
+                className="pl-9"
+                onChange={(event) => setQuery(event.target.value)}
+              />
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {([
+                ["all", "Toutes"],
+                ["awaiting_payment", "En attente de paiement"],
+                ["paid", "Payées à délivrer"],
+              ] as const).map(([value, label]) => (
+                <Button
+                  key={value}
+                  type="button"
+                  size="sm"
+                  variant={listFilter === value ? "default" : "outline"}
+                  className="h-7 text-xs"
+                  onClick={() => setListFilter(value)}
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -269,7 +308,7 @@ export default function PharmacyDesk() {
       {!selected ? (
         visiblePatients.length === 0 ? (
           <div className="rounded-2xl border border-dashed px-6 py-16 text-center text-sm text-muted-foreground">
-            Aucune ordonnance validée en attente de délivrance.
+            Aucune ordonnance pour ce filtre.
           </div>
         ) : (
           <div className="overflow-hidden rounded-2xl border border-border/70 bg-card">
@@ -301,6 +340,12 @@ export default function PharmacyDesk() {
                           <span className={cn("inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium", statusTone(status))}>
                             {pharmacyStatusLabels[status]}
                           </span>
+                          {group.prescriptions.some((row) => row.billingStatus === "paid") && (
+                            <Badge variant="secondary" className="text-[10px]">Payé</Badge>
+                          )}
+                          {group.prescriptions.some((row) => row.billingStatus === "awaiting_payment") && (
+                            <Badge variant="outline" className="text-[10px]">À encaisser</Badge>
+                          )}
                         </div>
                         <p className="mt-0.5 truncate text-sm text-muted-foreground">
                           {doctor} · {group.prescriptions.length} ordonnance{group.prescriptions.length > 1 ? "s" : ""} · {remaining}/{lines} ligne{lines > 1 ? "s" : ""} à délivrer
@@ -329,6 +374,8 @@ export default function PharmacyDesk() {
           {selected.prescriptions.map((row) => {
             const remaining = row.items.filter((line) => !lineDone(line)).length;
             const currency = row.quoteCurrency || "EUR";
+            const billing = row.billingStatus || "none";
+            const dispenseOk = canDispense(row);
             const alerts = row.items.flatMap((line) => (line.analysis?.alerts || []).map((alert) => ({
               medication: line.medication,
               ...alert,
@@ -374,17 +421,34 @@ export default function PharmacyDesk() {
                       <span className={cn("inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium", statusTone(row.pharmacyStatus))}>
                         {pharmacyStatusLabels[row.pharmacyStatus]}
                       </span>
+                      <Badge variant={billing === "paid" ? "secondary" : billing === "awaiting_payment" ? "outline" : "outline"} className="text-[10px]">
+                        {billingStatusLabels[billing]}
+                      </Badge>
                       <Button
                         size="sm"
                         variant="outline"
                         className="h-7 text-xs"
-                        disabled={busyKey === `quote-${row.id}`}
+                        disabled={busyKey === `quote-${row.id}` || billing === "awaiting_payment" || billing === "paid"}
                         onClick={() => run(`quote-${row.id}`, () => prescriptionService.refreshQuote(row.id), "Analyse actualisée")}
                       >
                         <RefreshCw className="mr-1 h-3.5 w-3.5" />
                         Recalculer
                       </Button>
-                      {row.pharmacyStatus === "new" && (
+                      {(billing === "quoted" || billing === "none") && (
+                        <Button
+                          size="sm"
+                          className="h-7 text-xs"
+                          disabled={busyKey === `confirm-${row.id}`}
+                          onClick={() => run(
+                            `confirm-${row.id}`,
+                            () => prescriptionService.confirmQuote(row.id),
+                            "Devis envoyé à la caisse",
+                          )}
+                        >
+                          Valider et facturer
+                        </Button>
+                      )}
+                      {row.pharmacyStatus === "new" && dispenseOk && (
                         <Button
                           size="sm"
                           className="h-7 text-xs"
@@ -515,14 +579,29 @@ export default function PharmacyDesk() {
                     </Table>
                   </div>
                   <div className="mt-3 flex flex-wrap items-end justify-between gap-2 border-t border-dashed border-border/70 pt-3">
-                    <p className="text-[11px] text-muted-foreground">
-                      {row.quotePendingLines
-                        ? "Les lignes en anomalie restent à confirmer avant facturation définitive."
-                        : "Montant calculé à partir des prix de vente du catalogue."}
-                    </p>
+                    <div className="space-y-1 text-[11px] text-muted-foreground">
+                      {billing === "awaiting_payment" && (
+                        <p className="font-medium text-amber-800 dark:text-amber-200">
+                          Facture {row.pharmacyInvoiceNumber || "—"} en attente d’encaissement à la caisse. Délivrance bloquée.
+                        </p>
+                      )}
+                      {billing === "paid" && (
+                        <p className="font-medium text-emerald-800 dark:text-emerald-200">
+                          Paiement confirmé{row.pharmacyInvoiceNumber ? ` · ${row.pharmacyInvoiceNumber}` : ""}.
+                          Délivrance autorisée — le stock ne bouge qu’à la remise.
+                        </p>
+                      )}
+                      {billing !== "awaiting_payment" && billing !== "paid" && (
+                        <p>
+                          {row.quotePendingLines
+                            ? "Confirmez le devis (anomalies acceptées) puis envoyez à la caisse."
+                            : "Validez le devis pour créer la facture dans la caisse MediCare."}
+                        </p>
+                      )}
+                    </div>
                     <div className="text-right">
                       <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                        Montant total à payer
+                        {billing === "paid" ? "Montant payé" : "Montant total à payer"}
                       </p>
                       <p className="text-xl font-bold tabular-nums">
                         {formatMoney(row.quoteTotal || 0, currency)}
@@ -600,7 +679,8 @@ export default function PharmacyDesk() {
                                 <Button
                                   size="sm"
                                   className="h-8 flex-1 px-2 text-xs"
-                                  disabled={!choice(key).productId || busyKey === key}
+                                  disabled={!dispenseOk || !choice(key).productId || busyKey === key}
+                                  title={!dispenseOk ? "Paiement requis avant délivrance" : undefined}
                                   onClick={() => run(
                                     key,
                                     () => prescriptionService.dispense(row.id, {

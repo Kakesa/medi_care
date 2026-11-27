@@ -149,6 +149,10 @@ export async function analyzePrescriptionDocument(
   else if (summary.billableCount > 0) row.quoteStatus = 'partial';
   else row.quoteStatus = 'pending_review';
 
+  if (row.billingStatus === 'none' && row.items.length) {
+    row.billingStatus = 'quoted';
+  }
+
   return row;
 }
 

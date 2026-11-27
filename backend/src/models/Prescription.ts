@@ -97,6 +97,15 @@ const prescriptionSchema = new Schema(
     quoteCurrency: { type: String, enum: ['EUR', 'CDF', 'USD'], default: 'EUR' },
     quotePendingLines: { type: Number, default: 0 },
     quotedAt: { type: Date },
+    billingStatus: {
+      type: String,
+      enum: ['none', 'quoted', 'awaiting_invoice', 'invoiced', 'awaiting_payment', 'paid', 'cancelled'],
+      default: 'none',
+    },
+    pharmacyInvoiceId: { type: Schema.Types.ObjectId, ref: 'Invoice', default: null },
+    pharmacyInvoiceNumber: { type: String, trim: true, default: '' },
+    dispenseAuthorizedAt: { type: Date },
+    pharmacyPaidAt: { type: Date },
     validatedAt: { type: Date },
     history: {
       type: [{

@@ -6,6 +6,8 @@ import { requireRoles } from '../middlewares/role.middleware.js';
 import { requireTenant } from '../middlewares/tenant.middleware.js';
 import { validate } from '../middlewares/validate.middleware.js';
 import {
+  cancelBillingSchema,
+  confirmQuoteSchema,
   consultationPrescriptionSchema,
   createPrescriptionSchema,
   dispenseSchema,
@@ -18,7 +20,7 @@ import {
 const router = Router();
 const readers = [ROLES.HOSPITAL_ADMIN, ROLES.DOCTOR, ROLES.PHARMACIST, ROLES.NURSE] as const;
 const prescribers = [ROLES.HOSPITAL_ADMIN, ROLES.DOCTOR] as const;
-const pharmacy = [ROLES.PHARMACIST] as const;
+const pharmacy = [ROLES.PHARMACIST, ROLES.HOSPITAL_ADMIN] as const;
 
 router.use(authenticate, requireTenant);
 router.get('/', requireRoles(...readers), validate(listPrescriptionsSchema), lab.listPrescriptions);
@@ -27,6 +29,8 @@ router.post('/', requireRoles(...prescribers), validate(createPrescriptionSchema
 router.post('/:id/validate', requireRoles(...prescribers), validate(prescriptionParamsSchema), lab.validatePrescription);
 router.get('/:id/quote', requireRoles(...readers), validate(prescriptionParamsSchema), lab.getPrescriptionQuote);
 router.post('/:id/quote/refresh', requireRoles(...readers), validate(prescriptionParamsSchema), lab.refreshPrescriptionQuote);
+router.post('/:id/quote/confirm', requireRoles(...pharmacy), validate(confirmQuoteSchema), lab.confirmPrescriptionQuote);
+router.post('/:id/billing/cancel', requireRoles(...pharmacy), validate(cancelBillingSchema), lab.cancelPrescriptionBilling);
 router.patch('/:id/items/:itemId/status', requireRoles(...prescribers), validate(prescriptionItemStatusSchema), lab.updatePrescriptionItemStatus);
 router.post('/:id/prepare', requireRoles(...pharmacy), validate(prescriptionParamsSchema), lab.preparePrescription);
 router.post('/:id/dispense', requireRoles(...pharmacy), validate(dispenseSchema), lab.dispensePrescription);

@@ -68,9 +68,24 @@ export interface PrescriptionRecord {
   quoteCurrency?: string;
   quotePendingLines?: number;
   quotedAt?: string;
+  billingStatus?: 'none' | 'quoted' | 'awaiting_invoice' | 'invoiced' | 'awaiting_payment' | 'paid' | 'cancelled';
+  pharmacyInvoiceId?: string;
+  pharmacyInvoiceNumber?: string;
+  dispenseAuthorizedAt?: string;
+  pharmacyPaidAt?: string;
   validatedAt?: string;
   createdAt?: string;
 }
+
+export const billingStatusLabels: Record<NonNullable<PrescriptionRecord['billingStatus']>, string> = {
+  none: 'Non facturé',
+  quoted: 'Devis prêt',
+  awaiting_invoice: 'Facturation…',
+  invoiced: 'Facturé',
+  awaiting_payment: 'En attente de paiement',
+  paid: 'Payé — à délivrer',
+  cancelled: 'Annulé',
+};
 
 export const pharmacyStatusLabels: Record<PrescriptionRecord['pharmacyStatus'], string> = {
   new: 'Nouvelle ordonnance',
@@ -111,6 +126,14 @@ class PrescriptionService {
 
   refreshQuote(id: string) {
     return httpClient.post<PrescriptionRecord>(`/prescriptions/${id}/quote/refresh`, {});
+  }
+
+  confirmQuote(id: string, data?: { lines?: Array<{ itemId: string; quantityValidated: number; productId?: string }> }) {
+    return httpClient.post<PrescriptionRecord>(`/prescriptions/${id}/quote/confirm`, data || {});
+  }
+
+  cancelBilling(id: string, data?: { reason?: string }) {
+    return httpClient.post<PrescriptionRecord>(`/prescriptions/${id}/billing/cancel`, data || {});
   }
 
   updateItemStatus(id: string, itemId: string, data: { status: 'active' | 'suspended' | 'completed' | 'interrupted'; reason: string }) {

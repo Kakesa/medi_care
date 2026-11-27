@@ -73,3 +73,15 @@ export const unavailableSchema = envelope(z.object({
   itemIndex: z.coerce.number().int().min(0),
   note: z.string().trim().min(3).max(500),
 }), empty, paramsId);
+
+export const confirmQuoteSchema = envelope(z.object({
+  lines: z.array(z.object({
+    itemId: z.string().trim().min(1),
+    quantityValidated: z.coerce.number().int().min(1).max(999),
+    productId: objectIdSchema.optional(),
+  })).max(40).optional(),
+}), empty, paramsId);
+
+export const cancelBillingSchema = envelope(z.object({
+  reason: z.string().trim().min(3).max(500).optional(),
+}), empty, paramsId);

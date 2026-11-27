@@ -15,6 +15,12 @@ import { recordAudit } from './audit.service.js';
 import { organizationCurrency } from './catalog.service.js';
 import { postStock } from './stock.service.js';
 import { analysisToDto, applyPrescriptionQuote } from './prescriptionQuote.service.js';
+import {
+  assertDispenseAuthorized,
+  cancelPrescriptionBilling,
+  confirmPrescriptionQuote,
+  markLineChargePerformed,
+} from './prescriptionBilling.service.js';
 
 type Item = {
   id?: string;
@@ -111,6 +117,11 @@ function toDto(source: object) {
     quoteCurrency: row.quoteCurrency || 'EUR',
     quotePendingLines: row.quotePendingLines || 0,
     quotedAt: row.quotedAt || undefined,
+    billingStatus: (row as { billingStatus?: string }).billingStatus || 'none',
+    pharmacyInvoiceId: (row as { pharmacyInvoiceId?: { toString(): string } | null }).pharmacyInvoiceId?.toString() || undefined,
+    pharmacyInvoiceNumber: (row as { pharmacyInvoiceNumber?: string }).pharmacyInvoiceNumber || undefined,
+    dispenseAuthorizedAt: (row as { dispenseAuthorizedAt?: Date | null }).dispenseAuthorizedAt || undefined,
+    pharmacyPaidAt: (row as { pharmacyPaidAt?: Date | null }).pharmacyPaidAt || undefined,
     validatedAt: row.validatedAt,
     history: row.history || [],
     createdAt: row.createdAt,
@@ -350,6 +361,7 @@ export async function dispensePrescription(
 ) {
   const row = await requireOwned(Prescription, id, organizationId, actor, 'prescription', ip);
   if (row.status !== 'validated') throw new ApiError(409, 'L\'ordonnance n\'est pas validée', 'PRESCRIPTION_DRAFT');
+  await assertDispenseAuthorized(row);
   const item = row.items[input.itemIndex];
   if (!item) throw new ApiError(400, 'Ligne d\'ordonnance introuvable', 'VALIDATION_ERROR');
   if (item.unavailable) throw new ApiError(409, 'Ce médicament est signalé indisponible', 'UNAVAILABLE');
@@ -382,19 +394,56 @@ export async function dispensePrescription(
     comment: `${product.name} × ${input.quantity}`,
   }];
   await row.save();
-  await recordCharge(actor, organizationId, {
-    patientId: row.patientId.toString(),
-    originModule: 'pharmacy',
-    originId: `rx:${row.id}:${input.itemIndex}:${nextQuantity}`,
-    quantity: input.quantity,
-    catalogKind: 'pharmacy',
-    pharmacyLine: {
-      label: product.name,
-      unitPrice: product.price,
-      category: 'MEDICAMENT',
-      productId: product.id,
-    },
-  }, ip);
+
+  const billedViaQuote = row.billingStatus === 'paid' && Boolean(row.pharmacyInvoiceId);
+  if (billedViaQuote) {
+    const lineId = item.id || item._id?.toString() || String(input.itemIndex);
+    await markLineChargePerformed(
+      actor,
+      organizationId,
+      row.id,
+      lineId,
+      `Délivrance ${product.name} × ${input.quantity}`,
+      ip,
+    );
+  } else {
+    // Ancien circuit (sans devis facturé) : charge à la délivrance, une seule fois via originId cumulatif.
+    await recordCharge(actor, organizationId, {
+      patientId: row.patientId.toString(),
+      originModule: 'pharmacy',
+      originId: `rx:${row.id}:${input.itemIndex}:${nextQuantity}`,
+      quantity: input.quantity,
+      catalogKind: 'pharmacy',
+      pharmacyLine: {
+        label: product.name,
+        unitPrice: product.price,
+        category: 'MEDICAMENT',
+        productId: product.id,
+      },
+    }, ip);
+  }
+  return toDto(row);
+}
+
+export async function confirmQuoteDto(
+  actor: AuthContext,
+  organizationId: string,
+  id: string,
+  body: { lines?: Array<{ itemId: string; quantityValidated: number; productId?: string }> },
+  ip?: string,
+) {
+  const row = await confirmPrescriptionQuote(actor, organizationId, id, body, ip);
+  return toDto(row);
+}
+
+export async function cancelBillingDto(
+  actor: AuthContext,
+  organizationId: string,
+  id: string,
+  body: { reason?: string },
+  ip?: string,
+) {
+  const row = await cancelPrescriptionBilling(actor, organizationId, id, body.reason || 'Annulation', ip);
   return toDto(row);
 }
 

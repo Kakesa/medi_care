@@ -86,11 +86,13 @@ function itemsPayload(lines: OrdonnanceLine[]) {
   return lines.filter((line) => line.medication.trim()).map((line) => {
     const rhythm = rhythmOf(line);
     const route = line.route.trim();
+    const dosage = line.dosage.trim();
     return {
       medication: line.medication.trim(),
-      dosage: line.dosage.trim() || "Selon prescription",
-      posology: line.dosage.trim() ? `${line.dosage.trim()}/j` : rhythm || "Selon prescription",
-      form: line.form,
+      dosage: dosage || "Selon prescription",
+      // Conserver la posologie saisie (abréviations incluses) pour le parseur pharmacie.
+      posology: dosage || rhythm || "Selon prescription",
+      form: line.form.trim() || undefined,
       ...(rhythm ? { frequency: rhythm } : {}),
       duration: line.duration.trim() || "Selon prescription",
       ...(route.length >= 2 ? { administrationRoute: route } : {}),

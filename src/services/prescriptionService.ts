@@ -95,9 +95,52 @@ export const pharmacyStatusLabels: Record<PrescriptionRecord['pharmacyStatus'], 
   closed: 'Clôturée',
 };
 
+export type PharmacyAbbreviationItem = {
+  code: string;
+  meaning: string;
+  kind: string;
+  unit: string;
+  variants: string[];
+  active: boolean;
+};
+
+export type PrescriptionParsePreview = {
+  rawText: string;
+  medicationName: string;
+  dosage: { amount: number | null; unit: string; raw: string };
+  form: string;
+  formUnit: string;
+  quantityMarked: number | null;
+  dosePerDay: number | null;
+  durationDays: number | null;
+  quantityFromPosology: number | null;
+  quantityProposed: number | null;
+  posologyText: string;
+  instructions: string;
+  confidence: 'high' | 'medium' | 'low';
+  needsPharmacistValidation: boolean;
+  alerts: Array<{ code: string; message: string }>;
+};
+
 class PrescriptionService {
   list(query?: { patientId?: string; consultationId?: string }) {
     return httpClient.get<PrescriptionRecord[]>('/prescriptions', query);
+  }
+
+  listAbbreviations() {
+    return httpClient.get<{ items: PharmacyAbbreviationItem[] }>('/prescriptions/abbreviations');
+  }
+
+  parseLine(data: {
+    rawText?: string;
+    medication?: string;
+    dosage?: string;
+    posology?: string;
+    duration?: string;
+    quantityPrescribed?: number;
+    instructions?: string;
+  }) {
+    return httpClient.post<{ parsed: PrescriptionParsePreview }>('/prescriptions/parse-line', data);
   }
 
   saveForConsultation(data: {

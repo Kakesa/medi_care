@@ -52,6 +52,24 @@ export const saveConsultationPrescription = asyncHandler(async (req: Request, re
 export const validatePrescription = asyncHandler(async (req: Request, res: Response) => {
   res.json(await prescriptions.validatePrescription(auth(req), org(req), req.params.id, req.ip));
 });
+export const listPrescriptionAbbreviations = asyncHandler(async (req: Request, res: Response) => {
+  const { listMergedAbbreviations } = await import('../services/abbreviation.service.js');
+  const items = await listMergedAbbreviations(org(req));
+  res.json({
+    items: items.map((item) => ({
+      code: item.code,
+      meaning: item.meaning,
+      kind: item.kind,
+      unit: item.unit || '',
+      variants: item.variants,
+      active: item.active,
+    })),
+  });
+});
+export const previewPrescriptionLine = asyncHandler(async (req: Request, res: Response) => {
+  const { previewPrescriptionLine } = await import('../services/abbreviation.service.js');
+  res.json(await previewPrescriptionLine(org(req), req.body || {}));
+});
 export const getPrescriptionQuote = asyncHandler(async (req: Request, res: Response) => {
   res.json(await prescriptions.getPrescriptionQuoteDto(auth(req), org(req), req.params.id, req.ip));
 });

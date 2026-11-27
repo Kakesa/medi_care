@@ -58,6 +58,16 @@ export const createPrescriptionSchema = envelope(z.object({
 
 export const prescriptionParamsSchema = envelope(empty, empty, paramsId);
 
+export const parseLineSchema = envelope(z.object({
+  rawText: z.string().trim().max(2000).optional(),
+  medication: z.string().trim().max(500).optional(),
+  dosage: z.string().trim().max(500).optional(),
+  posology: z.string().trim().max(500).optional(),
+  duration: z.string().trim().max(160).optional(),
+  quantityPrescribed: z.coerce.number().int().min(1).max(999).optional(),
+  instructions: z.string().trim().max(500).optional(),
+}));
+
 export const prescriptionItemStatusSchema = envelope(z.object({
   status: z.enum(['active', 'suspended', 'completed', 'interrupted']),
   reason: z.string().trim().min(3).max(500),

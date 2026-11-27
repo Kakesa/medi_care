@@ -12,6 +12,7 @@ import {
   createPrescriptionSchema,
   dispenseSchema,
   listPrescriptionsSchema,
+  parseLineSchema,
   prescriptionItemStatusSchema,
   prescriptionParamsSchema,
   unavailableSchema,
@@ -24,6 +25,8 @@ const pharmacy = [ROLES.PHARMACIST, ROLES.HOSPITAL_ADMIN] as const;
 
 router.use(authenticate, requireTenant);
 router.get('/', requireRoles(...readers), validate(listPrescriptionsSchema), lab.listPrescriptions);
+router.get('/abbreviations', requireRoles(...readers), lab.listPrescriptionAbbreviations);
+router.post('/parse-line', requireRoles(...prescribers), validate(parseLineSchema), lab.previewPrescriptionLine);
 router.post('/consultation', requireRoles(...prescribers), validate(consultationPrescriptionSchema), lab.saveConsultationPrescription);
 router.post('/', requireRoles(...prescribers), validate(createPrescriptionSchema), lab.createPrescription);
 router.post('/:id/validate', requireRoles(...prescribers), validate(prescriptionParamsSchema), lab.validatePrescription);

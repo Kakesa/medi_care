@@ -70,7 +70,7 @@ function formatDate(value?: string | null) {
 
 function printSheet(sheet: PharmacyStockSheet, currency: string) {
   const product = sheet.product;
-  const popup = window.open("", "_blank", "noopener,noreferrer,width=900,height=700");
+  const popup = window.open("", "_blank", "noopener,noreferrer,width=960,height=720");
   if (!popup) {
     toast.error("Autorisez les fenêtres pour imprimer la fiche");
     return;
@@ -80,36 +80,54 @@ function printSheet(sheet: PharmacyStockSheet, currency: string) {
     <td>${escapeHtml(line.reference)}</td>
     <td>${escapeHtml(line.lotNumber)}</td>
     <td>${escapeHtml(line.origin || line.destination)}</td>
-    <td>${line.quantityIn || ""}</td>
-    <td>${line.quantityIn ? escapeHtml(formatMoney(line.unitCost, currency)) : ""}</td>
+    <td class="num">${line.quantityIn || ""}</td>
+    <td class="num">${line.quantityIn ? escapeHtml(formatMoney(line.unitCost, currency)) : ""}</td>
     <td>${escapeHtml(formatDate(line.expiresAt))}</td>
-    <td>${line.quantityOut || ""}</td>
-    <td>${line.remaining}</td>
+    <td class="num">${line.quantityOut || ""}</td>
+    <td class="num">${line.remaining}</td>
   </tr>`).join("");
-  popup.document.write(`<!DOCTYPE html><html lang="fr"><head><title>Fiche de stock</title>
+  popup.document.write(`<!DOCTYPE html><html lang="fr"><head><title>Fiche de stock — ${escapeHtml(product.name)}</title>
     <style>
-      body { font-family: Arial, sans-serif; color: #142; margin: 24px; }
-      h1 { font-size: 20px; margin-bottom: 4px; }
-      table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 12px; }
-      th, td { border: 1px solid #ccc; padding: 6px; text-align: left; }
-      th { background: #f4fafa; }
-      .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px; margin-top: 12px; font-size: 13px; }
+      * { box-sizing: border-box; }
+      body { font-family: "Times New Roman", Times, serif; color: #111; margin: 18px; }
+      .sheet { border: 2px solid #111; padding: 14px 16px; }
+      .title { text-align: center; font-size: 18px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin: 0 0 12px; }
+      .meta { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 12px; }
+      .meta td { border: 1px solid #333; padding: 5px 8px; vertical-align: top; }
+      .meta .label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: #444; display: block; }
+      .meta .value { font-weight: 600; font-size: 13px; }
+      table.moves { width: 100%; border-collapse: collapse; font-size: 11px; }
+      table.moves th, table.moves td { border: 1px solid #333; padding: 5px 6px; text-align: left; }
+      table.moves th { background: #f3f3f3; font-size: 10px; text-transform: uppercase; }
+      .num { text-align: right; font-variant-numeric: tabular-nums; }
+      @media print { body { margin: 0; } .sheet { border-width: 1.5px; } }
     </style></head><body>
-    <h1>Fiche de stock — ${escapeHtml(product.name)}</h1>
-    <div class="meta">
-      <div>DCI : ${escapeHtml(product.genericName || "")}</div>
-      <div>Code : ${escapeHtml(product.sku || "")}</div>
-      <div>Dosage : ${escapeHtml(product.dosage || "")}</div>
-      <div>Conditionnement : ${escapeHtml(product.packaging || "")}</div>
-      <div>Stock minimum : ${product.minStock}</div>
-      <div>Stock maximum : ${product.maxStock || "—"}</div>
-      <div>Seuil d'alerte : ${product.alertStock || product.minStock}</div>
-      <div>Emplacement : ${escapeHtml(product.location || "")}</div>
+    <div class="sheet">
+      <h1 class="title">Fiche de stock</h1>
+      <table class="meta">
+        <tr>
+          <td colspan="2"><span class="label">Désignation</span><span class="value">${escapeHtml(product.name)}</span></td>
+          <td><span class="label">Code</span><span class="value">${escapeHtml(product.sku || "—")}</span></td>
+          <td><span class="label">Emplacement</span><span class="value">${escapeHtml(product.location || "—")}</span></td>
+        </tr>
+        <tr>
+          <td><span class="label">DCI / générique</span><span class="value">${escapeHtml(product.genericName || "—")}</span></td>
+          <td><span class="label">Dosage</span><span class="value">${escapeHtml(product.dosage || "—")}</span></td>
+          <td><span class="label">Conditionnement</span><span class="value">${escapeHtml(product.packaging || "—")}</span></td>
+          <td><span class="label">Unité</span><span class="value">${escapeHtml(product.unit || "—")}</span></td>
+        </tr>
+        <tr>
+          <td><span class="label">Stock actuel</span><span class="value">${product.quantity} ${escapeHtml(product.unit || "")}</span></td>
+          <td><span class="label">Stock minimum</span><span class="value">${product.minStock}</span></td>
+          <td><span class="label">Stock maximum</span><span class="value">${product.maxStock || "—"}</span></td>
+          <td><span class="label">Seuil d'alerte</span><span class="value">${product.alertStock || product.minStock}</span></td>
+        </tr>
+      </table>
+      <table class="moves"><thead><tr>
+        <th>Date</th><th>Référence</th><th>N° lot</th><th>Provenance / destination</th>
+        <th>Entrée</th><th>Prix de revient</th><th>Péremption</th><th>Sortie</th><th>Reste</th>
+      </tr></thead><tbody>${rows || "<tr><td colspan='9'>Aucun mouvement</td></tr>"}</tbody></table>
     </div>
-    <table><thead><tr>
-      <th>Date</th><th>Référence</th><th>Lot</th><th>Provenance / destination</th>
-      <th>Entrée</th><th>Prix de revient</th><th>Péremption</th><th>Sortie</th><th>Reste</th>
-    </tr></thead><tbody>${rows || "<tr><td colspan='9'>Aucun mouvement</td></tr>"}</tbody></table>
     </body></html>`);
   popup.document.close();
   popup.focus();
@@ -385,8 +403,10 @@ export function PharmacyCatalog({ currency, canManage, orderLabel, onOrder, onCh
             {rows.map((product) => (
               <TableRow key={product.id}>
                 <TableCell>
-                  <p className="font-medium">{product.name}</p>
-                  <p className="text-xs text-muted-foreground">{product.genericName || product.category}{product.dosage ? ` · ${product.dosage}` : ""}</p>
+                  <button type="button" className="text-left" onClick={() => void openSheet(product.id)}>
+                    <p className="font-medium hover:underline">{product.name}</p>
+                    <p className="text-xs text-muted-foreground">{product.genericName || product.category}{product.dosage ? ` · ${product.dosage}` : ""}</p>
+                  </button>
                 </TableCell>
                 <TableCell>{product.sku || "—"}</TableCell>
                 <TableCell>{product.quantity} {product.unit}</TableCell>
@@ -395,7 +415,10 @@ export function PharmacyCatalog({ currency, canManage, orderLabel, onOrder, onCh
                 <TableCell><Badge variant={product.status === "out_of_stock" ? "destructive" : product.status === "low_stock" ? "secondary" : "default"}>{statusLabel(product.status)}</Badge></TableCell>
                 <TableCell>
                   <div className="flex justify-end gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => void openSheet(product.id)}><FileText className="h-4 w-4" /></Button>
+                    <Button variant="outline" size="sm" onClick={() => void openSheet(product.id)}>
+                      <FileText className="mr-1 h-4 w-4" />
+                      Fiche
+                    </Button>
                     <Button variant="ghost" size="sm" onClick={() => onOrder(product)}>{orderLabel}</Button>
                     {canManage && <Button variant="ghost" size="sm" onClick={() => openEdit(product)}><Edit className="h-4 w-4" /></Button>}
                     {canManage && (
@@ -475,27 +498,75 @@ export function PharmacyCatalog({ currency, canManage, orderLabel, onOrder, onCh
       </Dialog>
 
       <Dialog open={Boolean(sheet)} onOpenChange={(open) => { if (!open) setSheet(null); }}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="max-w-5xl">
           <DialogHeader>
-            <DialogTitle>Fiche de stock — {sheet?.product.name}</DialogTitle>
+            <DialogTitle>Fiche de stock</DialogTitle>
             <DialogDescription>
-              {sheet?.product.dosage || "Sans dosage"} · min {sheet?.product.minStock} · max {sheet?.product.maxStock || "—"} · alerte {sheet?.product.alertStock || sheet?.product.minStock}
+              Fiche numérique inspirée de la fiche physique — mouvements, lots et seuils du produit.
             </DialogDescription>
           </DialogHeader>
           {sheet && (
-            <div className="max-h-[60vh] overflow-auto">
+            <div className="max-h-[70vh] space-y-3 overflow-auto rounded-md border-2 border-foreground/20 bg-[#fcfbf7] p-4 dark:bg-card">
+              <p className="text-center text-sm font-bold uppercase tracking-[0.14em]">Fiche de stock</p>
+              <div className="grid gap-0 overflow-hidden rounded-sm border border-foreground/25 text-sm sm:grid-cols-4">
+                <div className="border-b border-foreground/20 p-2 sm:col-span-2 sm:border-r">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Désignation</p>
+                  <p className="font-semibold">{sheet.product.name}</p>
+                </div>
+                <div className="border-b border-foreground/20 p-2 sm:border-r">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Code</p>
+                  <p className="font-medium">{sheet.product.sku || "—"}</p>
+                </div>
+                <div className="border-b border-foreground/20 p-2">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Emplacement</p>
+                  <p className="font-medium">{sheet.product.location || "—"}</p>
+                </div>
+                <div className="border-b border-foreground/20 p-2 sm:border-r">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">DCI / générique</p>
+                  <p className="font-medium">{sheet.product.genericName || "—"}</p>
+                </div>
+                <div className="border-b border-foreground/20 p-2 sm:border-r">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Dosage</p>
+                  <p className="font-medium">{sheet.product.dosage || "—"}</p>
+                </div>
+                <div className="border-b border-foreground/20 p-2 sm:border-r">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Conditionnement</p>
+                  <p className="font-medium">{sheet.product.packaging || "—"}</p>
+                </div>
+                <div className="border-b border-foreground/20 p-2">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Unité</p>
+                  <p className="font-medium">{sheet.product.unit || "—"}</p>
+                </div>
+                <div className="border-b border-foreground/20 p-2 sm:border-r sm:border-b-0">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Stock actuel</p>
+                  <p className="font-semibold">{sheet.product.quantity} {sheet.product.unit}</p>
+                </div>
+                <div className="border-b border-foreground/20 p-2 sm:border-r sm:border-b-0">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Stock minimum</p>
+                  <p className="font-medium">{sheet.product.minStock}</p>
+                </div>
+                <div className="border-b border-foreground/20 p-2 sm:border-r sm:border-b-0">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Stock maximum</p>
+                  <p className="font-medium">{sheet.product.maxStock || "—"}</p>
+                </div>
+                <div className="p-2">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Seuil d’alerte</p>
+                  <p className="font-medium">{sheet.product.alertStock || sheet.product.minStock}</p>
+                </div>
+              </div>
+
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Date</TableHead>
                     <TableHead>Référence</TableHead>
-                    <TableHead>Lot</TableHead>
-                    <TableHead>Origine / destination</TableHead>
-                    <TableHead>Entrée</TableHead>
-                    <TableHead>Prix</TableHead>
+                    <TableHead>N° lot</TableHead>
+                    <TableHead>Provenance / destination</TableHead>
+                    <TableHead className="text-right">Entrée</TableHead>
+                    <TableHead className="text-right">Prix de revient</TableHead>
                     <TableHead>Péremption</TableHead>
-                    <TableHead>Sortie</TableHead>
-                    <TableHead>Reste</TableHead>
+                    <TableHead className="text-right">Sortie</TableHead>
+                    <TableHead className="text-right">Reste</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -506,11 +577,11 @@ export function PharmacyCatalog({ currency, canManage, orderLabel, onOrder, onCh
                       <TableCell className="max-w-[8rem] truncate">{line.reference}</TableCell>
                       <TableCell>{line.lotNumber || "—"}</TableCell>
                       <TableCell>{line.origin || line.destination || "—"}</TableCell>
-                      <TableCell>{line.quantityIn || ""}</TableCell>
-                      <TableCell>{line.quantityIn ? formatMoney(line.unitCost, currency) : ""}</TableCell>
+                      <TableCell className="text-right tabular-nums">{line.quantityIn || ""}</TableCell>
+                      <TableCell className="text-right tabular-nums">{line.quantityIn ? formatMoney(line.unitCost, currency) : ""}</TableCell>
                       <TableCell>{formatDate(line.expiresAt)}</TableCell>
-                      <TableCell>{line.quantityOut || ""}</TableCell>
-                      <TableCell>{line.remaining}</TableCell>
+                      <TableCell className="text-right tabular-nums">{line.quantityOut || ""}</TableCell>
+                      <TableCell className="text-right font-medium tabular-nums">{line.remaining}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

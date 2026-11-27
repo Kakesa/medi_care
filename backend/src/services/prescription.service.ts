@@ -14,6 +14,7 @@ import { notifyRoles } from './notification.service.js';
 import { recordAudit } from './audit.service.js';
 import { organizationCurrency } from './catalog.service.js';
 import { postStock } from './stock.service.js';
+import { analysisToDto, applyPrescriptionQuote } from './prescriptionQuote.service.js';
 
 type Item = {
   id?: string;
@@ -35,6 +36,7 @@ type Item = {
   quantityDispensed: number;
   unavailable?: boolean;
   unavailableNote?: string;
+  analysis?: Record<string, unknown>;
 };
 
 function itemId(item: Item, index: number) {
@@ -63,6 +65,11 @@ function toDto(source: object) {
     items: Item[];
     status: string;
     pharmacyStatus: string;
+    quoteStatus?: string;
+    quoteTotal?: number;
+    quoteCurrency?: string;
+    quotePendingLines?: number;
+    quotedAt?: Date | null;
     validatedAt?: Date | null;
     history?: Array<{ at?: Date; userName?: string; action?: string; comment?: string }>;
     createdAt?: Date;
@@ -95,9 +102,15 @@ function toDto(source: object) {
       quantityDispensed: item.quantityDispensed,
       unavailable: Boolean(item.unavailable),
       unavailableNote: item.unavailableNote || '',
+      analysis: analysisToDto(item.analysis),
     })),
     status: row.status,
     pharmacyStatus: row.pharmacyStatus,
+    quoteStatus: row.quoteStatus || 'none',
+    quoteTotal: row.quoteTotal || 0,
+    quoteCurrency: row.quoteCurrency || 'EUR',
+    quotePendingLines: row.quotePendingLines || 0,
+    quotedAt: row.quotedAt || undefined,
     validatedAt: row.validatedAt,
     history: row.history || [],
     createdAt: row.createdAt,
@@ -218,11 +231,19 @@ export async function saveConsultationPrescription(
 
 export async function validatePrescription(actor: AuthContext, organizationId: string, id: string, ip?: string) {
   const row = await requireOwned(Prescription, id, organizationId, actor, 'prescription', ip);
-  if (row.status === 'validated') return toDto(row);
+  if (row.status === 'validated') {
+    if (!row.quotedAt) {
+      await applyPrescriptionQuote(organizationId, row.id);
+      const refreshed = await Prescription.findById(row.id);
+      return toDto(refreshed || row);
+    }
+    return toDto(row);
+  }
   row.status = 'validated';
   row.validatedAt = new Date();
   row.history = [...(row.history || []), { at: new Date(), userName: await actorName(actor), action: 'VALIDATION', comment: '' }];
   await row.save();
+  await applyPrescriptionQuote(organizationId, row.id);
   await notifyRoles({
     organizationId,
     roles: [ROLES.PHARMACIST],
@@ -232,6 +253,19 @@ export async function validatePrescription(actor: AuthContext, organizationId: s
     message: `Ordonnance de ${row.patientName} prescrite par ${row.prescriberName}.`,
   });
   await recordAudit({ actorId: actor.id, actorRole: actor.role, organizationId, action: 'PRESCRIPTION_VALIDATED', resourceType: 'prescription', resourceId: row.id, success: true, ip });
+  const quoted = await Prescription.findById(row.id);
+  return toDto(quoted || row);
+}
+
+export async function getPrescriptionQuoteDto(actor: AuthContext, organizationId: string, id: string, ip?: string) {
+  const { getPrescriptionQuote } = await import('./prescriptionQuote.service.js');
+  const row = await getPrescriptionQuote(actor, organizationId, id, ip);
+  return toDto(row);
+}
+
+export async function refreshPrescriptionQuoteDto(actor: AuthContext, organizationId: string, id: string, ip?: string) {
+  const { refreshPrescriptionQuote } = await import('./prescriptionQuote.service.js');
+  const row = await refreshPrescriptionQuote(actor, organizationId, id, ip);
   return toDto(row);
 }
 

@@ -1,5 +1,34 @@
 import { httpClient } from './httpClient';
 
+export interface PrescriptionLineAnalysis {
+  rawText: string;
+  medicationName: string;
+  dosageAmount: number | null;
+  dosageUnit: string;
+  form: string;
+  formUnit: string;
+  quantityMarked: number | null;
+  dosePerDay: number | null;
+  durationDays: number | null;
+  quantityFromPosology: number | null;
+  quantityProposed: number | null;
+  quantityValidated: number | null;
+  posologyText: string;
+  instructions: string;
+  confidence: 'high' | 'medium' | 'low';
+  needsPharmacistValidation: boolean;
+  alerts: Array<{ code: string; message: string }>;
+  matchedProductId: string | null;
+  matchedProductName: string;
+  matchConfidence: 'high' | 'medium' | 'low' | 'none';
+  matchCandidates: Array<{ id: string; name: string }>;
+  unitPrice: number | null;
+  lineTotal: number | null;
+  billable: boolean;
+  validationStatus: 'pending' | 'approved' | 'rejected' | 'needs_review';
+  analyzedAt?: string | null;
+}
+
 export interface PrescriptionItem {
   id: string;
   medication: string;
@@ -20,6 +49,7 @@ export interface PrescriptionItem {
   quantityDispensed: number;
   unavailable: boolean;
   unavailableNote: string;
+  analysis?: PrescriptionLineAnalysis;
 }
 
 export interface PrescriptionRecord {
@@ -33,6 +63,11 @@ export interface PrescriptionRecord {
   items: PrescriptionItem[];
   status: 'draft' | 'validated';
   pharmacyStatus: 'new' | 'preparing' | 'partial' | 'delivered' | 'closed';
+  quoteStatus?: 'none' | 'pending_review' | 'ready' | 'partial';
+  quoteTotal?: number;
+  quoteCurrency?: string;
+  quotePendingLines?: number;
+  quotedAt?: string;
   validatedAt?: string;
   createdAt?: string;
 }
@@ -68,6 +103,14 @@ class PrescriptionService {
 
   validate(id: string) {
     return httpClient.post<PrescriptionRecord>(`/prescriptions/${id}/validate`, {});
+  }
+
+  getQuote(id: string) {
+    return httpClient.get<PrescriptionRecord>(`/prescriptions/${id}/quote`);
+  }
+
+  refreshQuote(id: string) {
+    return httpClient.post<PrescriptionRecord>(`/prescriptions/${id}/quote/refresh`, {});
   }
 
   updateItemStatus(id: string, itemId: string, data: { status: 'active' | 'suspended' | 'completed' | 'interrupted'; reason: string }) {

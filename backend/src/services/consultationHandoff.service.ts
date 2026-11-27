@@ -40,6 +40,7 @@ function isUnpriced(error: unknown) {
 async function sendPrescription(actor: AuthContext, organizationId: string, row: ConsultationRow) {
   const text = row.prescription?.trim();
   if (row.pharmacyReleasedAt) return false;
+  const { applyPrescriptionQuote } = await import('./prescriptionQuote.service.js');
   const existing = await Prescription.findOne({ organizationId, consultationId: row._id });
   if (existing) {
     if (existing.status !== 'validated') {
@@ -48,6 +49,7 @@ async function sendPrescription(actor: AuthContext, organizationId: string, row:
       existing.history = [...(existing.history || []), { at: new Date(), userName: row.doctorName, action: 'VALIDATION', comment: 'Transmise avec la consultation' }];
       await existing.save();
     }
+    await applyPrescriptionQuote(organizationId, existing.id);
     row.set('pharmacyReleasedAt', new Date());
     await row.save();
     await notifyRoles({
@@ -82,6 +84,7 @@ async function sendPrescription(actor: AuthContext, organizationId: string, row:
     validatedAt: new Date(),
     history: [{ at: new Date(), userName: row.doctorName, action: 'VALIDATION', comment: 'Transmise après paiement des examens' }],
   });
+  await applyPrescriptionQuote(organizationId, created.id);
   row.set('pharmacyReleasedAt', new Date());
   await row.save();
   await notifyRoles({

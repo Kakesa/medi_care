@@ -25,6 +25,8 @@ router.get('/', requireRoles(...readers), validate(listPrescriptionsSchema), lab
 router.post('/consultation', requireRoles(...prescribers), validate(consultationPrescriptionSchema), lab.saveConsultationPrescription);
 router.post('/', requireRoles(...prescribers), validate(createPrescriptionSchema), lab.createPrescription);
 router.post('/:id/validate', requireRoles(...prescribers), validate(prescriptionParamsSchema), lab.validatePrescription);
+router.get('/:id/quote', requireRoles(...readers), validate(prescriptionParamsSchema), lab.getPrescriptionQuote);
+router.post('/:id/quote/refresh', requireRoles(...readers), validate(prescriptionParamsSchema), lab.refreshPrescriptionQuote);
 router.patch('/:id/items/:itemId/status', requireRoles(...prescribers), validate(prescriptionItemStatusSchema), lab.updatePrescriptionItemStatus);
 router.post('/:id/prepare', requireRoles(...pharmacy), validate(prescriptionParamsSchema), lab.preparePrescription);
 router.post('/:id/dispense', requireRoles(...pharmacy), validate(dispenseSchema), lab.dispensePrescription);

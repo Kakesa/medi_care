@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronsUpDown, ChevronLeft, ChevronRight, FileText, Search, UserRound } from "lucide-react";
+import { AlertTriangle, Check, ChevronsUpDown, ChevronLeft, ChevronRight, FileText, RefreshCw, Search, UserRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,9 +12,11 @@ import {
 } from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiMessage } from "@/lib/apiError";
+import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { pharmacyService } from "@/services/pharmacyService";
 import {
@@ -174,9 +176,11 @@ export default function PharmacyDesk() {
           row.items.forEach((line, index) => {
             const key = `${row.id}-${index}`;
             if (next[key]?.productId) return;
+            const matchedId = line.analysis?.matchedProductId || "";
+            const proposed = line.analysis?.quantityProposed ?? line.quantityPrescribed;
             next[key] = {
-              productId: guessProduct(stock.data, line.medication),
-              quantity: String(Math.max(1, line.quantityPrescribed - line.quantityDispensed)),
+              productId: matchedId || guessProduct(stock.data, line.medication),
+              quantity: String(Math.max(1, Number(proposed) - line.quantityDispensed)),
               note: "",
             };
           });
@@ -311,7 +315,7 @@ export default function PharmacyDesk() {
           </div>
         )
       ) : (
-        <div className="mx-auto w-full max-w-[42rem] space-y-4">
+        <div className="mx-auto w-full max-w-5xl space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <Button type="button" variant="outline" size="sm" onClick={() => setSelectedPatientId(null)}>
               <ChevronLeft className="mr-1 h-4 w-4" />
@@ -324,6 +328,11 @@ export default function PharmacyDesk() {
 
           {selected.prescriptions.map((row) => {
             const remaining = row.items.filter((line) => !lineDone(line)).length;
+            const currency = row.quoteCurrency || "EUR";
+            const alerts = row.items.flatMap((line) => (line.analysis?.alerts || []).map((alert) => ({
+              medication: line.medication,
+              ...alert,
+            })));
             return (
               <article
                 key={row.id}
@@ -341,24 +350,40 @@ export default function PharmacyDesk() {
                       </p>
                       <p className="text-xs text-muted-foreground">
                         Patient : <span className="font-medium text-foreground">{row.patientName}</span>
+                        <span className="mx-1">·</span>
+                        ID : <span className="font-mono text-[11px] text-foreground">{row.patientId.slice(-8)}</span>
                       </p>
                       <p className="text-xs text-muted-foreground">
                         Médecin : <span className="font-medium text-foreground">{row.prescriberName}</span>
                       </p>
-                      {row.validatedAt && (
-                        <p className="text-[11px] text-muted-foreground">
-                          Validée le {new Intl.DateTimeFormat("fr-FR", {
-                            dateStyle: "medium",
-                            timeStyle: "short",
-                            timeZone: "Africa/Kinshasa",
-                          }).format(new Date(row.validatedAt))}
-                        </p>
-                      )}
+                      <p className="text-[11px] text-muted-foreground">
+                        Réf. ordonnance : <span className="font-mono text-foreground">{row.id.slice(-10)}</span>
+                        {row.validatedAt && (
+                          <>
+                            {" · "}
+                            {new Intl.DateTimeFormat("fr-FR", {
+                              dateStyle: "medium",
+                              timeStyle: "short",
+                              timeZone: "Africa/Kinshasa",
+                            }).format(new Date(row.validatedAt))}
+                          </>
+                        )}
+                      </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span className={cn("inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium", statusTone(row.pharmacyStatus))}>
                         {pharmacyStatusLabels[row.pharmacyStatus]}
                       </span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        disabled={busyKey === `quote-${row.id}`}
+                        onClick={() => run(`quote-${row.id}`, () => prescriptionService.refreshQuote(row.id), "Analyse actualisée")}
+                      >
+                        <RefreshCw className="mr-1 h-3.5 w-3.5" />
+                        Recalculer
+                      </Button>
                       {row.pharmacyStatus === "new" && (
                         <Button
                           size="sm"
@@ -391,6 +416,121 @@ export default function PharmacyDesk() {
                   </p>
                 </header>
 
+                <div className="border-b border-border/60 bg-white/80 px-4 py-3 dark:bg-background/30">
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide">Validation pharmaceutique</p>
+                    <Badge variant={row.quotePendingLines ? "destructive" : "secondary"}>
+                      {row.quotePendingLines
+                        ? `${row.quotePendingLines} anomalie${(row.quotePendingLines || 0) > 1 ? "s" : ""}`
+                        : "Prêt"}
+                    </Badge>
+                  </div>
+                  {alerts.length > 0 && (
+                    <div className="mb-3 space-y-1.5">
+                      {alerts.map((alert, index) => (
+                        <div
+                          key={`${alert.code}-${index}`}
+                          className="flex gap-2 rounded-md border border-amber-300/80 bg-amber-50 px-2.5 py-2 text-xs text-amber-950 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-50"
+                        >
+                          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                          <p>
+                            <span className="font-semibold">{alert.medication}</span>
+                            {" — "}
+                            {alert.message}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="overflow-x-auto rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Prescrit</TableHead>
+                          <TableHead>Catalogue</TableHead>
+                          <TableHead>Dosage</TableHead>
+                          <TableHead>Forme</TableHead>
+                          <TableHead className="text-right">Qté</TableHead>
+                          <TableHead className="text-right">Stock</TableHead>
+                          <TableHead className="text-right">P.U.</TableHead>
+                          <TableHead className="text-right">Total</TableHead>
+                          <TableHead>Statut</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {row.items.map((line) => {
+                          const analysis = line.analysis;
+                          const catalogProduct = products.find((product) => product.id === (analysis?.matchedProductId || ""));
+                          const stockQty = catalogProduct?.quantity;
+                          const available = stockQty == null
+                            ? "—"
+                            : stockQty <= 0
+                              ? "Rupture"
+                              : stockQty < (analysis?.quantityProposed || line.quantityPrescribed)
+                                ? "Insuffisant"
+                                : "Dispo";
+                          return (
+                            <TableRow key={`quote-${line.id}`} className={analysis?.needsPharmacistValidation ? "bg-amber-50/50 dark:bg-amber-950/20" : undefined}>
+                              <TableCell className="max-w-[9rem] truncate font-medium">{line.medication}</TableCell>
+                              <TableCell className="max-w-[9rem] truncate">{analysis?.matchedProductName || "—"}</TableCell>
+                              <TableCell>
+                                {analysis?.dosageAmount != null
+                                  ? `${analysis.dosageAmount} ${analysis.dosageUnit}`
+                                  : line.dosage}
+                              </TableCell>
+                              <TableCell>{analysis?.form || line.form || "—"}</TableCell>
+                              <TableCell className="text-right tabular-nums">
+                                {analysis?.quantityProposed ?? line.quantityPrescribed}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <span className={cn(
+                                  stockQty != null && stockQty < (analysis?.quantityProposed || line.quantityPrescribed) && "text-destructive",
+                                )}>
+                                  {stockQty != null ? `${stockQty}` : "—"} · {available}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums">
+                                {analysis?.unitPrice != null ? formatMoney(analysis.unitPrice, currency) : "—"}
+                              </TableCell>
+                              <TableCell className="text-right font-medium tabular-nums">
+                                {analysis?.lineTotal != null ? formatMoney(analysis.lineTotal, currency) : "—"}
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={analysis?.needsPharmacistValidation ? "destructive" : analysis?.billable ? "secondary" : "outline"} className="text-[10px]">
+                                  {line.unavailable
+                                    ? "Indispo."
+                                    : lineDone(line)
+                                      ? "Délivré"
+                                      : analysis?.needsPharmacistValidation
+                                        ? "À confirmer"
+                                        : analysis?.billable
+                                          ? "OK"
+                                          : "Revue"}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-end justify-between gap-2 border-t border-dashed border-border/70 pt-3">
+                    <p className="text-[11px] text-muted-foreground">
+                      {row.quotePendingLines
+                        ? "Les lignes en anomalie restent à confirmer avant facturation définitive."
+                        : "Montant calculé à partir des prix de vente du catalogue."}
+                    </p>
+                    <div className="text-right">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                        Montant total à payer
+                      </p>
+                      <p className="text-xl font-bold tabular-nums">
+                        {formatMoney(row.quoteTotal || 0, currency)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="divide-y divide-border/60 px-4 py-0.5">
                   {row.items.map((line, index) => {
                     const key = `${row.id}-${index}`;
@@ -415,8 +555,17 @@ export default function PharmacyDesk() {
                           )}
                           <p className="pl-4 pt-0.5 text-[10px] text-muted-foreground">
                             Prescrit {line.quantityPrescribed} · délivré {line.quantityDispensed}
+                            {line.analysis?.unitPrice != null
+                              ? ` · ${formatMoney(line.analysis.unitPrice, currency)} × ${line.analysis.quantityProposed ?? line.quantityPrescribed}`
+                              : ""}
                             {line.unavailable ? ` · indisponible : ${line.unavailableNote || "sans motif"}` : ""}
                           </p>
+                          {(line.analysis?.alerts || []).map((alert) => (
+                            <p key={alert.code} className="flex items-start gap-1 pl-4 text-[10px] font-medium text-amber-800 dark:text-amber-200">
+                              <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                              {alert.message}
+                            </p>
+                          ))}
                         </div>
 
                         <div className="min-w-0 rounded-md border border-border/50 bg-white/70 p-2 dark:bg-background/40">
